@@ -1,0 +1,10 @@
+project_id = "aruectkoxvkivkbjymkb"
+
+[functions.courier-check]
+verify_jwt = false
+
+[functions.steadfast-courier]
+verify_jwt = false
+
+[functions.fb-capi]
+verify_jwt = false

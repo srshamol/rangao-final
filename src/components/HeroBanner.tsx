@@ -1,0 +1,365 @@
+import { useEffect, useRef, useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, ArrowRight, ArrowDown } from "lucide-react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import heroBgFallback from "@/assets/hero-banner.jpg";
+import heroVideoFallback from "@/assets/hero-video.mp4";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
+
+/* ── Animated counter ── */
+const AnimatedCounter = ({ target }: {target: string;}) => {
+  const [display, setDisplay] = useState("০");
+  const ref = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !hasAnimated.current) {
+        hasAnimated.current = true;
+        const steps = 14;
+        let step = 0;
+        const digits = "০১২৩৪৫৬৭৮৯";
+        const interval = setInterval(() => {
+          step++;
+          if (step >= steps) {setDisplay(target);clearInterval(interval);} else
+          setDisplay(target.split("").map((c) => digits.includes(c) ? digits[Math.floor(Math.random() * 10)] : c).join(""));
+        }, 45);
+      }
+    }, { threshold: 0.5 });
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return <div ref={ref}>{display}</div>;
+};
+
+/* ── Particle field (canvas) ── */
+const ParticleCanvas = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let w = 0,h = 0;
+
+    const particles: {x: number;y: number;vx: number;vy: number;r: number;a: number;pulse: number;}[] = [];
+
+    const resize = () => {
+      w = canvas.width = canvas.offsetWidth;
+      h = canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    // Create particles
+    const count = Math.min(60, Math.floor(w * h / 18000));
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        r: Math.random() * 2 + 0.5,
+        a: Math.random() * 0.3 + 0.05,
+        pulse: Math.random() * Math.PI * 2
+      });
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw particles
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.pulse += 0.015;
+
+        // Wrap
+        if (p.x < -10) p.x = w + 10;
+        if (p.x > w + 10) p.x = -10;
+        if (p.y < -10) p.y = h + 10;
+        if (p.y > h + 10) p.y = -10;
+
+        const alpha = p.a * (0.6 + 0.4 * Math.sin(p.pulse));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(251, 191, 36, ${alpha})`; // gold-ish
+        ctx.fill();
+      }
+
+      // Draw connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(251, 191, 36, ${0.06 * (1 - dist / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full pointer-events-none" />;
+};
+
+/* ── Hero Banner ── */
+const HeroBanner = () => {
+  const { data: settings } = useStoreSettings();
+  const hero = settings?.heroBanner;
+  const heroBg = hero?.banner_image_url || heroBgFallback;
+  const heroVideo = hero?.banner_video_url || heroVideoFallback;
+
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
+
+  // Parallax transforms
+  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", "25%"]);
+  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+  const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.6]);
+
+  return (
+    <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden">
+      {/* Video Background with parallax */}
+      <motion.div style={{ y: videoY }} className="absolute inset-0 h-[125%] w-full -top-[5%]">
+        <video autoPlay loop muted playsInline poster={heroBg} className="h-full w-full object-cover">
+          <source src={heroVideo} type="video/mp4" />
+        </video>
+      </motion.div>
+
+      {/* Multi-layer gradient overlay */}
+      <motion.div style={{ opacity: overlayOpacity }} className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/85 to-primary/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-primary/40" />
+        {/* Vignette */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--primary)/0.6)_100%)]" />
+      </motion.div>
+
+      {/* Particle canvas */}
+      <ParticleCanvas />
+
+      {/* Floating decorative shapes with parallax */}
+      <motion.div
+        animate={{ y: [0, -25, 0], rotate: [0, 8, 0], scale: [1, 1.05, 1] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute right-[12%] top-[15%] h-36 w-36 rounded-3xl border border-accent/15 bg-gradient-to-br from-accent/8 to-accent/2" />
+
+      <motion.div
+        animate={{ y: [0, 20, 0], rotate: [0, -5, 0] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+        className="absolute right-[30%] bottom-[20%] h-24 w-24 rounded-full border border-primary-foreground/8 bg-primary-foreground/3" />
+
+      <motion.div
+        animate={{ y: [0, -15, 0], rotate: [45, 60, 45] }}
+        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 3 }}
+        className="absolute right-[6%] top-[50%] h-20 w-20 rounded-2xl border border-accent/10 bg-accent/4" />
+
+      <motion.div
+        animate={{ y: [0, 12, 0], x: [0, -8, 0] }}
+        transition={{ duration: 11, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute left-[5%] top-[30%] h-14 w-14 rounded-xl border border-accent/8 bg-accent/3 rotate-12" />
+
+      <motion.div
+        animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute right-[20%] top-[35%] h-3 w-3 rounded-full bg-accent/40" />
+
+      <motion.div
+        animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.5, 0.2] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute right-[40%] top-[20%] h-2 w-2 rounded-full bg-primary-foreground/30" />
+
+      <motion.div
+        animate={{ scale: [1, 1.4, 1], opacity: [0.15, 0.4, 0.15] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
+        className="absolute left-[15%] bottom-[30%] h-2.5 w-2.5 rounded-full bg-accent/35" />
+
+
+      {/* Glow orbs */}
+      <motion.div
+        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute right-10 top-1/4 h-96 w-96 rounded-full bg-accent/8 blur-[140px]" />
+
+      <div className="absolute bottom-1/3 left-1/3 h-64 w-64 rounded-full bg-accent/5 blur-[100px]" />
+      <motion.div
+        animate={{ opacity: [0.3, 0.6, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute left-[10%] top-[15%] h-48 w-48 rounded-full bg-primary-foreground/3 blur-[80px]" />
+
+
+      {/* Content with parallax */}
+      <motion.div style={{ y: contentY }} className="container relative z-10 py-20">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-2xl">
+
+          {/* Badge with glow + pulse ring */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.6, type: "spring" }}
+            className="relative mb-8 inline-flex items-center gap-2 overflow-hidden rounded-full border border-accent/25 bg-accent/10 px-5 py-2 text-sm font-semibold text-accent shadow-[0_0_25px_-4px_hsl(var(--accent)/0.35)] backdrop-blur-md">
+
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-accent/15 to-transparent animate-shimmer bg-[length:200%_100%]" />
+            {/* Outer pulse ring */}
+            <div className="absolute -inset-1 rounded-full border border-accent/15 animate-[pulse_3s_ease-in-out_infinite]" />
+            <motion.div
+              animate={{ rotate: [0, 180, 360] }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}>
+
+              <Sparkles className="relative z-10 h-3.5 w-3.5" />
+            </motion.div>
+            <span className="relative z-10">{hero?.badge_text || "প্রিমিয়াম কালেকশন ২০২৬"}</span>
+          </motion.div>
+
+          {/* Heading with staggered letter reveal */}
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="font-display text-5xl font-extrabold leading-[1.05] text-primary-foreground sm:text-6xl md:text-7xl lg:text-[5.5rem]">
+
+            {(hero?.title || "টেকনোলজির নতুন সংজ্ঞা").split("\n").map((line, i) =>
+            <span key={i}>
+                {i === 0 ? line :
+              <motion.span
+                className="inline-block bg-gradient-to-r from-accent via-amber-300 to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
+
+                    {line}
+                  </motion.span>
+              }
+                {i === 0 && <br />}
+              </span>
+            )}
+          </motion.h1>
+
+          {/* Decorative line under heading */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.8, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-4 h-1 w-24 origin-left rounded-full bg-gradient-to-r from-accent to-accent/20" />
+
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="mt-7 max-w-lg text-lg font-light leading-relaxed text-primary-foreground/65 md:text-xl">
+
+            {hero?.subtitle || "আধুনিক গ্যাজেট যা আপনার লাইফস্টাইলকে সম্পূর্ণ বদলে দেবে। প্রিমিয়াম কোয়ালিটি, বিশ্বস্ত সার্ভিস।"}
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.5 }}
+            className="mt-10 flex flex-col gap-4 sm:flex-row">
+
+            <Button
+              size="lg"
+              className="group relative overflow-hidden rounded-full bg-accent px-8 text-base font-bold text-accent-foreground shadow-gold transition-all duration-300 hover:shadow-gold-lg hover:scale-[1.02]"
+              onClick={() => document.getElementById("products")?.scrollIntoView({ behavior: "smooth" })}>
+
+              {/* Button shine effect */}
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <span className="relative">{hero?.cta_text || "এক্সপ্লোর করুন"}</span>
+              <ArrowRight className="relative ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="group rounded-full border-primary-foreground/15 bg-primary-foreground/5 px-8 text-base font-medium text-primary-foreground backdrop-blur-md transition-all duration-300 hover:bg-primary-foreground/10 hover:border-primary-foreground/25"
+              onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })}>
+
+              যোগাযোগ করুন
+              <ArrowDown className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+            </Button>
+          </motion.div>
+
+          {/* Stats with animated counter */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 0.6 }}
+            className="mt-16 flex flex-wrap items-center justify-between gap-y-6 gap-x-4 border-t border-primary-foreground/10 pt-8 md:gap-x-0">
+
+            {[
+            { value: "৫০০+", label: "সন্তুষ্ট গ্রাহক" },
+            { value: "১০০%", label: "অরিজিনাল" },
+            { value: "২৪/৭", label: "সাপোর্ট" },
+            { value: "১০,০০০+", label: "প্রোডাক্ট সোল্ড" },
+            { value: "৩ বছর", label: "ওয়ারেন্টি" },
+            { value: "৫০+", label: "ব্র্যান্ড" }].
+            map((stat, i) =>
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1 + i * 0.08 }}
+              className="group text-center"
+              whileHover={{ scale: 1.08 }}>
+
+                <p className="font-display text-2xl font-extrabold text-accent md:text-3xl lg:text-4xl">
+                  <AnimatedCounter target={stat.value} />
+                </p>
+                <p className="mt-1.5 text-[11px] font-semibold tracking-wider uppercase text-primary-foreground/40 transition-colors duration-300 group-hover:text-primary-foreground/70">
+                  {stat.label}
+                </p>
+              </motion.div>
+            )}
+          </motion.div>
+        </motion.div>
+      </motion.div>
+
+      {/* Bottom gradient fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
+
+      {/* Scroll indicator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5 }}
+        className="absolute bottom-12 left-1/2 z-10 -translate-x-1/2">
+
+        <motion.div
+          animate={{ y: [0, 6, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="flex flex-col items-center gap-2">
+
+          <span className="text-[10px] font-medium tracking-widest text-primary-foreground/30 uppercase">স্ক্রল করুন</span>
+          <div className="flex h-9 w-5 items-start justify-center rounded-full border-2 border-primary-foreground/15 p-1">
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              className="h-1.5 w-1.5 rounded-full bg-accent" />
+
+          </div>
+        </motion.div>
+      </motion.div>
+    </section>);
+
+};
+
+export default HeroBanner;

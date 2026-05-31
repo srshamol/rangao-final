@@ -1,0 +1,599 @@
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { products, formatPrice, getStockLabel, getWhatsAppLink, PHONE_NUMBER } from "@/data/products";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import {
+  MessageCircle, Phone, Star, ChevronLeft, ShieldCheck, Truck, Headset,
+  ArrowRight, Check, Minus, Plus, ShoppingCart, Banknote, Heart, Share2,
+  ZoomIn, Package, Award, Clock,
+} from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import { useCart } from "@/context/CartContext";
+import { toast } from "sonner";
+import CodOrderModal from "@/components/CodOrderModal";
+
+const ProductDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const product = products.find((p) => p.id === id);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [codModalOpen, setCodModalOpen] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const [liked, setLiked] = useState(false);
+  const { addToCart } = useCart();
+  const imageRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const parallaxY = useTransform(scrollYProgress, [0, 1], ["0%", "8%"]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container flex min-h-[50vh] flex-col items-center justify-center gap-4">
+          <p className="text-xl text-muted-foreground">প্রোডাক্ট খুঁজে পাওয়া যায়নি</p>
+          <Button onClick={() => navigate("/")} variant="outline">হোমে ফিরে যান</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const stock = getStockLabel(product.stock);
+  const relatedProducts = products.filter(
+    (p) => p.category === product.category && p.id !== product.id
+  );
+  const discount = product.originalPrice
+    ? Math.round((1 - product.price / product.originalPrice) * 100)
+    : 0;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageRef.current) return;
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setMousePos({ x, y });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+
+      <main>
+        {/* Breadcrumb */}
+        <div className="border-b bg-gradient-to-r from-secondary/50 to-secondary/30">
+          <div className="container py-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Link to="/" className="transition-colors hover:text-accent">হোম</Link>
+              <span className="text-border">/</span>
+              <span className="transition-colors hover:text-accent">{product.categoryLabel}</span>
+              <span className="text-border">/</span>
+              <span className="font-medium text-foreground">{product.name}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Part 1: Gallery + Info */}
+        <section ref={sectionRef} className="relative overflow-hidden py-8 md:py-12">
+          {/* Subtle background decoration */}
+          <div className="pointer-events-none absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-accent/[0.03] blur-[100px]" />
+          <div className="pointer-events-none absolute -left-40 bottom-0 h-[400px] w-[400px] rounded-full bg-primary/[0.03] blur-[100px]" />
+
+          <div className="container relative">
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
+              {/* Left Column: Image Gallery */}
+              <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {/* Main Image with Zoom */}
+                  <div
+                    ref={imageRef}
+                    className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-secondary to-secondary/30 shadow-premium-lg md:aspect-square md:cursor-crosshair lg:rounded-3xl"
+                    onMouseMove={handleMouseMove}
+                    onMouseEnter={() => setIsZoomed(true)}
+                    onMouseLeave={() => setIsZoomed(false)}
+                  >
+                    <motion.div style={{ y: parallaxY }} className="h-full w-full">
+                      <img
+                        src={product.images[selectedImage]}
+                        alt={product.name}
+                        className="h-full w-full object-contain transition-transform duration-700 md:object-cover"
+                        style={
+                          isZoomed && window.innerWidth >= 768
+                            ? {
+                                transform: "scale(2)",
+                                transformOrigin: `${mousePos.x}% ${mousePos.y}%`,
+                              }
+                            : {}
+                        }
+                      />
+                    </motion.div>
+
+                    {/* Zoom indicator */}
+                    <div className="absolute bottom-4 right-4 hidden items-center gap-1.5 rounded-full bg-foreground/60 px-3 py-1.5 text-xs font-medium text-background opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 md:flex">
+                      <ZoomIn className="h-3.5 w-3.5" /> জুম করুন
+                    </div>
+
+                    {/* Discount badge */}
+                    {discount > 0 && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -12 }}
+                        animate={{ scale: 1, rotate: -12 }}
+                        transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+                        className="absolute left-4 top-4 rounded-2xl bg-destructive px-4 py-2 shadow-lg"
+                      >
+                        <span className="font-display text-lg font-extrabold text-destructive-foreground">{discount}%</span>
+                        <span className="ml-1 text-xs font-bold text-destructive-foreground/80">ছাড়</span>
+                      </motion.div>
+                    )}
+
+                    {/* Floating action buttons */}
+                    <div className="absolute right-4 top-4 flex flex-col gap-2">
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLiked(!liked);
+                          toast.success(liked ? "পছন্দ তালিকা থেকে সরানো হয়েছে" : "পছন্দ তালিকায় যোগ হয়েছে");
+                        }}
+                        className={`flex h-10 w-10 items-center justify-center rounded-full border border-border/30 shadow-md backdrop-blur-xl transition-colors ${
+                          liked ? "bg-destructive/90 text-destructive-foreground" : "bg-background/80 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(window.location.href);
+                          toast.success("লিংক কপি হয়েছে!");
+                        }}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border/30 bg-background/80 text-muted-foreground shadow-md backdrop-blur-xl transition-colors hover:text-foreground"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {/* Thumbnail Strip */}
+                  <div className="mt-3 flex gap-2 md:mt-4 md:gap-3">
+                    {product.images.map((img, i) => (
+                      <motion.button
+                        key={i}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedImage(i)}
+                        className={`relative aspect-square w-14 overflow-hidden rounded-lg border-2 transition-all duration-300 md:w-18 lg:w-20 md:rounded-xl ${
+                          selectedImage === i
+                            ? "border-accent ring-2 ring-accent/30 shadow-gold"
+                            : "border-border/30 opacity-50 hover:opacity-100"
+                        }`}
+                      >
+                        <img src={img} alt={`${product.name} - ${i + 1}`} className="h-full w-full object-cover" />
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Right Column: Product Info */}
+              <div>
+                <div className="lg:sticky lg:top-24">
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                    className="space-y-5"
+                  >
+                    {/* Category + Rating row */}
+                    <div className="flex items-center gap-3">
+                      <span className="inline-block rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-bold text-accent">
+                        {product.categoryLabel}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 fill-accent text-accent" />
+                        <span className="font-display text-sm font-bold text-foreground">{product.rating}</span>
+                        <span className="text-xs text-muted-foreground">({product.reviewCount.toLocaleString()}+)</span>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h1 className="font-display text-2xl font-extrabold leading-tight text-foreground md:text-3xl lg:text-4xl">
+                      {product.name}
+                    </h1>
+
+                    {/* Short Description + Full summary */}
+                    <div className="space-y-2">
+                      <p className="font-bengali text-sm font-medium leading-relaxed text-foreground/70 md:text-base">
+                        {product.shortDescription}
+                      </p>
+                      <p className="font-bengali text-xs leading-relaxed text-muted-foreground line-clamp-3 md:text-sm">
+                        {product.fullDescription}
+                      </p>
+                    </div>
+
+                    {/* Price Block */}
+                    <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-secondary/50 to-transparent p-4 md:p-5">
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{formatPrice(product.price)}</span>
+                        {product.originalPrice && (
+                          <>
+                            <span className="text-base text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
+                            <span className="rounded-lg bg-destructive/10 px-2.5 py-1 text-xs font-bold text-destructive">
+                              {discount}% ছাড়
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {discount > 0 && (
+                        <p className="mt-2 font-bengali text-xs text-success">
+                          আপনি সাশ্রয় করছেন {formatPrice(product.originalPrice! - product.price)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Stock */}
+                    <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                      product.stock === 0
+                        ? "bg-destructive/10 text-destructive"
+                        : product.stock <= 5
+                          ? "bg-amber-500/10 text-amber-600"
+                          : "bg-success/10 text-success"
+                    }`}>
+                      <span className={`h-2 w-2 animate-pulse rounded-full ${
+                        product.stock === 0 ? "bg-destructive" : product.stock <= 5 ? "bg-amber-500" : "bg-success"
+                      }`} />
+                      {stock.text}
+                    </div>
+
+                    {/* Quantity Selector */}
+                    <div className="space-y-2">
+                      <label className="font-bengali text-sm font-semibold text-foreground">পরিমাণ</label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center overflow-hidden rounded-xl border-2 border-border/50 bg-secondary/30">
+                          <button
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
+                            disabled={quantity <= 1}
+                          >
+                            <Minus className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                          <span className="flex h-11 w-14 items-center justify-center border-x-2 border-border/50 font-display text-base font-bold text-foreground">
+                            {quantity}
+                          </span>
+                          <button
+                            onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                            className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
+                            disabled={quantity >= product.stock}
+                          >
+                            <Plus className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </div>
+                        <span className="font-bengali text-xs text-muted-foreground">
+                          সর্বোচ্চ {product.stock}টি
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CTA Buttons - Hidden on mobile since sticky bar handles it */}
+                    <div className="hidden space-y-3 pt-2 lg:block">
+                      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          size="lg"
+                          className="group relative w-full overflow-hidden rounded-xl bg-accent py-6 text-base font-bold text-accent-foreground shadow-lg transition-all hover:bg-accent/90 hover:shadow-xl"
+                          disabled={product.stock === 0}
+                          onClick={() => {
+                            addToCart(product, quantity);
+                            toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                          }}
+                        >
+                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-background/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                          <ShoppingCart className="mr-2 h-5 w-5" />
+                          কার্টে যোগ করুন
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          size="lg"
+                          className="group relative w-full overflow-hidden rounded-xl bg-success py-6 text-base font-bold text-success-foreground shadow-lg transition-all hover:bg-success/90 hover:shadow-xl"
+                          disabled={product.stock === 0}
+                          onClick={() => setCodModalOpen(true)}
+                        >
+                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-background/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                          <Banknote className="mr-2 h-5 w-5" />
+                          ক্যাশ অন ডেলিভারিতে অর্ডার করুন
+                        </Button>
+                      </motion.div>
+                      <Button
+                        asChild
+                        size="lg"
+                        variant="outline"
+                        className="w-full rounded-xl border-2 border-primary/20 py-6 text-base font-semibold text-primary transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <a href={`tel:${PHONE_NUMBER}`}>
+                          <Phone className="mr-2 h-5 w-5" />
+                          কল করুন
+                        </a>
+                      </Button>
+                    </div>
+
+                    {/* Trust Badges - Premium Glass Cards */}
+                    <div className="grid grid-cols-3 gap-2.5 pt-3">
+                      {[
+                        { icon: ShieldCheck, label: "অরিজিনাল", sub: "১০০% গ্যারান্টি" },
+                        { icon: Truck, label: "দ্রুত ডেলিভারি", sub: "সারাদেশে" },
+                        { icon: Headset, label: "সাপোর্ট", sub: "২৪/৭ সার্ভিস" },
+                      ].map(({ icon: Icon, label, sub }, i) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 + i * 0.1 }}
+                          className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-gradient-to-br from-secondary/50 to-transparent p-3 text-center transition-all hover:border-accent/30 hover:shadow-md"
+                        >
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 transition-colors group-hover:bg-accent/20">
+                            <Icon className="h-4 w-4 text-accent" />
+                          </div>
+                          <span className="text-[11px] font-bold text-foreground">{label}</span>
+                          <span className="text-[9px] text-muted-foreground">{sub}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Part 2: Tabs - Description / Specs / Reviews */}
+        <section className="border-t bg-gradient-to-b from-secondary/30 to-background py-12 md:py-16">
+          <div className="container max-w-4xl">
+            <Tabs defaultValue="description" className="w-full">
+              <TabsList className="mb-8 grid w-full grid-cols-3 rounded-2xl border border-border/30 bg-secondary/50 p-1.5 backdrop-blur-sm">
+                <TabsTrigger value="description" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                  বিবরণ
+                </TabsTrigger>
+                <TabsTrigger value="specs" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                  স্পেসিফিকেশন
+                </TabsTrigger>
+                <TabsTrigger value="reviews" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                  রিভিউ
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Description Tab */}
+              <TabsContent value="description" className="space-y-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="prose-editorial"
+                >
+                  <p className="font-bengali text-lg leading-[1.9] text-foreground/80">
+                    {product.fullDescription}
+                  </p>
+                </motion.div>
+
+                {product.features.length > 0 && (
+                  <div className="space-y-4 pt-4">
+                    <h3 className="font-display text-xl font-bold text-foreground">মূল বৈশিষ্ট্যসমূহ</h3>
+                    <div className="space-y-3">
+                      {product.features.map((feature, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                          className="group flex gap-4 rounded-2xl border border-border/30 bg-card p-5 transition-all hover:border-accent/20 hover:shadow-md"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent/5 transition-colors group-hover:from-accent/30 group-hover:to-accent/10">
+                            <Check className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="font-bengali text-sm leading-relaxed text-muted-foreground">{feature}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Specs Tab */}
+              <TabsContent value="specs">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm"
+                >
+                  <div className="border-b bg-gradient-to-r from-primary/5 to-transparent px-6 py-4">
+                    <h3 className="font-display text-base font-bold text-foreground">টেকনিক্যাল স্পেসিফিকেশন</h3>
+                  </div>
+                  <div className="divide-y divide-border/30">
+                    {product.specs.map((spec, i) => (
+                      <motion.div
+                        key={spec.label}
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.05 }}
+                        className={`flex justify-between px-6 py-4 text-sm transition-colors hover:bg-secondary/30 ${i % 2 === 0 ? "" : "bg-secondary/10"}`}
+                      >
+                        <span className="font-bengali font-medium text-muted-foreground">{spec.label}</span>
+                        <span className="font-display font-bold text-foreground">{spec.value}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              </TabsContent>
+
+              {/* Reviews Tab */}
+              <TabsContent value="reviews">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center gap-6 rounded-2xl border border-border/30 bg-card p-6 shadow-sm">
+                    <div className="text-center">
+                      <p className="font-display text-5xl font-extrabold text-foreground">{product.rating}</p>
+                      <div className="mt-2 flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-4 w-4 ${i < Math.floor(product.rating) ? "fill-accent text-accent" : "text-border"}`} />
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-xs text-muted-foreground">{product.reviewCount.toLocaleString()}+ রিভিউ</p>
+                    </div>
+                    <div className="h-20 w-px bg-border/50" />
+                    <div className="flex-1 space-y-2">
+                      {[5, 4, 3, 2, 1].map((star) => {
+                        const pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
+                        return (
+                          <div key={star} className="flex items-center gap-2">
+                            <span className="w-3 text-xs font-medium text-muted-foreground">{star}</span>
+                            <Star className="h-3 w-3 fill-accent text-accent" />
+                            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                whileInView={{ width: `${pct}%` }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.2 }}
+                                className="h-full rounded-full bg-gradient-to-r from-accent to-accent/70"
+                              />
+                            </div>
+                            <span className="w-8 text-right text-xs font-medium text-muted-foreground">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-center font-bengali text-sm text-muted-foreground">
+                    রিভিউ শীঘ্রই আসছে। আপনি কি এই প্রোডাক্ট সম্পর্কে জানতে চান?
+                  </p>
+                  <div className="flex justify-center">
+                    <Button asChild className="rounded-full bg-success px-6 text-success-foreground shadow-md hover:bg-success/90">
+                      <a href={getWhatsAppLink(product.name)} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp এ জিজ্ঞেস করুন
+                      </a>
+                    </Button>
+                  </div>
+                </motion.div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </section>
+
+        {/* Part 3: Related Products */}
+        {relatedProducts.length > 0 && (
+          <section className="py-12 md:py-16">
+            <div className="container">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">সম্পর্কিত প্রোডাক্ট</h2>
+                  <p className="mt-1 font-bengali text-sm text-muted-foreground">আপনি আরও পছন্দ করতে পারেন</p>
+                </div>
+                <Link to="/" className="flex items-center gap-1.5 rounded-full border border-border/50 px-4 py-2 text-sm font-medium text-foreground transition-all hover:border-accent hover:text-accent">
+                  সবগুলো দেখুন <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide" style={{ scrollSnapType: "x mandatory" }}>
+                {relatedProducts.map((rp, i) => (
+                  <motion.div
+                    key={rp.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <Link
+                      to={`/product/${rp.id}`}
+                      className="group flex w-56 shrink-0 flex-col overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm transition-all hover:border-accent/20 hover:shadow-premium-lg md:w-64"
+                      style={{ scrollSnapAlign: "start" }}
+                    >
+                      <div className="relative aspect-square overflow-hidden bg-secondary">
+                        <img src={rp.images[0]} alt={rp.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-foreground/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                      <div className="flex flex-1 flex-col p-4">
+                        <h3 className="font-display text-sm font-bold text-card-foreground line-clamp-1">{rp.name}</h3>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <p className="font-display text-lg font-extrabold text-foreground">{formatPrice(rp.price)}</p>
+                          {rp.originalPrice && (
+                            <p className="text-xs text-muted-foreground line-through">{formatPrice(rp.originalPrice)}</p>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Star className="h-3 w-3 fill-accent text-accent" />
+                          <span className="text-xs font-medium text-foreground">{rp.rating}</span>
+                        </div>
+                        <Button size="sm" className="mt-3 w-full rounded-xl bg-primary text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+                          ডিটেলস দেখুন
+                        </Button>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Sticky Bottom CTA (Mobile) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:hidden">
+          <div className="flex gap-2">
+            <Button
+              size="default"
+              className="h-12 flex-1 rounded-xl bg-accent text-xs font-bold text-accent-foreground shadow-md"
+              disabled={product.stock === 0}
+              onClick={() => {
+                addToCart(product, quantity);
+                toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+              }}
+            >
+              <ShoppingCart className="mr-1 h-4 w-4" /> কার্টে যোগ করুন
+            </Button>
+            <Button
+              size="default"
+              className="h-12 flex-1 rounded-xl bg-success text-xs font-bold text-success-foreground shadow-md"
+              disabled={product.stock === 0}
+              onClick={() => setCodModalOpen(true)}
+            >
+              <Banknote className="mr-1 h-4 w-4" /> ক্যাশ অন ডেলিভারি
+            </Button>
+          </div>
+        </div>
+      </main>
+
+      <div className="pb-20 lg:pb-0">
+        <Footer />
+      </div>
+      <div className="hidden lg:block">
+        <FloatingWhatsApp />
+      </div>
+      <CodOrderModal open={codModalOpen} onOpenChange={setCodModalOpen} product={product} quantity={quantity} />
+    </div>
+  );
+};
+
+export default ProductDetail;
