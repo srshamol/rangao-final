@@ -68,12 +68,12 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">📦 প্রোডাক্ট ম্যানেজমেন্ট</h1>
+          <h1 className="text-xl font-bold sm:text-2xl">📦 প্রোডাক্ট ম্যানেজমেন্ট</h1>
           <p className="text-sm text-muted-foreground">মোট {data?.total || 0}টি প্রোডাক্ট</p>
         </div>
-        <Button onClick={() => navigate("/admin/products/new")}>
+        <Button className="self-start sm:self-auto" onClick={() => navigate("/admin/products/new")}>
           <Plus className="mr-2 h-4 w-4" /> নতুন প্রোডাক্ট
         </Button>
       </div>
@@ -153,7 +153,8 @@ export default function AdminProducts() {
             <p className="text-center py-8 text-muted-foreground">লোড হচ্ছে...</p>
           ) : (
             <>
-              <Table>
+              <div className="w-full overflow-x-auto">
+                <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">
@@ -242,6 +243,7 @@ export default function AdminProducts() {
                   )}
                 </TableBody>
               </Table>
+              </div>
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">

@@ -1,21 +1,46 @@
-import { type Product, type Category } from "@/data/products";
-import ProductCard from "./ProductCard";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useProducts } from "@/hooks/useHomepageData";
+import ProductCard, { dbToCard } from "./ProductCard";
 
 interface Props {
-  products: Product[];
-  selectedCategory: Category | null;
-  onDetails: (product: Product) => void;
+  title?: string;
+  subtitle?: string;
+  filter?: "featured" | "newest" | "best_seller" | "manual" | "category";
+  productIds?: string[];
+  categorySlug?: string;
+  count?: number;
+  desktopCols?: number;
+  mobileCols?: number;
+  selectedCategory?: string | null;
 }
 
-const FeaturedProducts = ({ products, selectedCategory, onDetails }: Props) => {
+const FeaturedProducts = ({
+  title,
+  subtitle = "প্রতিটি প্রোডাক্ট যত্নসহকারে বাছাই করা হয়েছে",
+  filter = "featured",
+  productIds,
+  categorySlug,
+  count = 8,
+  desktopCols = 4,
+  selectedCategory,
+}: Props) => {
   const navigate = useNavigate();
-  const filtered = selectedCategory
-    ? products.filter((p) => p.category === selectedCategory)
-    : products.filter((p) => p.featured);
+
+  // If a category is selected from the category section, override filter
+  const activeFilter = selectedCategory ? "category" : filter;
+  const activeSlug = selectedCategory || categorySlug;
+
+  const { data: products, isLoading } = useProducts({
+    filter: activeFilter,
+    limit: count,
+    ids: productIds,
+    categorySlug: activeSlug,
+  });
+
+  const sectionTitle = title || (selectedCategory ? "আপনার পছন্দের ক্যাটাগরি" : "আমাদের সেরা কালেকশন");
 
   return (
     <section id="products" className="relative overflow-hidden py-20 md:py-28">
@@ -32,7 +57,6 @@ const FeaturedProducts = ({ products, selectedCategory, onDetails }: Props) => {
           >
             {selectedCategory ? "ফিল্টার করা প্রোডাক্ট" : "ফিচার্ড"}
           </motion.span>
-          {/* Decorative line */}
           <div className="mt-4 flex items-center justify-center gap-3">
             <div className="h-px w-12 bg-gradient-to-r from-transparent to-accent/30" />
             <div className="h-1.5 w-1.5 rounded-full bg-accent/40" />
@@ -45,18 +69,19 @@ const FeaturedProducts = ({ products, selectedCategory, onDetails }: Props) => {
             transition={{ delay: 0.1 }}
             className="mt-5 max-w-xl font-display text-3xl font-extrabold text-foreground md:text-5xl"
           >
-            {selectedCategory ? "আপনার পছন্দের ক্যাটাগরি" : "আমাদের সেরা কালেকশন"}
+            {sectionTitle}
           </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.15 }}
-            className="mt-4 text-base text-muted-foreground"
-          >
-            প্রতিটি প্রোডাক্ট যত্নসহকারে বাছাই করা হয়েছে
-          </motion.p>
-          {/* View All button */}
+          {subtitle && (
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.15 }}
+              className="mt-4 text-base text-muted-foreground"
+            >
+              {subtitle}
+            </motion.p>
+          )}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -75,13 +100,21 @@ const FeaturedProducts = ({ products, selectedCategory, onDetails }: Props) => {
           </motion.div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((product, i) => (
-            <ProductCard key={product.id} product={product} onDetails={onDetails} index={i} />
-          ))}
-        </div>
-        {filtered.length === 0 && (
-          <p className="py-20 text-center text-lg text-muted-foreground">এই ক্যাটাগরিতে কোনো প্রোডাক্ট নেই।</p>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
+            <div className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-${Math.min(desktopCols, 4)}`}>
+              {(products || []).map((product, i) => (
+                <ProductCard key={product.id} product={dbToCard(product)} index={i} />
+              ))}
+            </div>
+            {(!products || products.length === 0) && (
+              <p className="py-20 text-center text-lg text-muted-foreground">এই ক্যাটাগরিতে কোনো প্রোডাক্ট নেই।</p>
+            )}
+          </>
         )}
       </div>
     </section>

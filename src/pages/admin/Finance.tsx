@@ -38,8 +38,14 @@ export default function Finance() {
   const { data: balance } = useQuery({
     queryKey: ["steadfast-balance"],
     queryFn: async () => {
-      const { data } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
-      return data?.current_balance ?? data?.balance ?? 0;
+      try {
+        const { data, error } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
+        if (error) throw error;
+        return data?.current_balance ?? data?.balance ?? 0;
+      } catch (err) {
+        console.warn("Steadfast Courier Edge Function is offline or restricted in local dev environment:", err);
+        return 0;
+      }
     },
     staleTime: 60000,
   });
@@ -108,7 +114,7 @@ export default function Finance() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
         {kpiCards.map(c => (
           <Card key={c.title} className="group relative overflow-hidden border-border/30 shadow-sm hover:shadow-md transition-all">
             <div className={`absolute inset-0 bg-gradient-to-br ${c.gradient} opacity-[0.04] group-hover:opacity-[0.08] transition-opacity`} />
@@ -164,37 +170,39 @@ export default function Finance() {
           <CardTitle className="text-base font-bold">ডেইলি ট্রানজেকশন</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>তারিখ</TableHead>
-                <TableHead>অর্ডার</TableHead>
-                <TableHead>কাস্টমার</TableHead>
-                <TableHead>অ্যামাউন্ট</TableHead>
-                <TableHead>ডেলিভারি</TableHead>
-                <TableHead>স্ট্যাটাস</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions?.map((t: any) => (
-                <TableRow key={t.order_number}>
-                  <TableCell className="text-xs">{format(new Date(t.created_at), "dd/MM/yy")}</TableCell>
-                  <TableCell className="font-mono text-xs">{t.order_number}</TableCell>
-                  <TableCell className="text-sm">{t.customer_name}</TableCell>
-                  <TableCell className="font-semibold">৳{Number(t.total_amount).toLocaleString()}</TableCell>
-                  <TableCell className="text-sm">৳{Number(t.delivery_charge || 0).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={t.order_status === "delivered" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}>
-                      {t.order_status === "delivered" ? "✅ ডেলিভারড" : "❌ ক্যান্সেলড"}
-                    </Badge>
-                  </TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[560px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>তারিখ</TableHead>
+                  <TableHead>অর্ডার</TableHead>
+                  <TableHead>কাস্টমার</TableHead>
+                  <TableHead>অ্যামাউন্ট</TableHead>
+                  <TableHead>ডেলিভারি</TableHead>
+                  <TableHead>স্ট্যাটাস</TableHead>
                 </TableRow>
-              ))}
-              {(!transactions || transactions.length === 0) && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">কোনো ট্রানজেকশন নেই</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {transactions?.map((t: any) => (
+                  <TableRow key={t.order_number}>
+                    <TableCell className="text-xs">{format(new Date(t.created_at), "dd/MM/yy")}</TableCell>
+                    <TableCell className="font-mono text-xs">{t.order_number}</TableCell>
+                    <TableCell className="text-sm">{t.customer_name}</TableCell>
+                    <TableCell className="font-semibold">৳{Number(t.total_amount).toLocaleString()}</TableCell>
+                    <TableCell className="text-sm">৳{Number(t.delivery_charge || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={t.order_status === "delivered" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}>
+                        {t.order_status === "delivered" ? "✅ ডেলিভারড" : "❌ ক্যান্সেলড"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(!transactions || transactions.length === 0) && (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">কোনো ট্রানজেকশন নেই</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

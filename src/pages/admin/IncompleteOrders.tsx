@@ -168,8 +168,8 @@ export default function IncompleteOrders() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border">
-        <Table>
+      <div className="rounded-xl border overflow-x-auto">
+        <Table className="min-w-[620px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-10"></TableHead>

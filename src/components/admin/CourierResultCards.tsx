@@ -28,14 +28,34 @@ function getRatioBarClass(ratio: number) {
 }
 
 export default function CourierResultCards({ data }: CourierResultCardsProps) {
-  // Handle the API response: data is the full response, courierData is nested
-  const courierObj = data?.courierData;
+  // Handle the API response: data is the full response, courierData/data is nested
+  let courierObj = data?.courierData || data?.data;
+
+  // Robust Fallback: If it's a direct BDCourier response containing root-level metrics
+  if (!courierObj && data && (data.total_orders !== undefined || data.total_parcel !== undefined || data.success_ratio !== undefined)) {
+    courierObj = {
+      summary: {
+        name: "BDCourier",
+        total_parcel: data.total_orders ?? data.total_parcel ?? 0,
+        success_parcel: data.successful_orders ?? data.success_parcel ?? 0,
+        cancelled_parcel: data.returned_orders ?? data.cancelled_parcel ?? 0,
+        success_ratio: data.success_ratio ?? 0,
+      }
+    };
+  }
 
   if (!courierObj) {
     return (
-      <p className="text-sm text-muted-foreground">
-        {data?.message || data?.error || "কোনো কুরিয়ার ডেটা পাওয়া যায়নি।"}
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">
+          {data?.message || data?.error || data?.rawText || "কোনো কুরিয়ার ডেটা পাওয়া যায়নি।"}
+        </p>
+        {data && (
+          <pre className="text-[10px] bg-muted p-2 rounded overflow-auto max-w-full font-mono text-muted-foreground">
+            Raw Response: {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </div>
     );
   }
 

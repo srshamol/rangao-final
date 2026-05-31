@@ -98,70 +98,74 @@ export default function AdminInventory() {
       <Card>
         <CardHeader><CardTitle>লো স্টক আইটেম (স্টক ৫ এর নিচে)</CardTitle></CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>প্রোডাক্ট</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>বর্তমান স্টক</TableHead>
-                <TableHead>মিনিমাম</TableHead>
-                <TableHead>অ্যাকশন</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lowStockProducts?.map((p: any) => (
-                <TableRow key={p.id}>
-                  <TableCell>{p.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{p.sku}</TableCell>
-                  <TableCell><Badge variant="destructive">{p.stock_quantity}</Badge></TableCell>
-                  <TableCell>{p.low_stock_alert}</TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="outline" onClick={() => openAdjust(p)}>স্টক যোগ</Button>
-                  </TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[420px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>প্রোডাক্ট</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>বর্তমান স্টক</TableHead>
+                  <TableHead>মিনিমাম</TableHead>
+                  <TableHead>অ্যাকশন</TableHead>
                 </TableRow>
-              ))}
-              {(!lowStockProducts || lowStockProducts.length === 0) && (
-                <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">সব ঠিক আছে!</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {lowStockProducts?.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                    <TableCell><Badge variant="destructive">{p.stock_quantity}</Badge></TableCell>
+                    <TableCell>{p.low_stock_alert}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" onClick={() => openAdjust(p)}>স্টক যোগ</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(!lowStockProducts || lowStockProducts.length === 0) && (
+                  <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">সব ঠিক আছে!</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>স্টক মুভমেন্ট লগ</CardTitle></CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>তারিখ</TableHead>
-                <TableHead>প্রোডাক্ট</TableHead>
-                <TableHead>টাইপ</TableHead>
-                <TableHead>পরিমাণ</TableHead>
-                <TableHead>আগে</TableHead>
-                <TableHead>পরে</TableHead>
-                <TableHead>নোট</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs?.map((log: any) => (
-                <TableRow key={log.id}>
-                  <TableCell className="text-xs">{new Date(log.created_at).toLocaleDateString("bn-BD")}</TableCell>
-                  <TableCell>{(log as any).products?.name || "—"}</TableCell>
-                  <TableCell><Badge variant="outline">{log.type}</Badge></TableCell>
-                  <TableCell className={log.quantity_change > 0 ? "text-green-600" : "text-red-500"}>
-                    {log.quantity_change > 0 ? "+" : ""}{log.quantity_change}
-                  </TableCell>
-                  <TableCell>{log.stock_before}</TableCell>
-                  <TableCell>{log.stock_after}</TableCell>
-                  <TableCell className="text-xs">{log.note || "—"}</TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[520px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>তারিখ</TableHead>
+                  <TableHead>প্রোডাক্ট</TableHead>
+                  <TableHead>টাইপ</TableHead>
+                  <TableHead>পরিমাণ</TableHead>
+                  <TableHead>আগে</TableHead>
+                  <TableHead>পরে</TableHead>
+                  <TableHead>নোট</TableHead>
                 </TableRow>
-              ))}
-              {(!logs || logs.length === 0) && (
-                <TableRow><TableCell colSpan={7} className="text-center py-4 text-muted-foreground">কোনো লগ নেই</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {logs?.map((log: any) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-xs">{new Date(log.created_at).toLocaleDateString("bn-BD")}</TableCell>
+                    <TableCell>{(log as any).products?.name || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{log.type}</Badge></TableCell>
+                    <TableCell className={log.quantity_change > 0 ? "text-green-600" : "text-red-500"}>
+                      {log.quantity_change > 0 ? "+" : ""}{log.quantity_change}
+                    </TableCell>
+                    <TableCell>{log.stock_before}</TableCell>
+                    <TableCell>{log.stock_after}</TableCell>
+                    <TableCell className="text-xs">{log.note || "—"}</TableCell>
+                  </TableRow>
+                ))}
+                {(!logs || logs.length === 0) && (
+                  <TableRow><TableCell colSpan={7} className="text-center py-4 text-muted-foreground">কোনো লগ নেই</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

@@ -45,6 +45,14 @@ import AdminCustomers from "./pages/admin/Customers";
 import IncompleteOrders from "./pages/admin/IncompleteOrders";
 import HomepageManager from "./pages/admin/HomepageManager";
 import OrderControl from "./pages/admin/OrderControl";
+import AdminTestimonials from "./pages/admin/Testimonials";
+import AdminBrands from "./pages/admin/Brands";
+import AdminHomepageSEO from "./pages/admin/HomepageSEO";
+import SettingsSync from "@/components/SettingsSync";
+import StorageInitializer from "@/components/StorageInitializer";
+import MediaLibrary from "./pages/admin/MediaLibrary";
+import StorageDiagnostics from "./pages/admin/StorageDiagnostics";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -55,7 +63,9 @@ const App = () => (
         <CustomerProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <SettingsSync />
+          <StorageInitializer />
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <FBPixelProvider />
             <CartSidebar />
             <CompareBar />
@@ -64,6 +74,7 @@ const App = () => (
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/category/:slug" element={<Products />} />
               <Route path="/compare" element={<Compare />} />
               <Route path="/order-success/:orderNumber" element={<OrderSuccess />} />
               <Route path="/blog" element={<Blog />} />
@@ -94,7 +105,12 @@ const App = () => (
                 <Route path="finance" element={<AdminFinance />} />
                 <Route path="customers" element={<AdminCustomers />} />
                 <Route path="settings" element={<AdminSettings />} />
+                <Route path="settings/storage-diagnostics" element={<StorageDiagnostics />} />
+                <Route path="media-library" element={<MediaLibrary />} />
                 <Route path="homepage" element={<HomepageManager />} />
+                <Route path="testimonials" element={<AdminTestimonials />} />
+                <Route path="brands" element={<AdminBrands />} />
+                <Route path="homepage-seo" element={<AdminHomepageSEO />} />
                 <Route path="incomplete-orders" element={<IncompleteOrders />} />
                 <Route path="order-control" element={<OrderControl />} />
               </Route>

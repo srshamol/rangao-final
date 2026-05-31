@@ -149,46 +149,48 @@ export default function AdminCoupons() {
 
       <Card>
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>কোড</TableHead>
-                <TableHead>ডিসকাউন্ট</TableHead>
-                <TableHead>মিনিমাম</TableHead>
-                <TableHead>ব্যবহৃত</TableHead>
-                <TableHead>ভ্যালিডিটি</TableHead>
-                <TableHead>স্ট্যাটাস</TableHead>
-                <TableHead>অ্যাকশন</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {coupons?.map((c: any) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-mono font-bold">{c.code}</TableCell>
-                  <TableCell>
-                    {c.discount_type === "percentage" ? `${Number(c.discount_value)}%` : `৳${Number(c.discount_value).toLocaleString()}`}
-                  </TableCell>
-                  <TableCell>৳{Number(c.min_order).toLocaleString()}</TableCell>
-                  <TableCell>{c.used_count}/{c.usage_limit ?? "∞"}</TableCell>
-                  <TableCell className="text-xs">
-                    {c.valid_to ? new Date(c.valid_to).toLocaleDateString("bn-BD") : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={c.is_active ? "default" : "outline"}>{c.is_active ? "সক্রিয়" : "নিষ্ক্রিয়"}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[600px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>কোড</TableHead>
+                  <TableHead>ডিসকাউন্ট</TableHead>
+                  <TableHead>মিনিমাম</TableHead>
+                  <TableHead>ব্যবহৃত</TableHead>
+                  <TableHead>ভ্যালিডিটি</TableHead>
+                  <TableHead>স্ট্যাটাস</TableHead>
+                  <TableHead>অ্যাকশন</TableHead>
                 </TableRow>
-              ))}
-              {(!coupons || coupons.length === 0) && (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">কোনো কুপন নেই</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {coupons?.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono font-bold">{c.code}</TableCell>
+                    <TableCell>
+                      {c.discount_type === "percentage" ? `${Number(c.discount_value)}%` : `৳${Number(c.discount_value).toLocaleString()}`}
+                    </TableCell>
+                    <TableCell>৳{Number(c.min_order).toLocaleString()}</TableCell>
+                    <TableCell>{c.used_count}/{c.usage_limit ?? "∞"}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.valid_to ? new Date(c.valid_to).toLocaleDateString("bn-BD") : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={c.is_active ? "default" : "outline"}>{c.is_active ? "সক্রিয়" : "নিষ্ক্রিয়"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(!coupons || coupons.length === 0) && (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">কোনো কুপন নেই</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

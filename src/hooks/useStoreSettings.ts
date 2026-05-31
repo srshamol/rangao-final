@@ -1,14 +1,42 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export interface HeroBanner {
+export interface HeroBannerSlide {
+  id: string;
   title: string;
   subtitle: string;
-  cta_text: string;
-  cta_link: string;
+  description: string;
+  badge_text: string;
+  cta_primary_text: string;
+  cta_primary_url: string;
+  cta_secondary_text: string;
+  cta_secondary_url: string;
   banner_image_url: string;
   banner_video_url: string;
-  badge_text: string;
+  overlay_opacity: number;
+  text_align: "left" | "center" | "right";
+  enabled: boolean;
+}
+
+export interface HeroBanner {
+  slides: HeroBannerSlide[];
+  enabled: boolean;
+  // Legacy single-slide fields for backward compat
+  title?: string;
+  subtitle?: string;
+  cta_text?: string;
+  cta_link?: string;
+  banner_image_url?: string;
+  banner_video_url?: string;
+  badge_text?: string;
+}
+
+export interface SocialLinkItem {
+  id: string;
+  platform: string;
+  icon: string;
+  url: string;
+  order: number;
   enabled: boolean;
 }
 
@@ -19,6 +47,53 @@ export interface ContactInfo {
   address: string;
   facebook_url: string;
   instagram_url: string;
+  whatsapp_enabled?: boolean;
+  whatsapp_country_code?: string;
+  social_links?: SocialLinkItem[];
+}
+
+export interface SectionConfig {
+  enabled: boolean;
+  desktop: boolean;
+  mobile: boolean;
+  title?: string;
+  subtitle?: string;
+  bg_color?: string;
+  bg_image?: string;
+  padding?: string;
+  margin?: string;
+  animation?: "none" | "fade" | "fade-up" | "slide" | "zoom";
+  // Product section config
+  filter?: "featured" | "newest" | "best_seller" | "manual" | "category";
+  product_ids?: string[];
+  category_slug?: string;
+  count?: number;
+  desktop_cols?: number;
+  tablet_cols?: number;
+  mobile_cols?: number;
+  // Category section config
+  category_mode?: "auto" | "manual";
+  category_ids?: string[];
+  show_image?: boolean;
+  show_count?: boolean;
+  
+  // Custom CMS Upgrade fields
+  coupon_code?: string;
+  start_date?: string;
+  end_date?: string;
+  show_countdown?: boolean;
+  cta_text?: string;
+  cta_url?: string;
+  display_mode?: "grid" | "slider";
+  autoplay?: boolean;
+  loop?: boolean;
+  slider_speed?: number;
+}
+
+export interface HomepageSectionOrder {
+  id: string;
+  label: string;
+  config: SectionConfig;
 }
 
 export interface HomepageSections {
@@ -28,6 +103,62 @@ export interface HomepageSections {
   show_why_choose: boolean;
   show_testimonials: boolean;
   show_newsletter: boolean;
+  show_islamic_collection: boolean;
+  show_new_arrivals: boolean;
+  show_best_seller: boolean;
+  show_offer_banner: boolean;
+  show_brands: boolean;
+  show_statistics: boolean;
+}
+
+export interface TrustFeatureItem {
+  id: string;
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+export interface OfferBanner {
+  enabled: boolean;
+  bg_image: string;
+  mobile_image: string;
+  title: string;
+  subtitle: string;
+  coupon_code: string;
+  button_text: string;
+  button_url: string;
+  start_date: string;
+  end_date: string;
+  show_countdown: boolean;
+}
+
+export interface NewsletterConfig {
+  title: string;
+  subtitle: string;
+  placeholder: string;
+  button_text: string;
+}
+
+export interface HomepageSEO {
+  meta_title: string;
+  meta_description: string;
+  meta_keywords: string;
+  og_image: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  image_url: string;
+  title: string;
+  link: string;
+}
+
+export interface StatisticsConfig {
+  mode: "auto" | "manual";
+  customers: number;
+  orders: number;
+  reviews: number;
+  products: number;
 }
 
 export interface StoreInfo {
@@ -36,26 +167,78 @@ export interface StoreInfo {
   email: string;
   address: string;
   logo_url: string;
+  secondary_phone?: string;
+  secondary_email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  district?: string;
+  country?: string;
+  postal_code?: string;
+  website_url?: string;
+  mobile_logo_url?: string;
+  white_logo_url?: string;
+  logo_desktop_width?: number;
+  logo_desktop_height?: number;
+  logo_mobile_width?: number;
+  logo_mobile_height?: number;
+  favicon_url?: string;
 }
+
+const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
+  { id: "hero", label: "হিরো ব্যানার", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "categories", label: "ক্যাটাগরি সেকশন", config: { enabled: true, desktop: true, mobile: true, category_mode: "auto", count: 8, desktop_cols: 4, tablet_cols: 3, mobile_cols: 2, show_image: true, show_count: true, title: "আমাদের কাস্টম ক্যাটাগরি কালেকশন", subtitle: "আপনার ঘরের দেয়াল রাঙিয়ে তুলুন" } },
+  { id: "featured", label: "ফিচার্ড প্রোডাক্ট", config: { enabled: true, desktop: true, mobile: true, filter: "featured", count: 8, desktop_cols: 4, tablet_cols: 2, mobile_cols: 2, title: "আমাদের সেরা কালেকশন", subtitle: "প্রতিটি প্রোডাক্ট যত্নসহকারে বাছাই করা হয়েছে" } },
+  { id: "flash_sale", label: "ফ্ল্যাশ সেল", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "islamic_collection", label: "ইসলামিক কালেকশন", config: { enabled: true, desktop: true, mobile: true, filter: "category", category_slug: "wall_canvas", count: 3, title: "অভিজাত ইসলামিক কালেকশন", subtitle: "আপনার ঘরের দেয়াল রাঙিয়ে তুলুন" } },
+  { id: "new_arrivals", label: "নতুন আগমন", config: { enabled: true, desktop: true, mobile: true, filter: "newest", count: 4, desktop_cols: 4, mobile_cols: 2, title: "নতুন আগমন", subtitle: "আমাদের সর্বশেষ কালেকশন" } },
+  { id: "best_sellers", label: "বেস্ট সেলার", config: { enabled: true, desktop: true, mobile: true, filter: "best_seller", count: 4, desktop_cols: 4, mobile_cols: 2, title: "আমাদের বেস্ট সেলার কালেকশন", subtitle: "সবচেয়ে জনপ্রিয় সামগ্রী" } },
+  { id: "offer_banner", label: "অফার ব্যানার", config: { enabled: false, desktop: true, mobile: true } },
+  { id: "why_choose", label: "কেন রাঙাও বেছে নেবেন", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "statistics", label: "পরিসংখ্যান", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "testimonials", label: "কাস্টমার রিভিউ", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "newsletter", label: "নিউজলেটার", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "gallery", label: "গ্যালারি / ইন্সপিরেশন", config: { enabled: true, desktop: true, mobile: true, title: "আমাদের ডেকর ইন্সপিরেশন", subtitle: "কাস্টমারদের ঘর থেকে কিছু সুন্দর মুহূর্ত" } },
+  { id: "footer_promo", label: "ফুটোর প্রমোশন / CTA", config: { enabled: true, desktop: true, mobile: true, title: "রাঙাও দিয়ে আপনার ঘর সাজান", cta_text: "সব কালেকশন দেখুন", cta_url: "/products", bg_image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80" } },
+];
 
 const defaults = {
   hero_banner: {
-    title: "প্রিমিয়াম গ্যাজেট কালেকশন",
-    subtitle: "বাংলাদেশের সবচেয়ে বিশ্বস্ত গ্যাজেট স্টোর",
-    cta_text: "শপিং শুরু করুন",
-    cta_link: "#products",
-    banner_image_url: "",
-    banner_video_url: "",
-    badge_text: "✦ PREMIUM COLLECTION ✦",
     enabled: true,
+    slides: [
+      {
+        id: "slide-1",
+        title: "প্রিমিয়াম ইসলামিক ও ওয়াল ডেকোর",
+        subtitle: "আপনার ঘরকে রাঙিয়ে তুলুন শৈল্পিক ও ইসলামিক নান্দনিকতায়",
+        description: "",
+        badge_text: "✦ RANGAO PREMIUM DECOR ✦",
+        cta_primary_text: "কালেকশন দেখুন",
+        cta_primary_url: "#products",
+        cta_secondary_text: "যোগাযোগ করুন",
+        cta_secondary_url: "#contact",
+        banner_image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+        banner_video_url: "",
+        overlay_opacity: 0.85,
+        text_align: "left" as const,
+        enabled: true,
+      }
+    ],
   } as HeroBanner,
   contact_info: {
-    phone: "+8801XXXXXXXXX",
-    whatsapp: "8801XXXXXXXXX",
-    email: "info@gadgetgram.com",
+    phone: "01812-345678",
+    whatsapp: "8801812345678",
+    email: "hello@rangao.com.bd",
     address: "ঢাকা, বাংলাদেশ",
-    facebook_url: "",
-    instagram_url: "",
+    facebook_url: "https://facebook.com/rangao",
+    instagram_url: "https://instagram.com/rangao",
+    whatsapp_enabled: true,
+    whatsapp_country_code: "+880",
+    social_links: [
+      { id: "sl-1", platform: "facebook", icon: "Facebook", url: "https://facebook.com/rangao", order: 1, enabled: true },
+      { id: "sl-2", platform: "instagram", icon: "Instagram", url: "https://instagram.com/rangao", order: 2, enabled: true },
+      { id: "sl-3", platform: "youtube", icon: "Youtube", url: "https://youtube.com/rangao", order: 3, enabled: true },
+      { id: "sl-4", platform: "tiktok", icon: "Music", url: "https://tiktok.com/@rangao", order: 4, enabled: true }
+    ]
   } as ContactInfo,
   homepage_sections: {
     show_categories: true,
@@ -64,14 +247,80 @@ const defaults = {
     show_why_choose: true,
     show_testimonials: true,
     show_newsletter: true,
+    show_islamic_collection: true,
+    show_new_arrivals: true,
+    show_best_seller: true,
+    show_offer_banner: false,
+    show_brands: false,
+    show_statistics: true,
   } as HomepageSections,
   store_info: {
-    name: "GadgetGram",
-    phone: "+8801XXXXXXXXX",
-    email: "info@gadgetgram.com",
+    name: "Rangao - রাঙাও",
+    phone: "01812-345678",
+    email: "hello@rangao.com.bd",
     address: "ঢাকা, বাংলাদেশ",
     logo_url: "",
+    mobile_logo_url: "",
+    white_logo_url: "",
+    logo_desktop_width: 140,
+    logo_desktop_height: 40,
+    logo_mobile_width: 100,
+    logo_mobile_height: 30,
+    favicon_url: "",
+    address_line1: "",
+    address_line2: "",
+    city: "Dhaka",
+    district: "Dhaka",
+    country: "Bangladesh",
+    postal_code: "",
+    website_url: "https://rangao.com.bd"
   } as StoreInfo,
+  trust_features: [
+    { id: "tf-1", icon: "ShieldCheck", title: "১০০% প্রিমিয়াম কোয়ালিটি", desc: "সকল প্রোডাক্ট উন্নত মানের প্রিমিয়াম আমদানিকৃত কাঠ ও এক্রিলিক দিয়ে তৈরি।" },
+    { id: "tf-2", icon: "Truck", title: "নিরাপদ ও দ্রুত ডেলিভারি", desc: "প্রতিটি প্রোডাক্ট মজবুত ও বাবল র‍্যাপড বক্সে দ্রুত ডেলিভারি।" },
+    { id: "tf-3", icon: "Headset", title: "২৪/৭ কাস্টমার সাপোর্ট", desc: "যেকোনো সাহায্য বা কাস্টমাইজেশনে আমাদের টিম সবসময় পাশে।" },
+    { id: "tf-4", icon: "RotateCcw", title: "রিপ্লেসমেন্ট পলিসি", desc: "ডেলিভারিতে ড্যামেজ হলে দ্রুত রিপ্লেসমেন্ট সুবিধা।" },
+    { id: "tf-5", icon: "Banknote", title: "ক্যাশ অন ডেলিভারি", desc: "পণ্য হাতে পেয়ে দেখে মূল্য পরিশোধ করুন।" },
+    { id: "tf-6", icon: "MapPin", title: "সারা বাংলাদেশে ডেলিভারি", desc: "ঢাকা সহ সারা বাংলাদেশে হোম ডেলিভারি সার্ভিস।" },
+  ] as TrustFeatureItem[],
+  offer_banner: {
+    enabled: false,
+    bg_image: "",
+    mobile_image: "",
+    title: "বিশেষ অফার",
+    subtitle: "সীমিত সময়ের জন্য বিশেষ ছাড়!",
+    coupon_code: "",
+    button_text: "অফার দেখুন",
+    button_url: "/products",
+    start_date: "",
+    end_date: "",
+    show_countdown: true,
+  } as OfferBanner,
+  newsletter: {
+    title: "আমাদের নিউজলেটারে সাবস্ক্রাইব করুন",
+    subtitle: "নতুন প্রোডাক্ট ও বিশেষ অফারের আপডেট পেতে ইমেইল দিন",
+    placeholder: "আপনার ইমেইল লিখুন",
+    button_text: "সাবস্ক্রাইব করুন",
+  } as NewsletterConfig,
+  homepage_seo: {
+    meta_title: "Rangao – রাঙাও | প্রিমিয়াম ইসলামিক ও হোম ডেকোর",
+    meta_description: "রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি, ওয়াল আর্ট ও হোম ডেকোর স্টোর।",
+    meta_keywords: "ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি",
+    og_image: "",
+  } as HomepageSEO,
+  statistics: {
+    mode: "auto",
+    customers: 5000,
+    orders: 10000,
+    reviews: 4800,
+    products: 200,
+  } as StatisticsConfig,
+  homepage_gallery: [
+    { id: "g-1", image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80", title: "লিভিং রুম ক্যালিগ্রাফি ডেকোর", link: "/products" },
+    { id: "g-2", image_url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80", title: "বেডরুম উডেন ওয়াল আর্ট", link: "/products" },
+    { id: "g-3", image_url: "https://images.unsplash.com/photo-1617806118233-18e1db207f62?auto=format&fit=crop&w=600&q=80", title: "নিকাহনামা ফ্রেম কালেকশন", link: "/products" }
+  ] as GalleryItem[],
+  homepage_section_order: DEFAULT_SECTION_ORDER,
 };
 
 export function useStoreSettings() {
@@ -89,13 +338,61 @@ export function useStoreSettings() {
         });
       }
 
+      // Merge hero_banner: handle both legacy (single slide) and new (slides array) format
+      let heroBanner = { ...defaults.hero_banner, ...settings.hero_banner } as HeroBanner;
+      if (!heroBanner.slides || heroBanner.slides.length === 0) {
+        // Legacy: convert single-slide to slides array
+        heroBanner.slides = [
+          {
+            id: "slide-1",
+            title: heroBanner.title || defaults.hero_banner.slides[0].title,
+            subtitle: heroBanner.subtitle || defaults.hero_banner.slides[0].subtitle,
+            description: "",
+            badge_text: heroBanner.badge_text || defaults.hero_banner.slides[0].badge_text,
+            cta_primary_text: heroBanner.cta_text || defaults.hero_banner.slides[0].cta_primary_text,
+            cta_primary_url: heroBanner.cta_link || defaults.hero_banner.slides[0].cta_primary_url,
+            cta_secondary_text: "যোগাযোগ করুন",
+            cta_secondary_url: "#contact",
+            banner_image_url: heroBanner.banner_image_url || defaults.hero_banner.slides[0].banner_image_url,
+            banner_video_url: heroBanner.banner_video_url || "",
+            overlay_opacity: 0.85,
+            text_align: "left" as const,
+            enabled: true,
+          }
+        ];
+      }
+
+      // Populate top-level fields from the first slide to support components reading directly
+      if (heroBanner.slides && heroBanner.slides.length > 0) {
+        const firstSlide = heroBanner.slides[0];
+        heroBanner.title = firstSlide.title;
+        heroBanner.subtitle = firstSlide.subtitle;
+        heroBanner.badge_text = firstSlide.badge_text;
+        heroBanner.cta_text = firstSlide.cta_primary_text;
+        heroBanner.cta_link = firstSlide.cta_primary_url;
+        heroBanner.banner_image_url = firstSlide.banner_image_url;
+        heroBanner.banner_video_url = firstSlide.banner_video_url;
+      }
+
+      const sectionOrder: HomepageSectionOrder[] = settings.homepage_section_order || defaults.homepage_section_order;
+
       return {
-        heroBanner: { ...defaults.hero_banner, ...settings.hero_banner } as HeroBanner,
+        heroBanner,
         contactInfo: { ...defaults.contact_info, ...settings.contact_info } as ContactInfo,
         homepageSections: { ...defaults.homepage_sections, ...settings.homepage_sections } as HomepageSections,
         storeInfo: { ...defaults.store_info, ...settings.store_info } as StoreInfo,
+        trustFeatures: (settings.trust_features || defaults.trust_features) as TrustFeatureItem[],
+        offerBanner: { ...defaults.offer_banner, ...settings.offer_banner } as OfferBanner,
+        newsletter: { ...defaults.newsletter, ...settings.newsletter } as NewsletterConfig,
+        homepageSEO: { ...defaults.homepage_seo, ...settings.homepage_seo } as HomepageSEO,
+        statistics: { ...defaults.statistics, ...settings.statistics } as StatisticsConfig,
+        homepageGallery: (settings.homepage_gallery || defaults.homepage_gallery) as GalleryItem[],
+        sectionOrder,
       };
     },
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export type { HomepageSectionOrder };
+export { DEFAULT_SECTION_ORDER };

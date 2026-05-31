@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, X, Upload, Image as ImageIcon, GripVertical, Star, Trash2, Save, Eye, Loader2 } from "lucide-react";
+import MediaPicker from "@/components/MediaPicker";
 
 interface SpecItem {
   label: string;
@@ -46,6 +47,7 @@ export default function ProductForm() {
   const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   const { data: categories } = useQuery({
     queryKey: ["categories-list"],
@@ -323,9 +325,14 @@ export default function ProductForm() {
 
       {/* Image Upload */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">🖼️ প্রোডাক্টের ছবি আপলোড</CardTitle>
-          <CardDescription>সর্বোচ্চ ২০টি ছবি আপলোড করুন (JPG, PNG, WEBP | সর্বোচ্চ ৫MB)</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="text-lg">🖼️ প্রোডাক্টের ছবি আপলোড</CardTitle>
+            <CardDescription>সর্বোচ্চ ২০টি ছবি আপলোড করুন (JPG, PNG, WEBP | সর্বোচ্চ ৫MB)</CardDescription>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1 text-xs" onClick={() => setShowPicker(true)}>
+            📂 মিডিয়া লাইব্রেরি থেকে সিলেক্ট
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div
@@ -600,6 +607,16 @@ export default function ProductForm() {
           )}
         </Button>
       </div>
+
+      <MediaPicker 
+        isOpen={showPicker}
+        onClose={() => setShowPicker(false)}
+        onSelect={(url) => {
+          setForm((f) => ({ ...f, images: [...f.images, url] }));
+          setShowPicker(false);
+        }}
+        type="images"
+      />
     </div>
   );
 }

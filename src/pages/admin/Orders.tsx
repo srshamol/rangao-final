@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import OrderConfirmModal from "@/components/admin/OrderConfirmModal";
 import CourierResultCards from "@/components/admin/CourierResultCards";
 
+import { checkCourier } from "@/lib/integrations/bdcourier";
+
 const statusLabels: Record<string, string> = {
   pending: "পেন্ডিং", confirmed: "কনফার্মড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
   shipped: "শিপড", delivered: "ডেলিভারড", cancelled: "ক্যান্সেলড", courier_cancelled: "কুরিয়ার ক্যান্সেলড",
@@ -94,8 +96,7 @@ export default function AdminOrders() {
     setCourierLoading(orderId);
     setExpandedCourier(orderId);
     try {
-      const { data, error } = await supabase.functions.invoke("courier-check", { body: { phone } });
-      if (error) throw error;
+      const data = await checkCourier(phone);
       setCourierResults(prev => ({ ...prev, [phone]: data }));
     } catch (e: any) {
       toast({ title: "কুরিয়ার চেক ব্যর্থ", description: e.message, variant: "destructive" });
@@ -107,9 +108,25 @@ export default function AdminOrders() {
 
   const getMiniStats = (phone: string) => {
     const r = courierResults[phone];
-    if (!r?.courierData?.summary) return null;
-    const s = r.courierData.summary;
-    return { total: s.total_parcel, success: s.success_parcel, cancel: s.cancelled_parcel };
+    if (!r) return null;
+    
+    // Nested format (check both courierData and data keys)
+    const courierObj = r.courierData || r.data;
+    if (courierObj?.summary) {
+      const s = courierObj.summary;
+      return { total: s.total_parcel, success: s.success_parcel, cancel: s.cancelled_parcel };
+    }
+    
+    // Direct BDCourier root-level format
+    if (r.total_orders !== undefined || r.total_parcel !== undefined || r.success_ratio !== undefined) {
+      return {
+        total: r.total_orders ?? r.total_parcel ?? 0,
+        success: r.successful_orders ?? r.success_parcel ?? 0,
+        cancel: r.returned_orders ?? r.cancelled_parcel ?? 0
+      };
+    }
+    
+    return null;
   };
 
   const sendToSteadfast = async (order: any) => {
@@ -440,231 +457,233 @@ export default function AdminOrders() {
             <p className="text-center py-8 text-muted-foreground">লোড হচ্ছে...</p>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8">
-                      <Checkbox
-                        checked={inReviewOrders.length > 0 && inReviewOrders.every((o: any) => selectedIds.has(o.id))}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedIds(new Set(inReviewOrders.map((o: any) => o.id)));
-                          } else {
-                            setSelectedIds(new Set());
-                          }
-                        }}
-                      />
-                    </TableHead>
-                    <TableHead className="w-6"></TableHead>
-                    <TableHead>অর্ডার</TableHead>
-                    <TableHead>কাস্টমার</TableHead>
-                    <TableHead>ফোন</TableHead>
-                    <TableHead>প্রোডাক্ট</TableHead>
-                    <TableHead>টোটাল</TableHead>
-                    <TableHead>স্ট্যাটাস</TableHead>
-                    <TableHead>অ্যাকশন</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.orders.map((order: any) => {
-                    const mini = getMiniStats(order.customer_phone);
-                    return (
-                      <Fragment key={order.id}>
-                        <TableRow>
-                          <TableCell className="pr-0">
-                            {order.order_status === "in_review" ? (
-                              <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
-                            ) : <div className="w-4" />}
-                          </TableCell>
-                          <TableCell className="pr-0">
-                            <div className={`w-2.5 h-2.5 rounded-full ${statusDotColors[order.order_status] || "bg-gray-400"}`} />
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-xs font-medium">{order.order_number}</span>
-                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString("bn-BD")}</p>
-                          </TableCell>
-                          <TableCell className="font-medium">{order.customer_name}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm">{order.customer_phone}</span>
-                              <Button variant="ghost" size="icon" className="h-6 w-6"
-                                onClick={() => checkCourierInline(order.id, order.customer_phone)} title="কুরিয়ার চেক">
-                                {courierLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : expandedCourier === order.id ? <ChevronUp className="h-3.5 w-3.5" />
-                                  : <Truck className="h-3.5 w-3.5" />}
-                              </Button>
-                            </div>
-                            {mini && (
-                              <div className="flex gap-1.5 mt-0.5">
-                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">📦 {mini.total}</span>
-                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">✓ {mini.success}</span>
-                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">✗ {mini.cancel}</span>
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const orderItems = (order as any).order_items || [];
-                              if (!orderItems.length) return <span className="text-xs text-muted-foreground">—</span>;
-                              const first = orderItems[0];
-                              const img = first.product_id
-                                ? data?.productImages?.[first.product_id]
-                                : data?.productImages?.[`name:${first.product_name}`] || null;
-                              const totalQty = orderItems.reduce((s: number, i: any) => s + i.quantity, 0);
-                              return (
-                                <div className="flex items-center gap-2">
-                                  {img ? (
-                                    <img src={img} alt="" className="w-8 h-8 rounded object-cover border" />
-                                  ) : (
-                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-xs">📦</div>
-                                  )}
-                                  <div>
-                                    <p className="text-xs font-medium leading-tight line-clamp-1">{first.product_name}</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                      {totalQty}টি{orderItems.length > 1 ? ` · ${orderItems.length} আইটেম` : ""}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell className="font-semibold">৳{Number(order.total_amount).toLocaleString()}</TableCell>
-                          <TableCell>
-                            <Badge className={statusColors[order.order_status] || ""} variant="outline">
-                              {statusLabels[order.order_status] || order.order_status}
-                            </Badge>
-                            {order.order_status === "processing" && (order.shipping_address as any)?.consignment_id && (
-                              <p className="text-[10px] font-mono text-purple-600 mt-0.5">
-                                Parcel Id: #{(order.shipping_address as any).consignment_id}
-                              </p>
-                            )}
-                            {(order.order_status === "shipped" || order.order_status === "delivered") && (order.shipping_address as any)?.tracking_number && (
-                              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                                🚚 {(order.shipping_address as any).tracking_number}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-0.5 flex-wrap">
-                              {/* Status-specific primary actions */}
-                              {order.order_status === "pending" && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-primary"
-                                    onClick={() => setConfirmOrder(order)} title="কনফার্ম">
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                    onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteTarget(order)} title="ডিলিট">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {order.order_status === "confirmed" && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-500"
-                                    onClick={() => sendToSteadfast(order)} title="Steadfast-এ পাঠান"
-                                    disabled={steadfastLoading === order.id}>
-                                    {steadfastLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                    onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {order.order_status === "in_review" && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-500"
-                                    onClick={() => sendToSteadfast(order)} title="Steadfast-এ পাঠান"
-                                    disabled={steadfastLoading === order.id}>
-                                    {steadfastLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                    onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {(order.order_status === "processing" || order.order_status === "shipped") && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="ট্র্যাক">
-                                    <MapPin className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                    onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {order.order_status === "delivered" && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => navigate(`/admin/orders/${order.id}`)} title="ভিউ">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"
-                                    onClick={() => restoreOrder(order.id)} title="রিস্টোর">
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {order.order_status === "cancelled" && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"
-                                    onClick={() => restoreOrder(order.id)} title="রিস্টোর">
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteTarget(order)} title="ডিলিট">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {/* Common quick contact */}
-                              <a href={`tel:${order.customer_phone}`} title="কল">
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600">
-                                  <Phone className="h-3.5 w-3.5" />
-                                </Button>
-                              </a>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        {expandedCourier === order.id && courierResults[order.customer_phone] && (
+              <div className="w-full overflow-x-auto -mx-0">
+                <Table className="min-w-[780px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox
+                          checked={inReviewOrders.length > 0 && inReviewOrders.every((o: any) => selectedIds.has(o.id))}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIds(new Set(inReviewOrders.map((o: any) => o.id)));
+                            } else {
+                              setSelectedIds(new Set());
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead className="w-6"></TableHead>
+                      <TableHead>অর্ডার</TableHead>
+                      <TableHead>কাস্টমার</TableHead>
+                      <TableHead>ফোন</TableHead>
+                      <TableHead>প্রোডাক্ট</TableHead>
+                      <TableHead>টোটাল</TableHead>
+                      <TableHead>স্ট্যাটাস</TableHead>
+                      <TableHead>অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.orders.map((order: any) => {
+                      const mini = getMiniStats(order.customer_phone);
+                      return (
+                        <Fragment key={order.id}>
                           <TableRow>
-                            <TableCell colSpan={9} className="bg-muted/20 p-4">
-                              <CourierResultCards data={courierResults[order.customer_phone]} />
+                            <TableCell className="pr-0">
+                              {order.order_status === "in_review" ? (
+                                <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
+                              ) : <div className="w-4" />}
+                            </TableCell>
+                            <TableCell className="pr-0">
+                              <div className={`w-2.5 h-2.5 rounded-full ${statusDotColors[order.order_status] || "bg-gray-400"}`} />
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-mono text-xs font-medium">{order.order_number}</span>
+                              <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString("bn-BD")}</p>
+                            </TableCell>
+                            <TableCell className="font-medium">{order.customer_name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm">{order.customer_phone}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6"
+                                  onClick={() => checkCourierInline(order.id, order.customer_phone)} title="কুরিয়ার চেক">
+                                  {courierLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    : expandedCourier === order.id ? <ChevronUp className="h-3.5 w-3.5" />
+                                    : <Truck className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
+                              {mini && (
+                                <div className="flex gap-1.5 mt-0.5">
+                                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">📦 {mini.total}</span>
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">✓ {mini.success}</span>
+                                  <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">✗ {mini.cancel}</span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const orderItems = (order as any).order_items || [];
+                                if (!orderItems.length) return <span className="text-xs text-muted-foreground">—</span>;
+                                const first = orderItems[0];
+                                const img = first.product_id
+                                  ? data?.productImages?.[first.product_id]
+                                  : data?.productImages?.[`name:${first.product_name}`] || null;
+                                const totalQty = orderItems.reduce((s: number, i: any) => s + i.quantity, 0);
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    {img ? (
+                                      <img src={img} alt="" className="w-8 h-8 rounded object-cover border" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-xs">📦</div>
+                                    )}
+                                    <div>
+                                      <p className="text-xs font-medium leading-tight line-clamp-1">{first.product_name}</p>
+                                      <p className="text-[10px] text-muted-foreground">
+                                        {totalQty}টি{orderItems.length > 1 ? ` · ${orderItems.length} আইটেম` : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="font-semibold">৳{Number(order.total_amount).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Badge className={statusColors[order.order_status] || ""} variant="outline">
+                                {statusLabels[order.order_status] || order.order_status}
+                              </Badge>
+                              {order.order_status === "processing" && (order.shipping_address as any)?.consignment_id && (
+                                <p className="text-[10px] font-mono text-purple-600 mt-0.5">
+                                  Parcel Id: #{(order.shipping_address as any).consignment_id}
+                                </p>
+                              )}
+                              {(order.order_status === "shipped" || order.order_status === "delivered") && (order.shipping_address as any)?.tracking_number && (
+                                <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                  🚚 {(order.shipping_address as any).tracking_number}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-0.5 flex-wrap">
+                                {/* Status-specific primary actions */}
+                                {order.order_status === "pending" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-primary"
+                                      onClick={() => setConfirmOrder(order)} title="কনফার্ম">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteTarget(order)} title="ডিলিট">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {order.order_status === "confirmed" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-500"
+                                      onClick={() => sendToSteadfast(order)} title="Steadfast-এ পাঠান"
+                                      disabled={steadfastLoading === order.id}>
+                                      {steadfastLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {order.order_status === "in_review" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-500"
+                                      onClick={() => sendToSteadfast(order)} title="Steadfast-এ পাঠান"
+                                      disabled={steadfastLoading === order.id}>
+                                      {steadfastLoading === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {(order.order_status === "processing" || order.order_status === "shipped") && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="ট্র্যাক">
+                                      <MapPin className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {order.order_status === "delivered" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="ভিউ">
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"
+                                      onClick={() => restoreOrder(order.id)} title="রিস্টোর">
+                                      <RotateCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {order.order_status === "cancelled" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"
+                                      onClick={() => restoreOrder(order.id)} title="রিস্টোর">
+                                      <RotateCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteTarget(order)} title="ডিলিট">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {/* Common quick contact */}
+                                <a href={`tel:${order.customer_phone}`} title="কল">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600">
+                                    <Phone className="h-3.5 w-3.5" />
+                                  </Button>
+                                </a>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                  {data?.orders.length === 0 && (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">কোনো অর্ডার নেই</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                          {expandedCourier === order.id && courierResults[order.customer_phone] && (
+                            <TableRow>
+                              <TableCell colSpan={9} className="bg-muted/20 p-4">
+                                <CourierResultCards data={courierResults[order.customer_phone]} />
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                    {data?.orders.length === 0 && (
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">কোনো অর্ডার নেই</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Quick Stats Footer */}
               <div className="mt-4 p-3 bg-muted/30 rounded-lg">

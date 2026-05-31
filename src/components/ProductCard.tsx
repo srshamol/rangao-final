@@ -1,16 +1,58 @@
 import { Button } from "@/components/ui/button";
-import { type Product, formatPrice, getStockLabel } from "@/data/products";
 import { motion } from "framer-motion";
 import { Eye, GitCompareArrows, Check, Star, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompare } from "@/context/CompareContext";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
+import type { DBProduct } from "@/hooks/useHomepageData";
 
+// Unified product shape accepted by the card
+export interface CardProduct {
+  id: string;
+  name: string;
+  shortDescription: string;
+  price: number;
+  originalPrice?: number;
+  images: string[];
+  stock: number;
+  featured: boolean;
+  rating: number;
+  reviewCount: number;
+  category: string;
+}
+
+/** Convert Supabase DBProduct → CardProduct */
+export function dbToCard(p: DBProduct): CardProduct {
+  return {
+    id: p.id,
+    name: p.name,
+    shortDescription: p.description?.slice(0, 120) || "",
+    price: p.sale_price ?? p.regular_price,
+    originalPrice: p.sale_price ? p.regular_price : undefined,
+    images: p.images?.length ? p.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
+    stock: p.stock_quantity,
+    featured: p.featured,
+    rating: p.rating || 0,
+    reviewCount: p.review_count || 0,
+    category: p.category,
+  };
+}
+
+function getStockLabel(stock: number) {
+  if (stock === 0) return { text: "স্টক শেষ" };
+  if (stock <= 5) return { text: `মাত্র ${stock}টি বাকি` };
+  return { text: "স্টকে আছে" };
+}
+
+function formatPrice(price: number | undefined | null) {
+  if (price === undefined || price === null) return "৳০";
+  return `৳${price.toLocaleString("bn-BD")}`;
+}
 
 interface Props {
-  product: Product;
-  onDetails?: (product: Product) => void;
+  product: CardProduct;
+  onDetails?: (product: CardProduct) => void;
   index: number;
 }
 
@@ -21,9 +63,7 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
   const { addToCart } = useCart();
   const inCompare = isInCompare(product.id);
 
-  const handleClick = () => {
-    navigate(`/product/${product.id}`);
-  };
+  const handleClick = () => navigate(`/product/${product.id}`);
 
   const handleCompareToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,14 +71,14 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
       removeFromCompare(product.id);
       toast.info(`${product.name} তুলনা থেকে সরানো হয়েছে`);
     } else {
-      addToCompare(product);
+      addToCompare(product as any);
       toast.success(`${product.name} তুলনায় যোগ হয়েছে`);
     }
   };
 
   const handleOrder = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addToCart(product);
+    addToCart(product as any);
     toast.success(`${product.name} কার্টে যোগ হয়েছে`);
   };
 
@@ -49,10 +89,9 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
       viewport={{ once: true }}
       transition={{ delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -8 }}
-      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card shadow-premium-xl transition-all duration-500 hover:border-accent/25 hover:shadow-card-hover"
+      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card shadow-[0_2px_20px_-4px_hsl(var(--foreground)/0.08)] transition-all duration-500 hover:border-accent/25 hover:shadow-[0_12px_40px_-8px_hsl(var(--foreground)/0.2)]"
       onClick={handleClick}
     >
-      {/* Gradient border glow on hover */}
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent/10 via-transparent to-accent/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none" />
 
       {/* Image */}
@@ -64,18 +103,16 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
           loading="lazy"
         />
 
-        {/* Hover overlay */}
         <div className="absolute inset-0 flex items-center justify-center bg-primary/0 transition-all duration-500 group-hover:bg-primary/25">
           <motion.div
             initial={false}
-            className="rounded-full bg-background/95 px-6 py-2.5 text-sm font-semibold text-foreground opacity-0 shadow-premium-lg backdrop-blur-md transition-all duration-300 group-hover:opacity-100 scale-90 group-hover:scale-100"
+            className="rounded-full bg-background/95 px-6 py-2.5 text-sm font-semibold text-foreground opacity-0 shadow-lg backdrop-blur-md transition-all duration-300 group-hover:opacity-100 scale-90 group-hover:scale-100"
           >
             <Eye className="mr-2 inline-block h-4 w-4" /> ডিটেলস দেখুন
           </motion.div>
         </div>
 
-        {/* Badges */}
-        {product.originalPrice && (
+        {product.originalPrice && product.price && (
           <span className="absolute left-3 top-3 rounded-full bg-destructive px-3 py-1 text-[11px] font-bold text-destructive-foreground shadow-md">
             {Math.round((1 - product.price / product.originalPrice) * 100)}% ছাড়
           </span>
@@ -85,12 +122,11 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
             ? "bg-destructive/90 text-destructive-foreground"
             : product.stock <= 5
             ? "bg-amber-500/90 text-primary-foreground"
-            : "bg-success/90 text-success-foreground"
+            : "bg-emerald-500/90 text-white"
         }`}>
           {stock.text}
         </div>
 
-        {/* Compare button */}
         <button
           onClick={handleCompareToggle}
           className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full shadow-md backdrop-blur-md transition-all duration-300 ${
@@ -105,43 +141,42 @@ const ProductCard = ({ product, onDetails, index }: Props) => {
       </div>
 
       {/* Content */}
-      <div className="relative p-5 md:p-6">
-        {/* Rating */}
-        <div className="mb-2 flex items-center gap-1.5">
+      <div className="relative p-3.5 md:p-5">
+        <div className="mb-1.5 flex items-center gap-1.5">
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                className={`h-3.5 w-3.5 ${i < Math.round(product.rating) ? "fill-accent text-accent" : "text-border"}`}
+                className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i < Math.round(product.rating) ? "fill-accent text-accent" : "text-border"}`}
               />
             ))}
           </div>
-          <span className="text-[11px] font-medium text-muted-foreground">({product.reviewCount})</span>
+          <span className="text-[10px] font-medium text-muted-foreground">({product.reviewCount})</span>
         </div>
 
-        <h3 className="font-display text-base font-bold leading-snug text-card-foreground md:text-lg">{product.name}</h3>
-        <p className="mt-2 font-bengali text-sm leading-relaxed text-muted-foreground line-clamp-2">{product.shortDescription}</p>
+        <h3 className="font-display text-sm md:text-base font-bold leading-snug text-card-foreground line-clamp-2 min-h-[2.5rem] md:min-h-[2.75rem]">{product.name}</h3>
+        <p className="mt-1 text-xs md:text-sm leading-relaxed text-muted-foreground line-clamp-1 md:line-clamp-2">{product.shortDescription}</p>
 
-        <div className="mt-4 flex items-baseline gap-2.5">
-          <span className="font-display text-2xl font-extrabold text-foreground">{formatPrice(product.price)}</span>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="font-display text-lg md:text-xl font-extrabold text-foreground">{formatPrice(product.price)}</span>
           {product.originalPrice && (
-            <span className="text-sm text-muted-foreground/70 line-through">{formatPrice(product.originalPrice)}</span>
+            <span className="text-[10px] md:text-xs text-muted-foreground/70 line-through">{formatPrice(product.originalPrice)}</span>
           )}
         </div>
 
-        <div className="mt-5 flex gap-2.5">
+        <div className="mt-4 flex gap-1.5">
           <Button
             onClick={(e) => { e.stopPropagation(); handleClick(); }}
-            className="flex-1 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-premium"
-            size="lg"
+            className="flex-1 rounded-xl bg-primary text-xs font-semibold text-primary-foreground transition-all duration-300 hover:bg-primary/90 h-9 md:h-11"
+            size="sm"
             disabled={product.stock === 0}
           >
-            ডিটেলস দেখুন
+            ডিটেলস
           </Button>
           <Button
             onClick={handleOrder}
-            className="rounded-xl bg-accent px-4 text-accent-foreground shadow-gold transition-all duration-300 hover:bg-accent/90 hover:shadow-gold-lg"
-            size="lg"
+            className="rounded-xl bg-accent px-3 text-accent-foreground shadow-[0_0_20px_-4px_hsl(var(--accent)/0.5)] transition-all duration-300 hover:bg-accent/90 h-9 md:h-11"
+            size="sm"
             disabled={product.stock === 0}
           >
             <ShoppingBag className="h-4 w-4" />

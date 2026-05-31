@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { products, formatPrice, getStockLabel, getWhatsAppLink, PHONE_NUMBER } from "@/data/products";
+import { formatPrice, getStockLabel, getWhatsAppLink, PHONE_NUMBER } from "@/data/products";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import {
   MessageCircle, Phone, Star, ChevronLeft, ShieldCheck, Truck, Headset,
   ArrowRight, Check, Minus, Plus, ShoppingCart, Banknote, Heart, Share2,
-  ZoomIn, Package, Award, Clock,
+  ZoomIn, Package, Award, Clock, Loader2
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -15,11 +15,78 @@ import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import CodOrderModal from "@/components/CodOrderModal";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === id);
+
+  // Query product details dynamically from Supabase
+  const { data: dbProduct, isLoading } = useQuery({
+    queryKey: ["product-detail", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id
+  });
+
+  const product = useMemo(() => {
+    if (!dbProduct) return null;
+    return {
+      id: dbProduct.id,
+      name: dbProduct.name,
+      shortDescription: dbProduct.description?.slice(0, 120) || "প্রিমিয়াম কোয়ালিটির ইসলামিক ও হোম ডেকোর প্রোডাক্ট।",
+      fullDescription: dbProduct.description || "",
+      price: dbProduct.sale_price ?? dbProduct.regular_price,
+      originalPrice: dbProduct.sale_price ? dbProduct.regular_price : undefined,
+      images: dbProduct.images?.length ? dbProduct.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
+      stock: dbProduct.stock_quantity ?? 10,
+      rating: dbProduct.rating || 4.9,
+      reviewCount: dbProduct.review_count || 48,
+      category: dbProduct.category || "",
+      categoryLabel: dbProduct.category === "wall-canvas" ? "ওয়াল ক্যানভাস" : dbProduct.category === "calligraphy-art" ? "ক্যালিগ্রাফি আর্ট" : "হোম ডেকোর",
+      features: dbProduct.tags || ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
+      specs: [
+        { label: "উপাদান", value: "প্রিমিয়াম উড / অ্যাক্রিলিক" },
+        { label: "অরিজিন", value: "বাংলাদেশ" },
+        { label: "ফিনিশিং", value: "ম্যাট লেজার কাট" }
+      ]
+    };
+  }, [dbProduct]);
+
+  // Query related products dynamically from Supabase
+  const { data: dbRelatedProducts = [] } = useQuery({
+    queryKey: ["related-products", product?.category, id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("category", product!.category)
+        .neq("id", id)
+        .limit(4);
+      return data || [];
+    },
+    enabled: !!product?.category
+  });
+
+  const relatedProducts = useMemo(() => {
+    return dbRelatedProducts.map((rp) => ({
+      id: rp.id,
+      name: rp.name,
+      price: rp.sale_price ?? rp.regular_price,
+      originalPrice: rp.sale_price ? rp.regular_price : undefined,
+      images: rp.images?.length ? rp.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
+      rating: rp.rating || 4.9,
+    }));
+  }, [dbRelatedProducts]);
+
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [codModalOpen, setCodModalOpen] = useState(false);
@@ -40,6 +107,19 @@ const ProductDetail = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container flex min-h-[50vh] flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">প্রোডাক্ট লোড হচ্ছে...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen bg-background">
@@ -54,9 +134,6 @@ const ProductDetail = () => {
   }
 
   const stock = getStockLabel(product.stock);
-  const relatedProducts = products.filter(
-    (p) => p.category === product.category && p.id !== product.id
-  );
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;

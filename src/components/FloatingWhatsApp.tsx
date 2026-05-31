@@ -8,7 +8,7 @@ const FloatingWhatsApp = () => {
   const { data: settings } = useStoreSettings();
   const whatsapp = settings?.contactInfo?.whatsapp || "8801XXXXXXXXX";
 
-  const link = `https://wa.me/${whatsapp}?text=${encodeURIComponent("হ্যালো, আমি GadgetGram থেকে একটি প্রোডাক্ট সম্পর্কে জানতে চাই।")}`;
+  const link = `https://wa.me/${whatsapp}?text=${encodeURIComponent("হ্যালো, আমি Rangao থেকে একটি প্রোডাক্ট সম্পর্কে জানতে চাই।")}`;
 
   return (
     <motion.div

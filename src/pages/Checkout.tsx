@@ -223,15 +223,15 @@ const Checkout = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">নাম *</label>
-                      <Input name="name" value={form.name} onChange={handleChange} placeholder="আপনার নাম" className="rounded-xl" required />
+                      <Input name="name" value={form.name} onChange={handleChange} placeholder="আপনার নাম" className="h-11 rounded-xl" required />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">ফোন নাম্বার *</label>
-                      <Input name="phone" value={form.phone} onChange={handleChange} placeholder="01XXXXXXXXX" className="rounded-xl" required />
+                      <Input name="phone" value={form.phone} onChange={handleChange} placeholder="01XXXXXXXXX" className="h-11 rounded-xl" required />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">ইমেইল</label>
-                      <Input name="email" type="email" value={form.email} onChange={handleChange} placeholder="email@example.com" className="rounded-xl" />
+                      <Input name="email" type="email" value={form.email} onChange={handleChange} placeholder="email@example.com" className="h-11 rounded-xl" />
                     </div>
                   </div>
                 </motion.div>
@@ -242,18 +242,18 @@ const Checkout = () => {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">বিভাগ *</label>
-                      <select name="division" value={form.division} onChange={handleChange} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" required>
+                      <select name="division" value={form.division} onChange={handleChange} className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" required>
                         <option value="">বিভাগ নির্বাচন করুন</option>
                         {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">জেলা</label>
-                      <Input name="district" value={form.district} onChange={handleChange} placeholder="জেলা" className="rounded-xl" />
+                      <Input name="district" value={form.district} onChange={handleChange} placeholder="জেলা" className="h-11 rounded-xl" />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">থানা/উপজেলা</label>
-                      <Input name="thana" value={form.thana} onChange={handleChange} placeholder="থানা" className="rounded-xl" />
+                      <Input name="thana" value={form.thana} onChange={handleChange} placeholder="থানা" className="h-11 rounded-xl" />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">বিস্তারিত ঠিকানা *</label>
@@ -272,7 +272,7 @@ const Checkout = () => {
                 {/* Payment */}
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-4 rounded-2xl border bg-card p-6">
                   <h2 className="font-display text-lg font-bold text-card-foreground">পেমেন্ট মেথড</h2>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {([
                       { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote },
                       { id: "bkash" as const, label: "bKash", icon: Smartphone },
@@ -282,13 +282,13 @@ const Checkout = () => {
                         key={id}
                         type="button"
                         onClick={() => setPayment(id)}
-                        className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-sm font-medium transition-all ${
+                        className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 sm:p-4 text-xs sm:text-sm font-medium transition-all ${
                           payment === id
                             ? "border-accent bg-accent/5 text-foreground"
                             : "border-border text-muted-foreground hover:border-accent/50"
                         }`}
                       >
-                        <Icon className="h-6 w-6" />
+                        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                         {label}
                       </button>
                     ))}

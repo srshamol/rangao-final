@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, ShoppingCart, Warehouse, Ticket, Settings,
   LogOut, FolderTree, DollarSign, Users, ChevronDown, Clock, Truck,
-  PackageCheck, AlertTriangle, Home, Shield,
+  PackageCheck, AlertTriangle, Home, Shield, Star, Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,8 +38,13 @@ const orderSubItems = [
 
 const bottomItems = [
   { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
+  { title: "টেস্টিমোনিয়াল", url: "/admin/testimonials", icon: Star },
+  { title: "ব্র্যান্ডস", url: "/admin/brands", icon: Shield },
+  { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
   { title: "প্রোডাক্ট", url: "/admin/products", icon: Package },
   { title: "ক্যাটাগরি", url: "/admin/categories", icon: FolderTree },
+  { title: "মিডিয়া লাইব্রেরি", url: "/admin/media-library", icon: FolderTree },
+  { title: "স্টোরেজ ডায়াগনস্টিকস", url: "/admin/settings/storage-diagnostics", icon: Shield },
   { title: "ইনভেন্টরি", url: "/admin/inventory", icon: Warehouse },
   { title: "কুপন", url: "/admin/coupons", icon: Ticket },
   { title: "ফাইন্যান্স", url: "/admin/finance", icon: DollarSign },
@@ -48,21 +53,27 @@ const bottomItems = [
   { title: "অর্ডার কন্ট্রোল", url: "/admin/order-control", icon: Shield },
 ];
 
+import { useStoreSettings } from "@/hooks/useStoreSettings";
+
 export default function AdminSidebar() {
   const { signOut, user } = useAuth();
   const [ordersOpen, setOrdersOpen] = useState(true);
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { data: settings } = useStoreSettings();
+
+  const faviconUrl = settings?.storeInfo?.favicon_url;
+  const businessName = settings?.storeInfo?.name ? settings.storeInfo.name.split(" - ")[0] : "Rangao";
 
   const { data: incompleteCount = 0 } = useQuery({
     queryKey: ["incomplete-orders-count"],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data: countData, error } = await supabase
         .from("incomplete_orders" as any)
         .select("*", { count: "exact", head: true })
         .in("status", ["abandoned", "contacted"]);
       if (error) return 0;
-      return count || 0;
+      return countData?.length || 0;
     },
     refetchInterval: 60_000,
   });
@@ -83,19 +94,30 @@ export default function AdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "px-2 py-4 justify-center" : "px-5 py-5"}>
-            <div className="flex items-center gap-2.5">
+        {/* Sidebar Brand Header */}
+        <div className={collapsed ? "px-2 py-5 flex justify-center" : "px-5 pt-6 pb-6"}>
+          <div className="flex items-center gap-2.5">
+            {faviconUrl ? (
+              <img 
+                src={faviconUrl} 
+                alt={businessName} 
+                className="h-9 w-9 shrink-0 rounded-xl object-contain bg-background p-0.5 shadow-sm border border-border/40" 
+              />
+            ) : (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary shadow-gold">
-                <span className="font-display text-base font-extrabold text-sidebar-primary-foreground">G</span>
-              </div>
-              {!collapsed && (
-                <span className="font-display text-base font-extrabold text-sidebar-foreground">
-                  Gadget<span className="text-sidebar-primary">Gram</span>
+                <span className="font-display text-base font-extrabold text-sidebar-primary-foreground">
+                  {businessName[0]?.toUpperCase() || "R"}
                 </span>
-              )}
-            </div>
-          </SidebarGroupLabel>
+              </div>
+            )}
+            {!collapsed && (
+              <span className="font-display text-base font-extrabold text-sidebar-foreground">
+                {businessName}
+              </span>
+            )}
+          </div>
+        </div>
+        <SidebarGroup className="pt-0">
           <SidebarGroupContent className="px-2">
             <SidebarMenu>
               {/* Dashboard */}

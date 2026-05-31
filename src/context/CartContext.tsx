@@ -30,7 +30,7 @@ export const useCart = () => {
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem("gadgetgram-cart");
+      const saved = localStorage.getItem("rangao-cart");
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -39,7 +39,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("gadgetgram-cart", JSON.stringify(items));
+    localStorage.setItem("rangao-cart", JSON.stringify(items));
   }, [items]);
 
   const addToCart = (product: Product, quantity = 1) => {

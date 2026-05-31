@@ -7,15 +7,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { mediaService } from "@/lib/mediaService";
+
+interface CategoryForm {
+  name: string;
+  slug: string;
+  image_url: string;
+  sort_order: number;
+  is_active: boolean;
+  parent_id: string | null;
+}
 
 export default function AdminCategories() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", image_url: "", sort_order: 0, is_active: true });
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState<CategoryForm>({
+    name: "",
+    slug: "",
+    image_url: "",
+    sort_order: 0,
+    is_active: true,
+    parent_id: null,
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const mediaItem = await mediaService.upload(file, "images");
+      if (mediaItem?.url) {
+        setForm(f => ({ ...f, image_url: mediaItem.url }));
+        toast({ title: "ইমেজ আপলোড সফল হয়েছে" });
+      }
+    } catch (err: any) {
+      toast({ title: "ইমেজ আপলোড ব্যর্থ হয়েছে", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories"],
@@ -27,11 +64,17 @@ export default function AdminCategories() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Ensure we convert empty strings to null for parent_id
+      const payload = {
+        ...form,
+        parent_id: form.parent_id || null,
+      };
+
       if (editId) {
-        const { error } = await supabase.from("categories").update(form).eq("id", editId);
+        const { error } = await supabase.from("categories").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("categories").insert(form);
+        const { error } = await supabase.from("categories").insert(payload);
         if (error) throw error;
       }
     },
@@ -56,15 +99,25 @@ export default function AdminCategories() {
   });
 
   const resetForm = () => {
-    setForm({ name: "", slug: "", image_url: "", sort_order: 0, is_active: true });
+    setForm({ name: "", slug: "", image_url: "", sort_order: 0, is_active: true, parent_id: null });
     setEditId(null);
   };
 
   const openEdit = (cat: any) => {
     setEditId(cat.id);
-    setForm({ name: cat.name, slug: cat.slug, image_url: cat.image_url || "", sort_order: cat.sort_order, is_active: cat.is_active });
+    setForm({
+      name: cat.name,
+      slug: cat.slug,
+      image_url: cat.image_url || "",
+      sort_order: cat.sort_order || 0,
+      is_active: cat.is_active !== false,
+      parent_id: cat.parent_id || null,
+    });
     setOpen(true);
   };
+
+  // Filter out the category itself to avoid self-parenting loop
+  const parentCandidates = categories?.filter((c) => c.id !== editId && !c.parent_id) || [];
 
   return (
     <div className="space-y-4">
@@ -88,8 +141,49 @@ export default function AdminCategories() {
                 <Input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
               </div>
               <div>
-                <label className="text-sm font-medium">ইমেজ URL</label>
-                <Input value={form.image_url} onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))} />
+                <label className="text-sm font-medium">প্যারেন্ট ক্যাটাগরি (ঐচ্ছিক)</label>
+                <Select
+                  value={form.parent_id || "none"}
+                  onValueChange={(v) => setForm((f) => ({ ...f, parent_id: v === "none" ? null : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="কোনো প্যারেন্ট নেই" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">কোনো প্যারেন্ট নেই (Main Category)</SelectItem>
+                    {parentCandidates.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">ক্যাটাগরি ইমেজ (URL অথবা আপলোড করুন)</label>
+                <div className="flex gap-2 mt-1">
+                  <Input 
+                    value={form.image_url} 
+                    onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))} 
+                    placeholder="https://example.com/image.jpg"
+                    className="flex-1"
+                  />
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
+                      disabled={uploading}
+                    />
+                    <Button variant="secondary" type="button" disabled={uploading}>
+                      {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "আপলোড"}
+                    </Button>
+                  </div>
+                </div>
+                {form.image_url && (
+                  <div className="mt-2 relative h-16 w-16 overflow-hidden rounded-lg border">
+                    <img src={form.image_url} alt="Category preview" className="h-full w-full object-cover" />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium">সর্ট অর্ডার</label>
@@ -109,36 +203,46 @@ export default function AdminCategories() {
 
       <Card>
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>নাম</TableHead>
-                <TableHead>স্লাগ</TableHead>
-                <TableHead>অর্ডার</TableHead>
-                <TableHead>স্ট্যাটাস</TableHead>
-                <TableHead>অ্যাকশন</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {categories?.map((cat: any) => (
-                <TableRow key={cat.id}>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{cat.slug}</TableCell>
-                  <TableCell>{cat.sort_order}</TableCell>
-                  <TableCell>{cat.is_active ? "✅" : "❌"}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(cat)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(cat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[500px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>নাম</TableHead>
+                  <TableHead>স্লাগ</TableHead>
+                  <TableHead>প্যারেন্ট</TableHead>
+                  <TableHead>অর্ডার</TableHead>
+                  <TableHead>স্ট্যাটাস</TableHead>
+                  <TableHead>অ্যাকশন</TableHead>
                 </TableRow>
-              ))}
-              {(!categories || categories.length === 0) && (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">কোনো ক্যাটাগরি নেই</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {categories?.map((cat: any) => {
+                  const parent = categories.find((c) => c.id === cat.parent_id);
+                  return (
+                    <TableRow key={cat.id}>
+                      <TableCell className="font-medium">
+                        {cat.parent_id && <span className="text-muted-foreground mr-1.5">—</span>}
+                        {cat.name}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{cat.slug}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{parent ? parent.name : "Main"}</TableCell>
+                      <TableCell>{cat.sort_order}</TableCell>
+                      <TableCell>{cat.is_active ? "✅" : "❌"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(cat)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(cat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {(!categories || categories.length === 0) && (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">কোনো ক্যাটাগরি নেই</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -7,12 +7,29 @@ const corsHeaders = {
 
 const STEADFAST_BASE_URL = 'https://portal.packzy.com/api/v1';
 
-function getHeaders() {
-  const apiKey = Deno.env.get('STEADFAST_API_KEY');
-  const secretKey = Deno.env.get('STEADFAST_SECRET_KEY');
+async function getHeaders(supabaseClient?: any) {
+  let apiKey = Deno.env.get('STEADFAST_API_KEY') || '';
+  let secretKey = Deno.env.get('STEADFAST_SECRET_KEY') || '';
+
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'courier_settings')
+        .maybeSingle();
+      if (!error && data?.value) {
+        if (data.value.api_key) apiKey = data.value.api_key;
+        if (data.value.secret_key) secretKey = data.value.secret_key;
+      }
+    } catch (e) {
+      console.error('Error fetching courier credentials from database:', e);
+    }
+  }
+
   return {
-    'Api-Key': apiKey || '',
-    'Secret-Key': secretKey || '',
+    'Api-Key': apiKey,
+    'Secret-Key': secretKey,
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
@@ -54,7 +71,7 @@ Deno.serve(async (req) => {
       case 'create_order': {
         const res = await fetch(`${STEADFAST_BASE_URL}/create_order`, {
           method: 'POST',
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
           body: JSON.stringify({
             invoice: params.invoice,
             recipient_name: params.recipient_name,
@@ -74,7 +91,7 @@ Deno.serve(async (req) => {
       case 'bulk_create': {
         const res = await fetch(`${STEADFAST_BASE_URL}/create_order/bulk-order`, {
           method: 'POST',
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
           body: JSON.stringify({ data: JSON.stringify(params.orders) }),
         });
         const data = await res.json();
@@ -85,7 +102,7 @@ Deno.serve(async (req) => {
 
       case 'status_by_invoice': {
         const res = await fetch(`${STEADFAST_BASE_URL}/status_by_invoice/${params.invoice}`, {
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
         });
         const data = await res.json();
         return new Response(JSON.stringify(data), {
@@ -95,7 +112,7 @@ Deno.serve(async (req) => {
 
       case 'status_by_tracking': {
         const res = await fetch(`${STEADFAST_BASE_URL}/status_by_trackingcode/${params.tracking_code}`, {
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
         });
         const data = await res.json();
         return new Response(JSON.stringify(data), {
@@ -105,7 +122,7 @@ Deno.serve(async (req) => {
 
       case 'get_balance': {
         const res = await fetch(`${STEADFAST_BASE_URL}/get_balance`, {
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
         });
         const data = await res.json();
         return new Response(JSON.stringify(data), {
@@ -122,7 +139,7 @@ Deno.serve(async (req) => {
 
         const res = await fetch(`${STEADFAST_BASE_URL}/create_return_request`, {
           method: 'POST',
-          headers: getHeaders(),
+          headers: await getHeaders(supabase),
           body: JSON.stringify(body),
         });
         const data = await res.json();

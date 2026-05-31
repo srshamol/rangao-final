@@ -5,11 +5,17 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import heroBgFallback from "@/assets/hero-banner.jpg";
 import heroVideoFallback from "@/assets/hero-video.mp4";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { useAutoStatistics } from "@/hooks/useHomepageData";
+
+const toBanglaDigits = (num: number | string) => {
+  const digits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+  return String(num).replace(/[0-9]/g, (w) => digits[parseInt(w)]);
+};
 
 /* ── Animated counter ── */
 const AnimatedCounter = ({ target }: {target: string;}) => {
   const [display, setDisplay] = useState("০");
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   const hasAnimated = useRef(false);
 
   useEffect(() => {
@@ -30,7 +36,7 @@ const AnimatedCounter = ({ target }: {target: string;}) => {
     return () => observer.disconnect();
   }, [target]);
 
-  return <div ref={ref}>{display}</div>;
+  return <span ref={ref}>{display}</span>;
 };
 
 /* ── Particle field (canvas) ── */
@@ -124,6 +130,24 @@ const ParticleCanvas = () => {
 /* ── Hero Banner ── */
 const HeroBanner = () => {
   const { data: settings } = useStoreSettings();
+  const { data: autoStats } = useAutoStatistics();
+  const statsConfig = settings?.statistics;
+
+  const stats = useMemo(() => {
+    const isAuto = statsConfig?.mode === "auto";
+    const customers = isAuto ? (autoStats?.customers || 5000) : (statsConfig?.customers || 5000);
+    const orders = isAuto ? (autoStats?.orders || 10000) : (statsConfig?.orders || 10000);
+    const reviews = isAuto ? (autoStats?.reviews || 4800) : (statsConfig?.reviews || 4800);
+    const products = isAuto ? (autoStats?.products || 200) : (statsConfig?.products || 200);
+
+    return [
+      { value: `${toBanglaDigits(customers)}+`, label: "সন্তুষ্ট গ্রাহক" },
+      { value: `${toBanglaDigits(orders)}+`, label: "ডেলিভারি সম্পন্ন" },
+      { value: `${toBanglaDigits(reviews)}+`, label: "গ্রাহক রিভিউ" },
+      { value: `${toBanglaDigits(products)}+`, label: "প্রিমিয়াম পণ্য" }
+    ];
+  }, [autoStats, statsConfig]);
+
   const hero = settings?.heroBanner;
   const heroBg = hero?.banner_image_url || heroBgFallback;
   const heroVideo = hero?.banner_video_url || heroVideoFallback;
@@ -137,12 +161,16 @@ const HeroBanner = () => {
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.6]);
 
   return (
-    <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden">
-      {/* Video Background with parallax */}
+    <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden bg-background">
+      {/* Background Media with parallax */}
       <motion.div style={{ y: videoY }} className="absolute inset-0 h-[125%] w-full -top-[5%]">
-        <video autoPlay loop muted playsInline poster={heroBg} className="h-full w-full object-cover">
-          <source src={heroVideo} type="video/mp4" />
-        </video>
+        {hero?.banner_video_url ? (
+          <video autoPlay loop muted playsInline poster={heroBg} className="h-full w-full object-cover">
+            <source src={hero.banner_video_url} type="video/mp4" />
+          </video>
+        ) : (
+          <img src={heroBg} alt="Rangao premium Islamic home decor" className="h-full w-full object-cover" />
+        )}
       </motion.div>
 
       {/* Multi-layer gradient overlay */}
@@ -207,7 +235,7 @@ const HeroBanner = () => {
 
 
       {/* Content with parallax */}
-      <motion.div style={{ y: contentY }} className="container relative z-10 py-20">
+      <motion.div style={{ y: contentY }} className="container relative z-10 pt-24 pb-36 md:py-20">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -233,18 +261,17 @@ const HeroBanner = () => {
             <span className="relative z-10">{hero?.badge_text || "প্রিমিয়াম কালেকশন ২০২৬"}</span>
           </motion.div>
 
-          {/* Heading with staggered letter reveal */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="font-display text-5xl font-extrabold leading-[1.05] text-primary-foreground sm:text-6xl md:text-7xl lg:text-[5.5rem]">
+            className="font-display text-5xl font-extrabold leading-[1.25] pb-3 text-primary-foreground sm:text-6xl md:text-7xl lg:text-[5.5rem]">
 
             {(hero?.title || "টেকনোলজির নতুন সংজ্ঞা").split("\n").map((line, i) =>
             <span key={i}>
                 {i === 0 ? line :
               <motion.span
-                className="inline-block bg-gradient-to-r from-accent via-amber-300 to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
+                className="inline-block pb-3 bg-gradient-to-r from-accent via-amber-300 to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
 
                     {line}
                   </motion.span>
@@ -303,24 +330,17 @@ const HeroBanner = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1, duration: 0.6 }}
-            className="mt-16 flex flex-wrap items-center justify-between gap-y-6 gap-x-4 border-t border-primary-foreground/10 pt-8 md:gap-x-0">
+            className="mt-10 md:mt-16 flex flex-wrap items-center justify-between gap-y-6 gap-x-4 border-t border-primary-foreground/10 pt-8 md:gap-x-0">
 
-            {[
-            { value: "৫০০+", label: "সন্তুষ্ট গ্রাহক" },
-            { value: "১০০%", label: "অরিজিনাল" },
-            { value: "২৪/৭", label: "সাপোর্ট" },
-            { value: "১০,০০০+", label: "প্রোডাক্ট সোল্ড" },
-            { value: "৩ বছর", label: "ওয়ারেন্টি" },
-            { value: "৫০+", label: "ব্র্যান্ড" }].
-            map((stat, i) =>
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.1 + i * 0.08 }}
-              className="group text-center"
-              whileHover={{ scale: 1.08 }}>
-
+            {stats.map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1 + i * 0.08 }}
+                className="group text-center"
+                whileHover={{ scale: 1.08 }}
+              >
                 <p className="font-display text-2xl font-extrabold text-accent md:text-3xl lg:text-4xl">
                   <AnimatedCounter target={stat.value} />
                 </p>
@@ -328,7 +348,7 @@ const HeroBanner = () => {
                   {stat.label}
                 </p>
               </motion.div>
-            )}
+            ))}
           </motion.div>
         </motion.div>
       </motion.div>
@@ -336,28 +356,6 @@ const HeroBanner = () => {
       {/* Bottom gradient fade */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
 
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
-        className="absolute bottom-12 left-1/2 z-10 -translate-x-1/2">
-
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="flex flex-col items-center gap-2">
-
-          <span className="text-[10px] font-medium tracking-widest text-primary-foreground/30 uppercase">স্ক্রল করুন</span>
-          <div className="flex h-9 w-5 items-start justify-center rounded-full border-2 border-primary-foreground/15 p-1">
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              className="h-1.5 w-1.5 rounded-full bg-accent" />
-
-          </div>
-        </motion.div>
-      </motion.div>
     </section>);
 
 };

@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Allow-Methods': '*',
 };
 
 serve(async (req) => {
@@ -11,6 +12,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let requestPhone = '';
   try {
     // Auth check
     const authHeader = req.headers.get('Authorization');
@@ -28,8 +30,8 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -37,6 +39,7 @@ serve(async (req) => {
     }
 
     const { phone } = await req.json();
+    requestPhone = phone;
 
     if (!phone) {
       return new Response(JSON.stringify({ error: 'Phone number is required' }), {
@@ -45,29 +48,90 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get('BDCOURIER_API_KEY');
+    let apiKey = Deno.env.get('BDCOURIER_API_KEY') || '';
+    let baseUrl = Deno.env.get('BDCOURIER_BASE_URL') || 'https://api.bdcourier.com';
+
+    // Attempt to load from database first
+    try {
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'courier_settings')
+        .maybeSingle();
+      if (!error && data?.value) {
+        if (data.value.bdcourier_api_key) {
+          apiKey = data.value.bdcourier_api_key;
+        }
+        if (data.value.bdcourier_base_url) {
+          baseUrl = data.value.bdcourier_base_url;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching BDCourier settings from db:', e);
+    }
+
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not configured' }), {
-        status: 500,
+      console.error({
+        function: "courier-check",
+        error: "BDCourier API Key not configured",
+        payload: { phone },
+      });
+      return new Response(JSON.stringify({ error: 'BDCourier API Key not configured' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const response = await fetch(`https://bdcourier.com/api/courier-check?phone=${encodeURIComponent(phone)}`, {
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const url = `${cleanBaseUrl}/courier-check?phone=${encodeURIComponent(phone)}`;
+
+    console.log({
+      function: "courier-check",
+      payload: { phone },
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey.substring(0, 5)}...`
+      }
+    });
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     });
 
-    const data = await response.json();
+    let data;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      data = { rawText: await response.text() };
+    }
+
+    console.log({
+      function: "courier-check",
+      payload: { phone },
+      status: response.status,
+      responseBody: data,
+    });
 
     return new Response(JSON.stringify(data), {
       status: response.ok ? 200 : response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+  } catch (error: any) {
+    console.error({
+      function: "courier-check",
+      payload: { phone: requestPhone },
+      error: error.message || error,
+      stack: error.stack || null,
+    });
+    return new Response(JSON.stringify({ error: error.message || 'BDCourier Server Error', details: error.stack || null }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

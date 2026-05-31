@@ -66,45 +66,47 @@ export default function Customers() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>কাস্টমার</TableHead>
-                <TableHead>ফোন</TableHead>
-                <TableHead>মোট অর্ডার</TableHead>
-                <TableHead>মোট খরচ</TableHead>
-                <TableHead>শেষ অর্ডার</TableHead>
-                <TableHead>অ্যাকশন</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(c => (
-                <TableRow key={c.phone}>
-                  <TableCell>
-                    <p className="font-medium">{c.name}</p>
-                    {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{c.phone}</TableCell>
-                  <TableCell className="text-center font-semibold">{c.totalOrders}</TableCell>
-                  <TableCell className="font-semibold">৳{c.totalSpent.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{format(new Date(c.lastOrder), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <a href={`tel:${c.phone}`}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600"><Phone className="h-3.5 w-3.5" /></Button>
-                      </a>
-                      <a href={`https://wa.me/88${c.phone.replace(/^0/, "")}`} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-green-500"><MessageCircle className="h-3.5 w-3.5" /></Button>
-                      </a>
-                    </div>
-                  </TableCell>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[560px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>কাস্টমার</TableHead>
+                  <TableHead>ফোন</TableHead>
+                  <TableHead>মোট অর্ডার</TableHead>
+                  <TableHead>মোট খরচ</TableHead>
+                  <TableHead>শেষ অর্ডার</TableHead>
+                  <TableHead>অ্যাকশন</TableHead>
                 </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">কোনো কাস্টমার নেই</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(c => (
+                  <TableRow key={c.phone}>
+                    <TableCell>
+                      <p className="font-medium">{c.name}</p>
+                      {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{c.phone}</TableCell>
+                    <TableCell className="text-center font-semibold">{c.totalOrders}</TableCell>
+                    <TableCell className="font-semibold">৳{c.totalSpent.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(c.lastOrder), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <a href={`tel:${c.phone}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600"><Phone className="h-3.5 w-3.5" /></Button>
+                        </a>
+                        <a href={`https://wa.me/88${c.phone.replace(/^0/, "")}`} target="_blank" rel="noopener noreferrer">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-500"><MessageCircle className="h-3.5 w-3.5" /></Button>
+                        </a>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">কোনো কাস্টমার নেই</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -93,8 +93,14 @@ export default function Dashboard() {
   const { data: steadfastBalance } = useQuery({
     queryKey: ["steadfast-balance-dashboard"],
     queryFn: async () => {
-      const { data } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
-      return data?.current_balance ?? data?.balance ?? 0;
+      try {
+        const { data, error } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
+        if (error) throw error;
+        return data?.current_balance ?? data?.balance ?? 0;
+      } catch (err) {
+        console.warn("Steadfast Courier Edge Function is offline or restricted in local dev environment:", err);
+        return 0;
+      }
     },
     staleTime: 60000,
   });
@@ -209,33 +215,33 @@ export default function Dashboard() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+PHBhdGggZD0iTTAgMGg2MHY2MEgweiIgZmlsbD0ibm9uZSIvPjxjaXJjbGUgY3g9IjMwIiBjeT0iMzAiIHI9IjEuNSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA4KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-60" />
         <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-accent/20 blur-3xl" />
         <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20">
                 <Zap className="h-4 w-4 text-accent" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-widest text-accent">GadgetGram Admin</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-accent">Rangao Admin</span>
             </div>
-            <h1 className="font-display text-2xl font-extrabold text-white md:text-3xl">স্বাগতম, অ্যাডমিন! 👋</h1>
+            <h1 className="font-display text-xl font-extrabold text-white sm:text-2xl md:text-3xl">স্বাগতম, অ্যাডমিন! 👋</h1>
             <p className="mt-2 text-sm text-white/70 max-w-md">আপনার স্টোরের সম্পূর্ণ ওভারভিউ এখানে। আজকের সেলস, অর্ডার এবং স্টক ইনসাইটস দেখুন।</p>
           </div>
-          <div className="hidden md:flex items-center gap-3">
-            <div className="text-right">
+          <div className="flex items-center gap-3 md:flex-shrink-0">
+            <div className="text-left md:text-right">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">আজকের তারিখ</p>
-              <p className="text-lg font-bold text-white">{format(new Date(), "dd MMM yyyy")}</p>
+              <p className="text-sm font-bold text-white">{format(new Date(), "dd MMM yyyy")}</p>
             </div>
-            <div className="h-12 w-px bg-white/10" />
-            <div className="text-right">
+            <div className="h-8 w-px bg-white/10" />
+            <div className="text-left md:text-right">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/50">মোট অর্ডার</p>
-              <p className="text-lg font-bold text-accent">{totalOrders}</p>
+              <p className="text-sm font-bold text-accent">{totalOrders}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 md:gap-4">
         <StatCard title="আজকের অর্ডার" value={stats?.todayOrders ?? 0} icon={ShoppingCart} gradient="from-blue-500 to-cyan-500" />
         <StatCard title="আজকের সেলস" value={`৳${(stats?.todaySales ?? 0).toLocaleString()}`} icon={DollarSign} gradient="from-emerald-500 to-teal-500" />
         <StatCard title="সাপ্তাহিক সেলস" value={`৳${(stats?.weeklySales ?? 0).toLocaleString()}`} icon={TrendingUp} gradient="from-violet-500 to-purple-600" />
@@ -419,34 +425,36 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {recentOrders && recentOrders.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/20">
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">অর্ডার</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">কাস্টমার</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">টোটাল</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">স্ট্যাটাস</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentOrders.map((order: any) => (
-                    <TableRow
-                      key={order.id}
-                      className="border-border/10 hover:bg-secondary/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/admin/orders/${order.id}`)}
-                    >
-                      <TableCell className="font-mono text-xs font-medium">{order.order_number}</TableCell>
-                      <TableCell className="text-sm">{order.customer_name}</TableCell>
-                      <TableCell className="font-display text-sm font-bold">৳{Number(order.total_amount).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge className={`${statusColors[order.order_status] || ""} rounded-md text-[10px] font-bold border`} variant="outline">
-                          {statusLabels[order.order_status] || order.order_status}
-                        </Badge>
-                      </TableCell>
+              <div className="w-full overflow-x-auto -mx-0">
+                <Table className="min-w-[420px]">
+                  <TableHeader>
+                    <TableRow className="border-border/20">
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">অর্ডার</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">কাস্টমার</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">টোটাল</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">স্ট্যাটাস</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {recentOrders.map((order: any) => (
+                      <TableRow
+                        key={order.id}
+                        className="border-border/10 hover:bg-secondary/50 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/admin/orders/${order.id}`)}
+                      >
+                        <TableCell className="font-mono text-xs font-medium">{order.order_number}</TableCell>
+                        <TableCell className="text-sm max-w-[100px] truncate">{order.customer_name}</TableCell>
+                        <TableCell className="font-display text-sm font-bold">৳{Number(order.total_amount).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge className={`${statusColors[order.order_status] || ""} rounded-md text-[10px] font-bold border`} variant="outline">
+                            {statusLabels[order.order_status] || order.order_status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
                 <ShoppingCart className="h-10 w-10 text-muted-foreground/15 mb-3" />
@@ -470,28 +478,30 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {lowStockProducts && lowStockProducts.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/20">
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">প্রোডাক্ট</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">SKU</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">স্টক</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lowStockProducts.map((p: any) => (
-                    <TableRow key={p.id} className="border-border/10 hover:bg-secondary/50 transition-colors">
-                      <TableCell className="text-sm font-medium">{p.name}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{p.sku}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center justify-center h-6 min-w-[28px] rounded-md text-[11px] font-bold ${p.stock_quantity === 0 ? "bg-red-500 text-white" : "bg-red-500/15 text-red-700"}`}>
-                          {p.stock_quantity}
-                        </span>
-                      </TableCell>
+              <div className="w-full overflow-x-auto">
+                <Table className="min-w-[320px]">
+                  <TableHeader>
+                    <TableRow className="border-border/20">
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">প্রোডাক্ট</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">SKU</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">স্টক</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {lowStockProducts.map((p: any) => (
+                      <TableRow key={p.id} className="border-border/10 hover:bg-secondary/50 transition-colors">
+                        <TableCell className="text-sm font-medium max-w-[130px] truncate">{p.name}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{p.sku}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center justify-center h-6 min-w-[28px] rounded-md text-[11px] font-bold ${p.stock_quantity === 0 ? "bg-red-500 text-white" : "bg-red-500/15 text-red-700"}`}>
+                            {p.stock_quantity}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
                 <Package className="h-10 w-10 text-muted-foreground/15 mb-3" />

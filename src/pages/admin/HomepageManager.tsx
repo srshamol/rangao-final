@@ -1,571 +1,1307 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useStoreSettings, DEFAULT_SECTION_ORDER, type HomepageSectionOrder, type TrustFeatureItem, type HeroBannerSlide } from "@/hooks/useStoreSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useCategories, useProducts } from "@/hooks/useHomepageData";
+import { mediaService } from "@/lib/mediaService";
 import {
-  Loader2, Save, Image, Phone, Globe, Layout, Upload, Video, Type, X,
-  Store, Mail, MapPin, MessageCircle, Facebook, Instagram, Eye, EyeOff,
-  Sparkles, Palette, Monitor, Smartphone, CheckCircle2, AlertCircle,
+  Save, GripVertical, Eye, EyeOff, Monitor, Smartphone,
+  Plus, Trash2, ChevronDown, ChevronUp, Settings2,
+  Image, Layout, Package, Star, Megaphone, Tag,
+  Users, BarChart2, Mail, Globe, Layers, Loader2
 } from "lucide-react";
 
-interface HeroBanner {
-  title: string; subtitle: string; cta_text: string; cta_link: string;
-  banner_image_url: string; banner_video_url: string; badge_text: string; enabled: boolean;
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+async function upsertSetting(key: string, value: any) {
+  const { error } = await (supabase as any)
+    .from("store_settings")
+    .upsert({ key, value }, { onConflict: "key" });
+  if (error) throw error;
 }
-interface ContactInfo {
-  phone: string; whatsapp: string; email: string; address: string;
-  facebook_url: string; instagram_url: string;
+
+const TAB_ICONS: Record<string, any> = {
+  sections: Layers,
+  hero: Image,
+  categories: Tag,
+  products: Package,
+  offer: Megaphone,
+  trust: Star,
+  stats: BarChart2,
+  newsletter: Mail,
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface SectionRowProps {
+  section: HomepageSectionOrder;
+  index: number;
+  total: number;
+  onToggle: (id: string, field: "enabled" | "desktop" | "mobile") => void;
+  onMoveUp: (i: number) => void;
+  onMoveDown: (i: number) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  children?: React.ReactNode;
 }
-interface HomepageSections {
-  show_categories: boolean; show_featured: boolean; show_flash_sale: boolean;
-  show_why_choose: boolean; show_testimonials: boolean; show_newsletter: boolean;
+
+function SectionRow({ section, index, total, onToggle, onMoveUp, onMoveDown, expanded, onToggleExpand, children }: SectionRowProps) {
+  return (
+    <div className={`rounded-2xl border transition-all duration-200 ${section.config.enabled ? "border-border/50 bg-card" : "border-border/20 bg-muted/30 opacity-60"}`}>
+      <div className="flex items-center gap-3 p-4">
+        {/* Drag handle / order */}
+        <div className="flex flex-col gap-0.5">
+          <button
+            onClick={() => onMoveUp(index)}
+            disabled={index === 0}
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+          <button
+            onClick={() => onMoveDown(index)}
+            disabled={index === total - 1}
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Label */}
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm">{section.label}</p>
+          <p className="text-xs text-muted-foreground font-mono">{section.id}</p>
+        </div>
+
+        {/* Visibility toggles */}
+        <div className="flex items-center gap-4 mr-2">
+          <div className="flex items-center gap-1.5" title="ডেস্কটপ">
+            <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={section.config.desktop}
+              onCheckedChange={() => onToggle(section.id, "desktop")}
+              className="scale-75"
+            />
+          </div>
+          <div className="flex items-center gap-1.5" title="মোবাইল">
+            <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={section.config.mobile}
+              onCheckedChange={() => onToggle(section.id, "mobile")}
+              className="scale-75"
+            />
+          </div>
+          <Switch
+            checked={section.config.enabled}
+            onCheckedChange={() => onToggle(section.id, "enabled")}
+          />
+          {children && (
+            <button
+              onClick={onToggleExpand}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-border/50 text-muted-foreground hover:bg-accent/10 hover:text-accent transition-colors"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {expanded && children && (
+        <div className="border-t border-border/30 px-5 py-4 bg-muted/20">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
-interface StoreInfo {
-  name: string; phone: string; email: string; address: string; logo_url: string;
-}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function HomepageManager() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const qc = useQueryClient();
+  const { data: settings, isLoading } = useStoreSettings();
+  const { data: allCategories } = useCategories({});
+  const { data: allProducts } = useProducts({ filter: "newest", limit: 100 });
 
-  const [hero, setHero] = useState<HeroBanner>({
-    title: "", subtitle: "", cta_text: "", cta_link: "#products",
-    banner_image_url: "", banner_video_url: "", badge_text: "", enabled: true,
-  });
-  const [contact, setContact] = useState<ContactInfo>({
-    phone: "", whatsapp: "", email: "", address: "", facebook_url: "", instagram_url: "",
-  });
-  const [sections, setSections] = useState<HomepageSections>({
-    show_categories: true, show_featured: true, show_flash_sale: true,
-    show_why_choose: true, show_testimonials: true, show_newsletter: true,
-  });
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>({
-    name: "GadgetGram", phone: "", email: "", address: "", logo_url: "",
-  });
+  const [sectionOrder, setSectionOrder] = useState<HomepageSectionOrder[]>(
+    settings?.sectionOrder || DEFAULT_SECTION_ORDER
+  );
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [heroSlides, setHeroSlides] = useState<HeroBannerSlide[]>(
+    settings?.heroBanner?.slides || []
+  );
+  const [expandedSlide, setExpandedSlide] = useState<number | null>(0);
+  const [trustItems, setTrustItems] = useState<TrustFeatureItem[]>(
+    settings?.trustFeatures || []
+  );
+  const [newsletter, setNewsletter] = useState(
+    settings?.newsletter || { title: "", subtitle: "", placeholder: "", button_text: "" }
+  );
+  const [offerBanner, setOfferBanner] = useState(
+    settings?.offerBanner || { enabled: false, bg_image: "", title: "", subtitle: "", coupon_code: "", button_text: "", button_url: "", start_date: "", end_date: "", show_countdown: true }
+  );
+  const [statistics, setStatistics] = useState(
+    settings?.statistics || { mode: "auto", customers: 5000, orders: 10000, reviews: 4800, products: 200 }
+  );
+  const [saving, setSaving] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from("store_settings" as any).select("key, value");
-      if (data) {
-        (data as any[]).forEach((row) => {
-          if (row.key === "hero_banner") setHero((p) => ({ ...p, ...row.value }));
-          if (row.key === "contact_info") setContact((p) => ({ ...p, ...row.value }));
-          if (row.key === "homepage_sections") setSections((p) => ({ ...p, ...row.value }));
-          if (row.key === "store_info") setStoreInfo((p) => ({ ...p, ...row.value }));
-        });
-      }
-      setLoading(false);
-    };
-    fetch();
-  }, []);
-
-  const saveSetting = async (key: string, value: any) => {
-    setSaving(key);
-    try {
-      const { error: updateErr } = await supabase
-        .from("store_settings" as any)
-        .update({ value, updated_at: new Date().toISOString() })
-        .eq("key", key);
-
-      if (updateErr) {
-        const { error: insertErr } = await supabase
-          .from("store_settings" as any)
-          .insert({ key, value });
-        if (insertErr) throw insertErr;
-      }
-      toast({ title: "✅ সেভ হয়েছে!" });
-    } catch (e: any) {
-      toast({ title: "সেভ ব্যর্থ", description: e.message, variant: "destructive" });
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const uploadFile = async (file: File, folder: string): Promise<string> => {
-    const ext = file.name.split(".").pop();
-    const fileName = `${folder}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("site-assets").upload(fileName, file, { upsert: true });
-    if (error) throw error;
-    const { data } = supabase.storage.from("site-assets").getPublicUrl(fileName);
-    return data.publicUrl;
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "video" | "logo") => {
+  const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>, i: number, type: "image" | "video") => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+
+    const uniqueIndex = `${i}-${type}`;
     try {
-      const folder = type === "logo" ? "logos" : type === "image" ? "banners" : "videos";
-      const url = await uploadFile(file, folder);
-      if (type === "image") setHero((p) => ({ ...p, banner_image_url: url }));
-      else if (type === "video") setHero((p) => ({ ...p, banner_video_url: url }));
-      else setStoreInfo((p) => ({ ...p, logo_url: url }));
-      toast({ title: "✅ আপলোড সফল!" });
-    } catch (e: any) {
-      toast({ title: "আপলোড ব্যর্থ", description: e.message, variant: "destructive" });
+      setUploadingIndex(uniqueIndex);
+      const mediaItem = await mediaService.upload(file, type === "image" ? "images" : "videos");
+      if (mediaItem?.url) {
+        if (type === "image") {
+          updateSlide(i, { banner_image_url: mediaItem.url });
+        } else {
+          updateSlide(i, { banner_video_url: mediaItem.url });
+        }
+        toast({ title: `${type === "image" ? "ইমেজ" : "ভিডিও"} আপলোড সফল হয়েছে` });
+      }
+    } catch (err: any) {
+      toast({ title: `${type === "image" ? "ইমেজ" : "ভিডিও"} আপলোড ব্যর্থ হয়েছে`, description: err.message, variant: "destructive" });
     } finally {
-      setUploading(false);
+      setUploadingIndex(null);
     }
   };
 
-  const activeSections = Object.values(sections).filter(Boolean).length;
-  const totalSections = Object.keys(sections).length;
+  // ─── Section Order helpers ──────────────────────────────────────────────────
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-        <p className="text-sm text-muted-foreground">লোড হচ্ছে...</p>
-      </div>
+  const toggleSection = useCallback((id: string, field: "enabled" | "desktop" | "mobile") => {
+    setSectionOrder((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, config: { ...s.config, [field]: !s.config[field] } } : s
+      )
+    );
+  }, []);
+
+  const moveUp = useCallback((i: number) => {
+    if (i === 0) return;
+    setSectionOrder((prev) => {
+      const n = [...prev];
+      [n[i - 1], n[i]] = [n[i], n[i - 1]];
+      return n;
+    });
+  }, []);
+
+  const moveDown = useCallback((i: number) => {
+    setSectionOrder((prev) => {
+      if (i >= prev.length - 1) return prev;
+      const n = [...prev];
+      [n[i], n[i + 1]] = [n[i + 1], n[i]];
+      return n;
+    });
+  }, []);
+
+  const updateSectionConfig = (id: string, updates: Partial<HomepageSectionOrder["config"]>) => {
+    setSectionOrder((prev) =>
+      prev.map((s) => s.id === id ? { ...s, config: { ...s.config, ...updates } } : s)
+    );
+  };
+
+  // ─── Hero slide helpers ─────────────────────────────────────────────────────
+
+  const addSlide = () => {
+    const newSlide: HeroBannerSlide = {
+      id: `slide-${Date.now()}`,
+      title: "নতুন স্লাইড",
+      subtitle: "",
+      description: "",
+      badge_text: "",
+      cta_primary_text: "দেখুন",
+      cta_primary_url: "/products",
+      cta_secondary_text: "",
+      cta_secondary_url: "",
+      banner_image_url: "",
+      banner_video_url: "",
+      overlay_opacity: 0.85,
+      text_align: "left",
+      enabled: true,
+    };
+    setHeroSlides((s) => [...s, newSlide]);
+    setExpandedSlide(heroSlides.length);
+  };
+
+  const updateSlide = (i: number, updates: Partial<HeroBannerSlide>) => {
+    setHeroSlides((s) => s.map((sl, idx) => idx === i ? { ...sl, ...updates } : sl));
+  };
+
+  const removeSlide = (i: number) => {
+    setHeroSlides((s) => s.filter((_, idx) => idx !== i));
+  };
+
+  // ─── Trust items helpers ────────────────────────────────────────────────────
+
+  const addTrustItem = () => {
+    setTrustItems((t) => [
+      ...t,
+      { id: `ti-${Date.now()}`, icon: "ShieldCheck", title: "নতুন আইটেম", desc: "" },
+    ]);
+  };
+
+  const updateTrustItem = (i: number, updates: Partial<TrustFeatureItem>) => {
+    setTrustItems((t) => t.map((item, idx) => idx === i ? { ...item, ...updates } : item));
+  };
+
+  const removeTrustItem = (i: number) => {
+    setTrustItems((t) => t.filter((_, idx) => idx !== i));
+  };
+
+  // ─── Save all ──────────────────────────────────────────────────────────────
+
+  const saveAll = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        upsertSetting("homepage_section_order", sectionOrder),
+        upsertSetting("hero_banner", { enabled: true, slides: heroSlides }),
+        upsertSetting("trust_features", trustItems),
+        upsertSetting("newsletter", newsletter),
+        upsertSetting("offer_banner", offerBanner),
+        upsertSetting("statistics", statistics),
+      ]);
+      qc.invalidateQueries({ queryKey: ["store-settings-all"] });
+      toast({ title: "✅ সব পরিবর্তন সেভ হয়েছে", description: "হোমপেজ আপডেট হয়েছে।" });
+    } catch (e: any) {
+      toast({ title: "ত্রুটি", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return (
+    <div className="flex h-60 items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   );
 
+  const ICON_OPTIONS = ["ShieldCheck", "Truck", "Headset", "RotateCcw", "Banknote", "MapPin", "Package", "Star", "Gift", "Zap", "Heart", "Clock"];
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Palette className="h-5 w-5 text-primary" />
-            </div>
-            হোমপেজ ম্যানেজার
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 ml-[3rem]">
-            ব্যানার, কন্টাক্ট, স্টোর ইনফো ও সেকশন কন্ট্রোল করুন
-          </p>
+          <h1 className="text-2xl font-bold">হোমপেজ বিল্ডার</h1>
+          <p className="text-sm text-muted-foreground mt-1">হোমপেজের প্রতিটি সেকশন সম্পূর্ণ নিয়ন্ত্রণ করুন</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5 py-1">
-            <Monitor className="h-3 w-3" />
-            লাইভ প্রিভিউ
-          </Badge>
-        </div>
+        <Button onClick={saveAll} disabled={saving} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Save className="mr-2 h-4 w-4" />
+          {saving ? "সেভ হচ্ছে..." : "সব সেভ করুন"}
+        </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <QuickStat
-          icon={<Image className="h-4 w-4" />}
-          label="ব্যানার"
-          value={hero.enabled ? "সক্রিয়" : "নিষ্ক্রিয়"}
-          active={hero.enabled}
-        />
-        <QuickStat
-          icon={<Layout className="h-4 w-4" />}
-          label="সেকশন"
-          value={`${activeSections}/${totalSections}`}
-          active={activeSections > 0}
-        />
-        <QuickStat
-          icon={<Phone className="h-4 w-4" />}
-          label="কন্টাক্ট"
-          value={contact.phone ? "সেট আছে" : "নেই"}
-          active={!!contact.phone}
-        />
-        <QuickStat
-          icon={<Store className="h-4 w-4" />}
-          label="স্টোর ইনফো"
-          value={storeInfo.name || "সেট করুন"}
-          active={!!storeInfo.name}
-        />
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="banner" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
-          <TabsTrigger value="banner" className="gap-1.5 text-xs sm:text-sm py-2.5">
-            <Image className="h-3.5 w-3.5" /> ব্যানার
-          </TabsTrigger>
-          <TabsTrigger value="store" className="gap-1.5 text-xs sm:text-sm py-2.5">
-            <Store className="h-3.5 w-3.5" /> স্টোর
-          </TabsTrigger>
-          <TabsTrigger value="contact" className="gap-1.5 text-xs sm:text-sm py-2.5">
-            <Phone className="h-3.5 w-3.5" /> কন্টাক্ট
-          </TabsTrigger>
-          <TabsTrigger value="sections" className="gap-1.5 text-xs sm:text-sm py-2.5">
-            <Layout className="h-3.5 w-3.5" /> সেকশন
-          </TabsTrigger>
+      <Tabs defaultValue="sections">
+        <TabsList className="flex h-auto flex-wrap gap-1.5 bg-secondary/50 p-2 rounded-2xl w-full">
+          {[
+            { id: "sections", label: "সেকশন অর্ডার" },
+            { id: "hero", label: "হিরো ব্যানার" },
+            { id: "categories", label: "ক্যাটাগরি" },
+            { id: "products", label: "প্রোডাক্ট" },
+            { id: "offer", label: "অফার ব্যানার" },
+            { id: "trust", label: "ট্রাস্ট ফিচার" },
+            { id: "stats", label: "পরিসংখ্যান" },
+            { id: "newsletter", label: "নিউজলেটার" },
+          ].map((tab) => (
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="rounded-xl text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-4 py-2"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {/* Banner Tab */}
-        <TabsContent value="banner" className="space-y-4">
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-accent" /> হিরো ব্যানার সেটিংস
-                  </CardTitle>
-                  <CardDescription className="mt-1">হোমপেজের প্রধান ব্যানার কাস্টমাইজ করুন</CardDescription>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-muted/50">
-                  {hero.enabled ? <Eye className="h-3.5 w-3.5 text-success" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                  <span className="text-xs font-medium">{hero.enabled ? "দৃশ্যমান" : "লুকানো"}</span>
-                  <Switch checked={hero.enabled} onCheckedChange={(v) => setHero((p) => ({ ...p, enabled: v }))} />
-                </div>
-              </div>
+        {/* ── SECTIONS TAB ── */}
+        <TabsContent value="sections" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Layers className="h-4 w-4 text-accent" />
+                সেকশন অর্ডার ও ভিজিবিলিটি
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">↑↓ বাটন দিয়ে সেকশন সাজান। স্যুইচ দিয়ে চালু/বন্ধ করুন।</p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Media Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Banner Image */}
-                <div className="space-y-3">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Upload className="h-3.5 w-3.5 text-primary" /> ব্যানার ইমেজ
-                  </Label>
-                  <div className="relative group rounded-xl border-2 border-dashed border-border/60 hover:border-primary/40 transition-colors overflow-hidden">
-                    {hero.banner_image_url ? (
-                      <div className="relative">
-                        <img src={hero.banner_image_url} alt="Banner" className="w-full h-36 object-cover" />
-                        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors flex items-center justify-center">
-                          <button
-                            onClick={() => setHero((p) => ({ ...p, banner_image_url: "" }))}
-                            className="opacity-0 group-hover:opacity-100 h-8 w-8 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center transition-opacity"
+            <CardContent className="space-y-3">
+              {sectionOrder.map((section, i) => {
+                const hasConfig = ["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery"].includes(section.id);
+                return (
+                  <SectionRow
+                    key={section.id}
+                    section={section}
+                    index={i}
+                    total={sectionOrder.length}
+                    onToggle={toggleSection}
+                    onMoveUp={moveUp}
+                    onMoveDown={moveDown}
+                    expanded={expandedSection === section.id}
+                    onToggleExpand={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
+                  >
+                    <div className="space-y-4">
+                      {/* Core Layout Controls (Padding, Margin, Background, Animation) */}
+                      <div className="grid grid-cols-2 gap-3 border-b border-border/20 pb-4">
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">প্যাডিং (Padding)</label>
+                          <Input
+                            placeholder="e.g. py-20 md:py-28"
+                            value={section.config.padding || ""}
+                            onChange={(e) => updateSectionConfig(section.id, { padding: e.target.value })}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">মার্জিন (Margin)</label>
+                          <Input
+                            placeholder="e.g. my-4"
+                            value={section.config.margin || ""}
+                            onChange={(e) => updateSectionConfig(section.id, { margin: e.target.value })}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">ব্যাকগ্রাউন্ড কালার (HEX/HSL)</label>
+                          <Input
+                            placeholder="e.g. #f9f9f9"
+                            value={section.config.bg_color || ""}
+                            onChange={(e) => updateSectionConfig(section.id, { bg_color: e.target.value })}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">অ্যানিমেশন (Animation)</label>
+                          <Select
+                            value={section.config.animation || "fade-up"}
+                            onValueChange={(v) => updateSectionConfig(section.id, { animation: v as any })}
                           >
-                            <X className="h-4 w-4" />
-                          </button>
+                            <SelectTrigger className="mt-1 h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">কোনোটিই নয়</SelectItem>
+                              <SelectItem value="fade">ফেড (Fade)</SelectItem>
+                              <SelectItem value="fade-up">ফেড আপ (Fade Up)</SelectItem>
+                              <SelectItem value="slide">স্লাইড (Slide)</SelectItem>
+                              <SelectItem value="zoom">জুম (Zoom)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs font-medium text-muted-foreground">ব্যাকগ্রাউন্ড ইমেজ URL</label>
+                          <Input
+                            placeholder="https://..."
+                            value={section.config.bg_image || ""}
+                            onChange={(e) => updateSectionConfig(section.id, { bg_image: e.target.value })}
+                            className="mt-1 h-8 text-sm"
+                          />
                         </div>
                       </div>
-                    ) : (
-                      <div className="h-36 flex flex-col items-center justify-center text-muted-foreground gap-2">
-                        <Image className="h-8 w-8" />
-                        <span className="text-xs">ইমেজ আপলোড করুন</span>
-                      </div>
-                    )}
-                  </div>
-                  <Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} disabled={uploading} className="text-xs" />
-                  <Input
-                    value={hero.banner_image_url}
-                    onChange={(e) => setHero((p) => ({ ...p, banner_image_url: e.target.value }))}
-                    placeholder="অথবা URL দিন..."
-                    className="text-xs"
-                  />
-                </div>
 
-                {/* Banner Video */}
-                <div className="space-y-3">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Video className="h-3.5 w-3.5 text-primary" /> ব্যানার ভিডিও
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">ঐচ্ছিক</Badge>
-                  </Label>
-                  <div className="relative group rounded-xl border-2 border-dashed border-border/60 hover:border-primary/40 transition-colors overflow-hidden">
-                    {hero.banner_video_url ? (
-                      <div className="relative">
-                        <video src={hero.banner_video_url} className="w-full h-36 object-cover" muted />
-                        <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors flex items-center justify-center">
-                          <button
-                            onClick={() => setHero((p) => ({ ...p, banner_video_url: "" }))}
-                            className="opacity-0 group-hover:opacity-100 h-8 w-8 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center transition-opacity"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                      {hasConfig && (
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                          {/* Common Title/Subtitle for most sections */}
+                          {["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery"].includes(section.id) && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">সেকশন শিরোনাম</label>
+                                <Input
+                                  value={section.config.title || ""}
+                                  onChange={(e) => updateSectionConfig(section.id, { title: e.target.value })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              {section.id !== "footer_promo" && (
+                                <div>
+                                  <label className="text-xs font-medium text-muted-foreground">সাবটাইটেল</label>
+                                  <Input
+                                    value={section.config.subtitle || ""}
+                                    onChange={(e) => updateSectionConfig(section.id, { subtitle: e.target.value })}
+                                    className="mt-1 h-8 text-sm"
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* ── Products sections config ── */}
+                          {["featured", "islamic_collection", "new_arrivals", "best_sellers"].includes(section.id) && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">প্রোডাক্ট সংখ্যা</label>
+                                <Input
+                                  type="number"
+                                  value={section.config.count || 4}
+                                  onChange={(e) => updateSectionConfig(section.id, { count: Number(e.target.value) })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">ফিল্টার মোড</label>
+                                <Select
+                                  value={section.config.filter || "featured"}
+                                  onValueChange={(v) => updateSectionConfig(section.id, { filter: v as any })}
+                                >
+                                  <SelectTrigger className="mt-1 h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="featured">ফিচার্ড</SelectItem>
+                                    <SelectItem value="newest">নতুন আগমন</SelectItem>
+                                    <SelectItem value="best_seller">বেস্ট সেলার</SelectItem>
+                                    <SelectItem value="category">ক্যাটাগরি ভিত্তিক</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {section.config.filter === "category" && (
+                                <div className="col-span-2">
+                                  <label className="text-xs font-medium text-muted-foreground">ক্যাটাগরি স্লাগ</label>
+                                  <Select
+                                    value={section.config.category_slug || ""}
+                                    onValueChange={(v) => updateSectionConfig(section.id, { category_slug: v })}
+                                  >
+                                    <SelectTrigger className="mt-1 h-8 text-sm">
+                                      <SelectValue placeholder="ক্যাটাগরি বেছে নিন" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(allCategories || []).map((c) => (
+                                        <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* ── Categories config ── */}
+                          {section.id === "categories" && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">ক্যাটাগরি সংখ্যা</label>
+                                <Input
+                                  type="number"
+                                  value={section.config.count || 8}
+                                  onChange={(e) => updateSectionConfig(section.id, { count: Number(e.target.value) })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-3 pt-4">
+                                <Switch
+                                  checked={section.config.show_count !== false}
+                                  onCheckedChange={(v) => updateSectionConfig(section.id, { show_count: v })}
+                                  className="scale-75"
+                                />
+                                <label className="text-xs font-medium">প্রোডাক্ট কাউন্ট দেখান</label>
+                              </div>
+                            </>
+                          )}
+
+                          {/* ── Flash Sale config ── */}
+                          {section.id === "flash_sale" && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">কুপন টেক্সট (যেমন: FLASH20)</label>
+                                <Input
+                                  value={section.config.coupon_code || ""}
+                                  onChange={(e) => updateSectionConfig(section.id, { coupon_code: e.target.value })}
+                                  className="mt-1 h-8 text-sm font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">শেষ সময় (End Time)</label>
+                                <Input
+                                  type="datetime-local"
+                                  value={section.config.end_date || ""}
+                                  onChange={(e) => updateSectionConfig(section.id, { end_date: e.target.value })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-3 pt-4">
+                                <Switch
+                                  checked={section.config.show_countdown !== false}
+                                  onCheckedChange={(v) => updateSectionConfig(section.id, { show_countdown: v })}
+                                  className="scale-75"
+                                />
+                                <label className="text-xs font-medium">কাউন্টডাউন টাইমার দেখান</label>
+                              </div>
+                            </>
+                          )}
+
+                          {/* ── Footer Promo config ── */}
+                          {section.id === "footer_promo" && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">বাটন টেক্সট</label>
+                                <Input
+                                  placeholder="সব কালেকশন দেখুন"
+                                  value={section.config.cta_text || ""}
+                                  onChange={(e) => updateSectionConfig(section.id, { cta_text: e.target.value })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="text-xs font-medium text-muted-foreground">বাটন লিংক URL</label>
+                                <Input
+                                  placeholder="/products"
+                                  value={section.config.cta_url || ""}
+                                  onChange={(e) => updateSectionConfig(section.id, { cta_url: e.target.value })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {/* ── Testimonials config ── */}
+                          {section.id === "testimonials" && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground">স্লাইডার গতি (ms)</label>
+                                <Input
+                                  type="number"
+                                  placeholder="5000"
+                                  value={section.config.slider_speed || 5000}
+                                  onChange={(e) => updateSectionConfig(section.id, { slider_speed: Number(e.target.value) })}
+                                  className="mt-1 h-8 text-sm"
+                                />
+                              </div>
+                              <div className="flex gap-4 pt-4">
+                                <div className="flex items-center gap-1.5">
+                                  <Switch
+                                    checked={section.config.autoplay !== false}
+                                    onCheckedChange={(v) => updateSectionConfig(section.id, { autoplay: v })}
+                                    className="scale-75"
+                                  />
+                                  <label className="text-xs font-medium">অটোপ্লে</label>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Switch
+                                    checked={section.config.loop !== false}
+                                    onCheckedChange={(v) => updateSectionConfig(section.id, { loop: v })}
+                                    className="scale-75"
+                                  />
+                                  <label className="text-xs font-medium">লুপ</label>
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {/* ── Brands config ── */}
+                          {section.id === "brands" && (
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">ডিসপ্লে মোড</label>
+                              <Select
+                                value={section.config.display_mode || "slider"}
+                                onValueChange={(v) => updateSectionConfig(section.id, { display_mode: v as any })}
+                              >
+                                <SelectTrigger className="mt-1 h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="slider">স্লাইডার (Slider)</SelectItem>
+                                  <SelectItem value="grid">গ্রিড (Grid)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="h-36 flex flex-col items-center justify-center text-muted-foreground gap-2">
-                        <Video className="h-8 w-8" />
-                        <span className="text-xs">ভিডিও আপলোড করুন</span>
-                      </div>
-                    )}
-                  </div>
-                  <Input type="file" accept="video/*" onChange={(e) => handleFileUpload(e, "video")} disabled={uploading} className="text-xs" />
-                  <Input
-                    value={hero.banner_video_url}
-                    onChange={(e) => setHero((p) => ({ ...p, banner_video_url: e.target.value }))}
-                    placeholder="অথবা URL দিন..."
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Text Content */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Type className="h-3.5 w-3.5 text-primary" /> টেক্সট কন্টেন্ট
-                </h3>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">ব্যাজ টেক্সট</Label>
-                    <Input value={hero.badge_text} onChange={(e) => setHero((p) => ({ ...p, badge_text: e.target.value }))} placeholder="✦ PREMIUM COLLECTION ✦" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">টাইটেল (প্রধান শিরোনাম)</Label>
-                    <Textarea value={hero.title} onChange={(e) => setHero((p) => ({ ...p, title: e.target.value }))} placeholder="প্রিমিয়াম গ্যাজেট কালেকশন" rows={2} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">সাবটাইটেল</Label>
-                    <Textarea value={hero.subtitle} onChange={(e) => setHero((p) => ({ ...p, subtitle: e.target.value }))} placeholder="বাংলাদেশের সবচেয়ে বিশ্বস্ত..." rows={2} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">CTA বাটন টেক্সট</Label>
-                    <Input value={hero.cta_text} onChange={(e) => setHero((p) => ({ ...p, cta_text: e.target.value }))} placeholder="শপিং শুরু করুন" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">CTA লিংক</Label>
-                    <Input value={hero.cta_link} onChange={(e) => setHero((p) => ({ ...p, cta_link: e.target.value }))} placeholder="#products" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button className="gap-1.5" onClick={() => saveSetting("hero_banner", hero)} disabled={saving === "hero_banner"}>
-                  {saving === "hero_banner" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  ব্যানার সেভ করুন
-                </Button>
-              </div>
+                      )}
+                    </div>
+                  </SectionRow>
+                );
+              })}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Store Info Tab */}
-        <TabsContent value="store" className="space-y-4">
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Store className="h-4 w-4 text-accent" /> স্টোর ইনফরমেশন
-              </CardTitle>
-              <CardDescription>আপনার স্টোরের নাম, লোগো এবং মৌলিক তথ্য পরিবর্তন করুন</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Logo Upload */}
-              <div className="flex items-start gap-5">
-                <div className="shrink-0">
-                  <div className="relative group w-24 h-24 rounded-2xl border-2 border-dashed border-border/60 hover:border-primary/40 transition-colors overflow-hidden">
-                    {storeInfo.logo_url ? (
-                      <div className="relative w-full h-full">
-                        <img src={storeInfo.logo_url} alt="Logo" className="w-full h-full object-contain p-2" />
-                        <button
-                          onClick={() => setStoreInfo((p) => ({ ...p, logo_url: "" }))}
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-1">
-                        <Store className="h-6 w-6" />
-                        <span className="text-[10px]">লোগো</span>
-                      </div>
-                    )}
-                  </div>
-                  <Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "logo")} disabled={uploading} className="mt-2 text-xs w-24" />
+        {/* ── HERO BANNER TAB ── */}
+        <TabsContent value="hero" className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">হিরো ব্যানার স্লাইডস</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">একাধিক স্লাইড যোগ করুন — অটোমেটিক ক্যারোসেল হবে</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={addSlide}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> স্লাইড যোগ করুন
+            </Button>
+          </div>
+
+          {heroSlides.map((slide, i) => (
+            <Card key={slide.id} className="overflow-hidden">
+              <div
+                className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedSlide(expandedSlide === i ? null : i)}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 font-bold text-accent">
+                  {i + 1}
                 </div>
-                <div className="flex-1 space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">স্টোরের নাম</Label>
-                    <Input value={storeInfo.name} onChange={(e) => setStoreInfo((p) => ({ ...p, name: e.target.value }))} placeholder="GadgetGram" className="text-lg font-semibold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">লোগো URL (ঐচ্ছিক)</Label>
-                    <Input value={storeInfo.logo_url} onChange={(e) => setStoreInfo((p) => ({ ...p, logo_url: e.target.value }))} placeholder="https://..." className="text-xs" />
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm line-clamp-1">{slide.title || `স্লাইড ${i + 1}`}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{slide.subtitle}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={slide.enabled} onCheckedChange={(v) => updateSlide(i, { enabled: v })} className="scale-75" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSlide(i); }}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  {expandedSlide === i ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </div>
 
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> ফোন</Label>
-                  <Input value={storeInfo.phone} onChange={(e) => setStoreInfo((p) => ({ ...p, phone: e.target.value }))} placeholder="+8801XXXXXXXXX" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> ইমেইল</Label>
-                  <Input value={storeInfo.email} onChange={(e) => setStoreInfo((p) => ({ ...p, email: e.target.value }))} placeholder="info@gadgetgram.com" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> ঠিকানা</Label>
-                <Textarea value={storeInfo.address} onChange={(e) => setStoreInfo((p) => ({ ...p, address: e.target.value }))} placeholder="ঢাকা, বাংলাদেশ" rows={2} />
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button className="gap-1.5" onClick={() => saveSetting("store_info", storeInfo)} disabled={saving === "store_info"}>
-                  {saving === "store_info" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  স্টোর ইনফো সেভ করুন
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Contact Tab */}
-        <TabsContent value="contact" className="space-y-4">
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-accent" /> কন্টাক্ট ইনফরমেশন
-              </CardTitle>
-              <CardDescription>ফোন, WhatsApp, ইমেইল ও সোশ্যাল মিডিয়া — হেডার, ফুটার ও WhatsApp বাটনে ব্যবহৃত হবে</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ContactField
-                  icon={<Phone className="h-4 w-4" />}
-                  label="ফোন নম্বর"
-                  hint="কল বাটনে ব্যবহৃত হবে"
-                  value={contact.phone}
-                  onChange={(v) => setContact((p) => ({ ...p, phone: v }))}
-                  placeholder="+8801XXXXXXXXX"
-                />
-                <ContactField
-                  icon={<MessageCircle className="h-4 w-4" />}
-                  label="WhatsApp নম্বর"
-                  hint="দেশের কোড সহ, + ছাড়া"
-                  value={contact.whatsapp}
-                  onChange={(v) => setContact((p) => ({ ...p, whatsapp: v }))}
-                  placeholder="8801XXXXXXXXX"
-                />
-                <ContactField
-                  icon={<Mail className="h-4 w-4" />}
-                  label="ইমেইল"
-                  value={contact.email}
-                  onChange={(v) => setContact((p) => ({ ...p, email: v }))}
-                  placeholder="info@gadgetgram.com"
-                />
-                <ContactField
-                  icon={<MapPin className="h-4 w-4" />}
-                  label="ঠিকানা"
-                  value={contact.address}
-                  onChange={(v) => setContact((p) => ({ ...p, address: v }))}
-                  placeholder="ঢাকা, বাংলাদেশ"
-                />
-              </div>
-
-              <Separator />
-
-              <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                <Globe className="h-3.5 w-3.5 text-primary" /> সোশ্যাল মিডিয়া
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ContactField
-                  icon={<Facebook className="h-4 w-4" />}
-                  label="Facebook পেজ"
-                  value={contact.facebook_url}
-                  onChange={(v) => setContact((p) => ({ ...p, facebook_url: v }))}
-                  placeholder="https://facebook.com/gadgetgram"
-                />
-                <ContactField
-                  icon={<Instagram className="h-4 w-4" />}
-                  label="Instagram"
-                  value={contact.instagram_url}
-                  onChange={(v) => setContact((p) => ({ ...p, instagram_url: v }))}
-                  placeholder="https://instagram.com/gadgetgram"
-                />
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button className="gap-1.5" onClick={() => saveSetting("contact_info", contact)} disabled={saving === "contact_info"}>
-                  {saving === "contact_info" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  কন্টাক্ট সেভ করুন
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Sections Tab */}
-        <TabsContent value="sections" className="space-y-4">
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Layout className="h-4 w-4 text-accent" /> হোমপেজ সেকশন কন্ট্রোল
-                  </CardTitle>
-                  <CardDescription className="mt-1">কোন সেকশনগুলো হোমপেজে দেখাবে তা নির্ধারণ করুন</CardDescription>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {activeSections}/{totalSections} সক্রিয়
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { key: "show_categories" as const, label: "ক্যাটাগরি সেকশন", desc: "স্মার্ট ওয়াচ, ইয়ারফোন ইত্যাদি ক্যাটাগরি", icon: "📂" },
-                { key: "show_featured" as const, label: "ফিচার্ড প্রোডাক্ট", desc: "হোমপেজে প্রদর্শিত প্রোডাক্ট", icon: "⭐" },
-                { key: "show_flash_sale" as const, label: "ফ্ল্যাশ সেল", desc: "টাইম-বাউন্ড ডিসকাউন্ট অফার", icon: "⚡" },
-                { key: "show_why_choose" as const, label: "কেন আমাদের বেছে নেবেন", desc: "ট্রাস্ট ফিচার সেকশন", icon: "🛡️" },
-                { key: "show_testimonials" as const, label: "কাস্টমার রিভিউ", desc: "কাস্টমারদের মন্তব্য", icon: "💬" },
-                { key: "show_newsletter" as const, label: "নিউজলেটার", desc: "ইমেইল সাবস্ক্রিপশন ফর্ম", icon: "📧" },
-              ].map(({ key, label, desc, icon }) => (
-                <div
-                  key={key}
-                  className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                    sections[key]
-                      ? "border-primary/20 bg-primary/5"
-                      : "border-border/50 bg-muted/30 opacity-70"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{icon}</span>
+              {expandedSlide === i && (
+                <CardContent className="border-t bg-muted/10 pt-5 pb-6 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">ব্যানার শিরোনাম</label>
+                      <Input value={slide.title} onChange={(e) => updateSlide(i, { title: e.target.value })} className="mt-1" placeholder="প্রিমিয়াম ইসলামিক ও ওয়াল ডেকোর" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">সাবটাইটেল</label>
+                      <Textarea value={slide.subtitle} onChange={(e) => updateSlide(i, { subtitle: e.target.value })} className="mt-1" rows={2} />
+                    </div>
                     <div>
-                      <p className="font-medium text-sm">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
+                      <label className="text-sm font-medium">ব্যাজ টেক্সট</label>
+                      <Input value={slide.badge_text} onChange={(e) => updateSlide(i, { badge_text: e.target.value })} className="mt-1" placeholder="✦ RANGAO PREMIUM DECOR ✦" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">টেক্সট অ্যালাইনমেন্ট</label>
+                      <Select value={slide.text_align} onValueChange={(v: any) => updateSlide(i, { text_align: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">বাম (Left)</SelectItem>
+                          <SelectItem value="center">কেন্দ্র (Center)</SelectItem>
+                          <SelectItem value="right">ডান (Right)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">প্রাইমারি বাটন টেক্সট</label>
+                      <Input value={slide.cta_primary_text} onChange={(e) => updateSlide(i, { cta_primary_text: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">প্রাইমারি বাটন URL</label>
+                      <Input value={slide.cta_primary_url} onChange={(e) => updateSlide(i, { cta_primary_url: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">সেকেন্ডারি বাটন টেক্সট</label>
+                      <Input value={slide.cta_secondary_text} onChange={(e) => updateSlide(i, { cta_secondary_text: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">সেকেন্ডারি বাটন URL</label>
+                      <Input value={slide.cta_secondary_url} onChange={(e) => updateSlide(i, { cta_secondary_url: e.target.value })} className="mt-1" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">ব্যানার ইমেজ URL</label>
+                      <div className="flex gap-2 mt-1">
+                        <Input 
+                          value={slide.banner_image_url} 
+                          onChange={(e) => updateSlide(i, { banner_image_url: e.target.value })} 
+                          placeholder="https://..." 
+                          className="flex-1"
+                        />
+                        <div className="relative">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="shrink-0 rounded-xl"
+                            disabled={uploadingIndex === `${i}-image`}
+                          >
+                            {uploadingIndex === `${i}-image` ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "ইমেজ আপলোড"
+                            )}
+                          </Button>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={(e) => handleSlideUpload(e, i, "image")}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      {slide.banner_image_url && (
+                        <img src={slide.banner_image_url} alt="Preview" className="mt-2 h-28 w-full object-cover rounded-xl" />
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">ব্যানার ভিডিও URL (MP4)</label>
+                      <div className="flex gap-2 mt-1">
+                        <Input 
+                          value={slide.banner_video_url} 
+                          onChange={(e) => updateSlide(i, { banner_video_url: e.target.value })} 
+                          placeholder="https://..." 
+                          className="flex-1"
+                        />
+                        <div className="relative">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="shrink-0 rounded-xl"
+                            disabled={uploadingIndex === `${i}-video`}
+                          >
+                            {uploadingIndex === `${i}-video` ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "ভিডিও আপলোড"
+                            )}
+                          </Button>
+                          <input 
+                            type="file" 
+                            accept="video/mp4,video/webm,video/ogg,video/*" 
+                            onChange={(e) => handleSlideUpload(e, i, "video")}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">ওভারলে অপাসিটি: {Math.round((slide.overlay_opacity || 0.85) * 100)}%</label>
+                      <Slider
+                        value={[Math.round((slide.overlay_opacity || 0.85) * 100)]}
+                        onValueChange={([v]) => updateSlide(i, { overlay_opacity: v / 100 })}
+                        min={0}
+                        max={100}
+                        step={5}
+                        className="mt-2"
+                      />
                     </div>
                   </div>
-                  <Switch checked={sections[key]} onCheckedChange={(v) => setSections((p) => ({ ...p, [key]: v }))} />
-                </div>
-              ))}
+                </CardContent>
+              )}
+            </Card>
+          ))}
 
-              <div className="flex justify-end pt-3">
-                <Button className="gap-1.5" onClick={() => saveSetting("homepage_sections", sections)} disabled={saving === "homepage_sections"}>
-                  {saving === "homepage_sections" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  সেকশন সেভ করুন
-                </Button>
+          {heroSlides.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-border/40 py-16 text-center">
+              <Image className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">কোনো স্লাইড নেই। উপরে "স্লাইড যোগ করুন" ক্লিক করুন।</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── CATEGORIES TAB ── */}
+        <TabsContent value="categories" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Tag className="h-4 w-4 text-accent" />
+                ক্যাটাগরি সেকশন কনফিগারেশন
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                সমস্ত ক্যাটাগরি ডেটা{" "}
+                <a href="/admin/categories" className="text-accent underline">Admin → Categories</a>{" "}
+                থেকে আসে। এখানে শুধু প্রেজেন্টেশন কনফিগার করুন।
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const catSection = sectionOrder.find((s) => s.id === "categories");
+                if (!catSection) return null;
+                const config = catSection.config;
+                return (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-medium">শিরোনাম</label>
+                      <Input
+                        value={config.title || ""}
+                        onChange={(e) => updateSectionConfig("categories", { title: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">সাবটাইটেল</label>
+                      <Input
+                        value={config.subtitle || ""}
+                        onChange={(e) => updateSectionConfig("categories", { subtitle: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">ক্যাটাগরি সোর্স (Category Source)</label>
+                      <Select
+                        value={config.category_mode || "auto"}
+                        onValueChange={(v) => updateSectionConfig("categories", { category_mode: v })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">সব ক্যাটাগরি (All Categories)</SelectItem>
+                          <SelectItem value="manual">নির্ধারিত ক্যাটাগরি (Selected Categories)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {config.category_mode === "manual" && (
+                      <div className="col-span-2 border p-4 rounded-xl bg-muted/20 space-y-2">
+                        <label className="text-sm font-medium block">ক্যাটাগরি নির্বাচন করুন (Selected Categories)</label>
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1.5 border rounded-lg bg-card">
+                          {(allCategories || []).map((cat) => {
+                            const selectedIds = config.category_ids || [];
+                            const isSelected = selectedIds.includes(cat.id);
+                            return (
+                              <div key={cat.id} className="flex items-center gap-2">
+                                <Switch
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    const nextIds = checked
+                                      ? [...selectedIds, cat.id]
+                                      : selectedIds.filter((id: string) => id !== cat.id);
+                                    updateSectionConfig("categories", { category_ids: nextIds });
+                                  }}
+                                  className="scale-75"
+                                />
+                                <span className="text-xs truncate">{cat.name}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-medium">সর্টিং অপশন (Sorting Options)</label>
+                      <Select
+                        value={config.sort_by || "custom"}
+                        onValueChange={(v) => updateSectionConfig("categories", { sort_by: v })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="custom">কাস্টম অর্ডার (Custom Order)</SelectItem>
+                          <SelectItem value="newest">নতুন ক্যাটাগরি (Newest First)</SelectItem>
+                          <SelectItem value="oldest">পুরানো ক্যাটাগরি (Oldest First)</SelectItem>
+                          <SelectItem value="products">অধিক প্রোডাক্ট (Most Products)</SelectItem>
+                          <SelectItem value="alphabetical">বর্ণানুক্রমিক (Alphabetical)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">সর্বোচ্চ ক্যাটাগরি সংখ্যা (Limit)</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={config.count || 8}
+                        onChange={(e) => updateSectionConfig("categories", { count: Number(e.target.value) })}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">ডেস্কটপ কলাম সংখ্যা</label>
+                      <Select
+                        value={String(config.desktop_cols || 4)}
+                        onValueChange={(v) => updateSectionConfig("categories", { desktop_cols: Number(v) })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[2, 3, 4, 5, 6].map((n) => <SelectItem key={n} value={String(n)}>{n} কলাম</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">ট্যাবলেট কলাম সংখ্যা</label>
+                      <Select
+                        value={String(config.tablet_cols || 3)}
+                        onValueChange={(v) => updateSectionConfig("categories", { tablet_cols: Number(v) })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[2, 3, 4].map((n) => <SelectItem key={n} value={String(n)}>{n} কলাম</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">মোবাইল কলাম সংখ্যা</label>
+                      <Select
+                        value={String(config.mobile_cols || 2)}
+                        onValueChange={(v) => updateSectionConfig("categories", { mobile_cols: Number(v) })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>{n} কলাম</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="col-span-2 border-t pt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={config.show_image !== false}
+                          onCheckedChange={(v) => updateSectionConfig("categories", { show_image: v })}
+                        />
+                        <label className="text-xs font-semibold">ইমেজ দেখান (Show Image)</label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={config.show_count !== false}
+                          onCheckedChange={(v) => updateSectionConfig("categories", { show_count: v })}
+                        />
+                        <label className="text-xs font-semibold">প্রোডাক্ট কাউন্ট দেখান</label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={config.show_description === true}
+                          onCheckedChange={(v) => updateSectionConfig("categories", { show_description: v })}
+                        />
+                        <label className="text-xs font-semibold">ডেসক্রিপশন দেখান (Description)</label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={config.show_cta === true}
+                          onCheckedChange={(v) => updateSectionConfig("categories", { show_cta: v })}
+                        />
+                        <label className="text-xs font-semibold">CTA বাটন দেখান (Show CTA)</label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={config.show_icon === true}
+                          onCheckedChange={(v) => updateSectionConfig("categories", { show_icon: v })}
+                        />
+                        <label className="text-xs font-semibold">আইকন দেখান (Show Icon)</label>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">
+                <p>📊 বর্তমানে <strong>{allCategories?.length || 0}টি</strong> সক্রিয় ক্যাটাগরি আছে।{" "}
+                  <a href="/admin/categories" className="text-accent hover:underline">ক্যাটাগরি ম্যানেজ করুন →</a>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── PRODUCTS TAB ── */}
+        <TabsContent value="products" className="mt-6 space-y-4">
+          <div className="rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">
+            <p>📊 বর্তমানে <strong>{allProducts?.length || 0}+</strong> সক্রিয় প্রোডাক্ট আছে।{" "}
+              <a href="/admin/products" className="text-accent hover:underline">প্রোডাক্ট ম্যানেজ করুন →</a>
+            </p>
+          </div>
+
+          {["featured", "islamic_collection", "new_arrivals", "best_sellers"].map((sid) => {
+            const s = sectionOrder.find((x) => x.id === sid);
+            if (!s) return null;
+            return (
+              <Card key={sid}>
+                <CardHeader>
+                  <CardTitle className="text-base">{s.label}</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium">শিরোনাম</label>
+                    <Input value={s.config.title || ""} onChange={(e) => updateSectionConfig(sid, { title: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">সাবটাইটেল</label>
+                    <Input value={s.config.subtitle || ""} onChange={(e) => updateSectionConfig(sid, { subtitle: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">ফিল্টার মোড</label>
+                    <Select
+                      value={s.config.filter || "featured"}
+                      onValueChange={(v) => updateSectionConfig(sid, { filter: v as any })}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="featured">ফিচার্ড প্রোডাক্ট</SelectItem>
+                        <SelectItem value="newest">নতুন আগমন</SelectItem>
+                        <SelectItem value="best_seller">বেস্ট সেলার</SelectItem>
+                        <SelectItem value="category">ক্যাটাগরি ভিত্তিক</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">প্রোডাক্ট সংখ্যা</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={s.config.count || 4}
+                      onChange={(e) => updateSectionConfig(sid, { count: Number(e.target.value) })}
+                      className="mt-1"
+                    />
+                  </div>
+                  {s.config.filter === "category" && (
+                    <div className="sm:col-span-2">
+                      <label className="text-sm font-medium">ক্যাটাগরি</label>
+                      <Select
+                        value={s.config.category_slug || ""}
+                        onValueChange={(v) => updateSectionConfig(sid, { category_slug: v })}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="ক্যাটাগরি বেছে নিন" /></SelectTrigger>
+                        <SelectContent>
+                          {(allCategories || []).map((c) => (
+                            <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium">ডেস্কটপ কলাম</label>
+                    <Select
+                      value={String(s.config.desktop_cols || 4)}
+                      onValueChange={(v) => updateSectionConfig(sid, { desktop_cols: Number(v) })}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[2, 3, 4].map((n) => <SelectItem key={n} value={String(n)}>{n} কলাম</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </TabsContent>
+
+        {/* ── OFFER BANNER TAB ── */}
+        <TabsContent value="offer" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-accent" />
+                অফার ব্যানার
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
+                <Switch
+                  checked={offerBanner.enabled}
+                  onCheckedChange={(v) => setOfferBanner((o) => ({ ...o, enabled: v }))}
+                />
+                <label className="font-medium text-sm">অফার ব্যানার সক্রিয় করুন</label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">শিরোনাম</label>
+                  <Input value={offerBanner.title} onChange={(e) => setOfferBanner((o) => ({ ...o, title: e.target.value }))} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">সাবটাইটেল</label>
+                  <Input value={offerBanner.subtitle} onChange={(e) => setOfferBanner((o) => ({ ...o, subtitle: e.target.value }))} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">কুপন কোড</label>
+                  <Input value={offerBanner.coupon_code} onChange={(e) => setOfferBanner((o) => ({ ...o, coupon_code: e.target.value }))} className="mt-1 font-mono" placeholder="RANGAO20" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">বাটন টেক্সট</label>
+                  <Input value={offerBanner.button_text} onChange={(e) => setOfferBanner((o) => ({ ...o, button_text: e.target.value }))} className="mt-1" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-sm font-medium">বাটন URL</label>
+                  <Input value={offerBanner.button_url} onChange={(e) => setOfferBanner((o) => ({ ...o, button_url: e.target.value }))} className="mt-1" placeholder="/products" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-sm font-medium">ব্যাকগ্রাউন্ড ইমেজ URL</label>
+                  <Input value={offerBanner.bg_image} onChange={(e) => setOfferBanner((o) => ({ ...o, bg_image: e.target.value }))} className="mt-1" placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">শুরুর তারিখ</label>
+                  <Input type="datetime-local" value={offerBanner.start_date} onChange={(e) => setOfferBanner((o) => ({ ...o, start_date: e.target.value }))} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">শেষের তারিখ</label>
+                  <Input type="datetime-local" value={offerBanner.end_date} onChange={(e) => setOfferBanner((o) => ({ ...o, end_date: e.target.value }))} className="mt-1" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={offerBanner.show_countdown}
+                    onCheckedChange={(v) => setOfferBanner((o) => ({ ...o, show_countdown: v }))}
+                  />
+                  <label className="text-sm font-medium">কাউন্টডাউন টাইমার দেখান</label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── TRUST FEATURES TAB ── */}
+        <TabsContent value="trust" className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">ট্রাস্ট ফিচার আইটেম</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">"কেন রাঙাও বেছে নেবেন" সেকশনের আইটেম</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={addTrustItem}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> আইটেম যোগ করুন
+            </Button>
+          </div>
+
+          {trustItems.map((item, i) => (
+            <Card key={item.id}>
+              <CardContent className="pt-5 pb-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">আইকন</label>
+                    <Select value={item.icon} onValueChange={(v) => updateTrustItem(i, { icon: v })}>
+                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ICON_OPTIONS.map((ic) => <SelectItem key={ic} value={ic}>{ic}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">শিরোনাম</label>
+                    <Input value={item.title} onChange={(e) => updateTrustItem(i, { title: e.target.value })} className="mt-1 h-8 text-sm" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-muted-foreground">বিবরণ</label>
+                      <Input value={item.desc} onChange={(e) => updateTrustItem(i, { desc: e.target.value })} className="mt-1 h-8 text-sm" />
+                    </div>
+                    <button
+                      onClick={() => removeTrustItem(i)}
+                      className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {trustItems.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-border/40 py-12 text-center text-sm text-muted-foreground">
+              কোনো আইটেম নেই। উপরে "আইটেম যোগ করুন" ক্লিক করুন।
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── STATISTICS TAB ── */}
+        <TabsContent value="stats" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-accent" />
+                পরিসংখ্যান সেকশন
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30">
+                <label className="font-medium text-sm">মোড:</label>
+                <div className="flex gap-3">
+                  {(["auto", "manual"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setStatistics((s) => ({ ...s, mode: m }))}
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all ${statistics.mode === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                      {m === "auto" ? "অটো (ডেটাবেস থেকে)" : "ম্যানুয়াল"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {statistics.mode === "manual" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[
+                    { key: "customers", label: "সন্তুষ্ট গ্রাহক" },
+                    { key: "orders", label: "সফল অর্ডার" },
+                    { key: "reviews", label: "পজিটিভ রিভিউ" },
+                    { key: "products", label: "ইউনিক প্রোডাক্ট" },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label className="text-sm font-medium">{label}</label>
+                      <Input
+                        type="number"
+                        value={(statistics as any)[key]}
+                        onChange={(e) => setStatistics((s) => ({ ...s, [key]: Number(e.target.value) }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {statistics.mode === "auto" && (
+                <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">
+                  <p>✅ অটো মোডে পরিসংখ্যান সরাসরি ডেটাবেস থেকে গণনা করা হবে।</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── NEWSLETTER TAB ── */}
+        <TabsContent value="newsletter" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="h-4 w-4 text-accent" />
+                নিউজলেটার সেকশন
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium">শিরোনাম</label>
+                <Input
+                  value={newsletter.title}
+                  onChange={(e) => setNewsletter((n) => ({ ...n, title: e.target.value }))}
+                  className="mt-1"
+                  placeholder="আমাদের নিউজলেটারে সাবস্ক্রাইব করুন"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium">সাবটাইটেল</label>
+                <Textarea
+                  value={newsletter.subtitle}
+                  onChange={(e) => setNewsletter((n) => ({ ...n, subtitle: e.target.value }))}
+                  className="mt-1"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">ইনপুট প্লেসহোল্ডার</label>
+                <Input
+                  value={newsletter.placeholder}
+                  onChange={(e) => setNewsletter((n) => ({ ...n, placeholder: e.target.value }))}
+                  className="mt-1"
+                  placeholder="আপনার ইমেইল লিখুন"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">বাটন টেক্সট</label>
+                <Input
+                  value={newsletter.button_text}
+                  onChange={(e) => setNewsletter((n) => ({ ...n, button_text: e.target.value }))}
+                  className="mt-1"
+                  placeholder="সাবস্ক্রাইব করুন"
+                />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-/* --- Sub-components --- */
-
-function QuickStat({ icon, label, value, active }: { icon: React.ReactNode; label: string; value: string; active: boolean }) {
-  return (
-    <div className={`rounded-xl border p-3 transition-colors ${active ? "border-primary/20 bg-primary/5" : "border-border/50 bg-muted/30"}`}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className={`${active ? "text-primary" : "text-muted-foreground"}`}>{icon}</div>
-        <span className="text-xs text-muted-foreground">{label}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        {active ? <CheckCircle2 className="h-3 w-3 text-success" /> : <AlertCircle className="h-3 w-3 text-muted-foreground" />}
-        <span className="text-sm font-semibold truncate">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function ContactField({ icon, label, hint, value, onChange, placeholder }: {
-  icon: React.ReactNode; label: string; hint?: string; value: string;
-  onChange: (v: string) => void; placeholder: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-        {icon} {label}
-      </Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
