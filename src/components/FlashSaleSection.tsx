@@ -67,7 +67,7 @@ const FlashSaleSection = () => {
           </div>
         </div>
 
-        <div className="flex gap-5 overflow-x-auto pb-4" style={{ scrollSnapType: "x mandatory" }}>
+        <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollSnapType: "x mandatory" }}>
           {saleProducts.map((product, i) => {
             const price = product.sale_price!;
             const original = product.regular_price;

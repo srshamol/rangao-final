@@ -82,6 +82,8 @@ export function trackPurchase(
     content_ids: items.map((i) => i.id),
     content_type: "product",
     order_id: orderId,
+  }, {
+    eventID: orderId,
   });
 }
 

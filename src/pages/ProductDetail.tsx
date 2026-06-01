@@ -165,7 +165,7 @@ const ProductDetail = () => {
         </div>
 
         {/* Part 1: Gallery + Info */}
-        <section ref={sectionRef} className="relative overflow-hidden py-8 md:py-12">
+        <section ref={sectionRef} className="relative overflow-hidden py-8 md:py-12" style={{ position: "relative" }}>
           {/* Subtle background decoration */}
           <div className="pointer-events-none absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-accent/[0.03] blur-[100px]" />
           <div className="pointer-events-none absolute -left-40 bottom-0 h-[400px] w-[400px] rounded-full bg-primary/[0.03] blur-[100px]" />
@@ -637,7 +637,7 @@ const ProductDetail = () => {
         )}
 
         {/* Sticky Bottom CTA (Mobile) */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:hidden">
+        <div className="fixed left-0 right-0 z-[940] border-t border-border/50 bg-background px-3 py-2.5 shadow-[0_-4px_25px_rgba(16,42,32,0.08)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
           <div className="flex gap-2">
             <Button
               size="default"

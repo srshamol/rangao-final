@@ -43,9 +43,9 @@ const FeaturedProducts = ({
   const sectionTitle = title || (selectedCategory ? "আপনার পছন্দের ক্যাটাগরি" : "আমাদের সেরা কালেকশন");
 
   return (
-    <section id="products" className="relative overflow-hidden py-20 md:py-28">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent)/0.03)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,hsl(var(--primary)/0.02)_0%,transparent_50%)]" />
+    <section id="products" className="relative overflow-hidden py-20 md:py-28 bg-white dark:bg-background border-b border-border/20">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--accent)/0.025)_0%,transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,hsl(var(--primary)/0.015)_0%,transparent_50%)]" />
 
       <div className="container relative">
         <div className="mx-auto mb-16 flex flex-col items-center text-center">
@@ -77,7 +77,7 @@ const FeaturedProducts = ({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.15 }}
-              className="mt-4 text-base text-muted-foreground"
+              className="mt-4 text-base text-foreground/80 font-medium"
             >
               {subtitle}
             </motion.p>

@@ -1,7 +1,5 @@
--- Update the admin user to ensure all confirmation columns are set correctly
 UPDATE auth.users 
 SET email_confirmed_at = now(), 
-    confirmed_at = now(),
     last_sign_in_at = now()
 WHERE email = 'bdinfosky@gmail.com';
 

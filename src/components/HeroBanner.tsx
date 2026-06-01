@@ -151,6 +151,24 @@ const HeroBanner = () => {
   const hero = settings?.heroBanner;
   const heroBg = hero?.banner_image_url || heroBgFallback;
   const heroVideo = hero?.banner_video_url || heroVideoFallback;
+  const [mediaReady, setMediaReady] = useState(false);
+
+  useEffect(() => {
+    if (heroBg) {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.href = heroBg;
+      document.head.appendChild(link);
+      return () => {
+        try {
+          document.head.removeChild(link);
+        } catch (e) {
+          // ignore if already removed
+        }
+      };
+    }
+  }, [heroBg]);
 
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
@@ -161,24 +179,44 @@ const HeroBanner = () => {
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.6]);
 
   return (
-    <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden bg-background">
+    <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden bg-background" style={{ position: "relative" }}>
       {/* Background Media with parallax */}
       <motion.div style={{ y: videoY }} className="absolute inset-0 h-[125%] w-full -top-[5%]">
         {hero?.banner_video_url ? (
-          <video autoPlay loop muted playsInline poster={heroBg} className="h-full w-full object-cover">
+          <video 
+            autoPlay 
+            loop 
+            muted 
+            playsInline 
+            poster={heroBg} 
+            onLoadedData={() => setMediaReady(true)}
+            className={`h-full w-full object-cover transition-opacity duration-1000 ${mediaReady ? 'opacity-100' : 'opacity-0'}`}
+          >
             <source src={hero.banner_video_url} type="video/mp4" />
           </video>
         ) : (
-          <img src={heroBg} alt="Rangao premium Islamic home decor" className="h-full w-full object-cover" />
+          <img 
+            src={heroBg} 
+            onLoad={() => setMediaReady(true)}
+            alt="Rangao premium Islamic home decor" 
+            className={`h-full w-full object-cover transition-opacity duration-1000 ${mediaReady ? 'opacity-100' : 'opacity-0'}`} 
+          />
         )}
       </motion.div>
 
+      {/* Premium Skeleton/Placeholder */}
+      {!mediaReady && (
+        <div className="absolute inset-0 bg-[#07130f] animate-pulse z-0 flex items-center justify-center">
+          <div className="h-full w-full bg-gradient-to-tr from-[#07130f] via-[#112a20] to-[#07130f]" />
+        </div>
+      )}
+
       {/* Multi-layer gradient overlay */}
       <motion.div style={{ opacity: overlayOpacity }} className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/85 to-primary/50" />
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-primary/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/75 to-primary/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/75 via-transparent to-primary/30" />
         {/* Vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--primary)/0.6)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--primary)/0.5)_100%)]" />
       </motion.div>
 
       {/* Particle canvas */}
@@ -293,7 +331,7 @@ const HeroBanner = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="mt-7 max-w-lg text-lg font-light leading-relaxed text-primary-foreground/65 md:text-xl">
+            className="mt-7 max-w-lg text-lg font-light leading-relaxed text-primary-foreground/85 md:text-xl">
 
             {hero?.subtitle || "আধুনিক গ্যাজেট যা আপনার লাইফস্টাইলকে সম্পূর্ণ বদলে দেবে। প্রিমিয়াম কোয়ালিটি, বিশ্বস্ত সার্ভিস।"}
           </motion.p>

@@ -55,7 +55,7 @@
     --background: 161 61% 5%;
     --foreground: 161 40% 98%;
 
-    --card: 161 40% 8%;
+    --card: 161 25% 10%;
     --card-foreground: 161 40% 98%;
 
     --popover: 161 40% 8%;
@@ -134,10 +134,12 @@ html {
   scroll-behavior: smooth;
   /* Prevent horizontal overflow on all mobile viewports */
   overflow-x: hidden;
+  position: relative;
 }
 
 body {
   overflow-x: hidden;
+  position: relative;
 }
 
 /* Selection color */
@@ -172,4 +174,36 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  .bg-warm-offwhite {
+    background-color: #faf9f5;
+  }
+  .bg-alternate-section {
+    background-color: #f4f8f6;
+  }
+  .shadow-premium-soft {
+    box-shadow: 0 10px 40px -12px rgba(16, 42, 32, 0.04), 0 2px 10px -2px rgba(16, 42, 32, 0.02);
+  }
 }
+
+
+
+/* Floating WhatsApp Positioning */
+.floating-whatsapp {
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 88px);
+  z-index: 900;
+}
+@media (min-width: 1024px) {
+  .floating-whatsapp {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+

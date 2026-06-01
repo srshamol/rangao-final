@@ -38,6 +38,7 @@ const TAB_ICONS: Record<string, any> = {
   trust: Star,
   stats: BarChart2,
   newsletter: Mail,
+  announcement: Megaphone,
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -153,6 +154,9 @@ export default function HomepageManager() {
   );
   const [statistics, setStatistics] = useState(
     settings?.statistics || { mode: "auto", customers: 5000, orders: 10000, reviews: 4800, products: 200 }
+  );
+  const [announcement, setAnnouncement] = useState(
+    settings?.announcementBar || { enabled: true, text: "", bg_color: "#102a20", text_color: "#ffffff", link_url: "" }
   );
   const [saving, setSaving] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<string | null>(null);
@@ -274,6 +278,7 @@ export default function HomepageManager() {
         upsertSetting("newsletter", newsletter),
         upsertSetting("offer_banner", offerBanner),
         upsertSetting("statistics", statistics),
+        upsertSetting("announcement_bar", announcement),
       ]);
       qc.invalidateQueries({ queryKey: ["store-settings-all"] });
       toast({ title: "✅ সব পরিবর্তন সেভ হয়েছে", description: "হোমপেজ আপডেট হয়েছে।" });
@@ -317,6 +322,7 @@ export default function HomepageManager() {
             { id: "trust", label: "ট্রাস্ট ফিচার" },
             { id: "stats", label: "পরিসংখ্যান" },
             { id: "newsletter", label: "নিউজলেটার" },
+            { id: "announcement", label: "অ্যানাউন্সমেন্ট বার" },
           ].map((tab) => (
             <TabsTrigger
               key={tab.id}
@@ -1296,6 +1302,89 @@ export default function HomepageManager() {
                   onChange={(e) => setNewsletter((n) => ({ ...n, button_text: e.target.value }))}
                   className="mt-1"
                   placeholder="সাবস্ক্রাইব করুন"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── ANNOUNCEMENT TAB ── */}
+        <TabsContent value="announcement" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-accent" />
+                অ্যানাউন্সমেন্ট বার সেটিংস
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">ওয়েবসাইটের সবার উপরে প্রদর্শিত অ্যানাউন্সমেন্ট বা অফার বার কাস্টমাইজ করুন।</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 rounded-xl border bg-primary/5 border-primary/10">
+                <div className="space-y-1">
+                  <p className="font-semibold text-sm">অ্যানাউন্সমেন্ট বার প্রদর্শন করুন</p>
+                  <p className="text-xs text-muted-foreground">অন করলে ওয়েবসাইটের সবার উপরে অফার বা তথ্য সম্বলিত বারটি দেখা যাবে</p>
+                </div>
+                <Switch 
+                  checked={announcement.enabled !== false} 
+                  onCheckedChange={v => setAnnouncement(p => ({ ...p, enabled: v }))} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">অ্যানাউন্সমেন্ট টেক্সট (বাংলা বা ইংরেজি)</label>
+                <Input 
+                  value={announcement.text || ""} 
+                  onChange={e => setAnnouncement(p => ({ ...p, text: e.target.value }))} 
+                  placeholder="যেমন: সারা বাংলাদেশে ক্যাশ অন ডেলিভারি এবং ৭ দিনের সহজ রিপ্লেসমেন্ট পলিসি!"
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">ব্যাকগ্রাউন্ড কালার (Background Color)</label>
+                  <div className="flex gap-2 mt-1">
+                    <Input 
+                      type="color" 
+                      value={announcement.bg_color || "#102a20"} 
+                      onChange={e => setAnnouncement(p => ({ ...p, bg_color: e.target.value }))}
+                      className="h-10 w-12 p-0 border-0 rounded-lg cursor-pointer"
+                    />
+                    <Input 
+                      type="text" 
+                      value={announcement.bg_color || "#102a20"} 
+                      onChange={e => setAnnouncement(p => ({ ...p, bg_color: e.target.value }))}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">টেক্সট কালার (Text Color)</label>
+                  <div className="flex gap-2 mt-1">
+                    <Input 
+                      type="color" 
+                      value={announcement.text_color || "#ffffff"} 
+                      onChange={e => setAnnouncement(p => ({ ...p, text_color: e.target.value }))}
+                      className="h-10 w-12 p-0 border-0 rounded-lg cursor-pointer"
+                    />
+                    <Input 
+                      type="text" 
+                      value={announcement.text_color || "#ffffff"} 
+                      onChange={e => setAnnouncement(p => ({ ...p, text_color: e.target.value }))}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">ক্লিক অ্যাকশন লিংক (Link URL - ঐচ্ছিক)</label>
+                <Input 
+                  value={announcement.link_url || ""} 
+                  onChange={e => setAnnouncement(p => ({ ...p, link_url: e.target.value }))} 
+                  placeholder="যেমন: /products অথবা অফার লিঙ্কের সম্পূর্ণ URL"
+                  className="mt-1"
                 />
               </div>
             </CardContent>

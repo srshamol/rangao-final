@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
-import ProductCard from "@/components/ProductCard";
+import ProductCard, { dbToCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -311,11 +311,11 @@ const Products = () => {
                 ) : (
                   <div className={
                     viewMode === "grid"
-                      ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                      ? "grid grid-cols-1 gap-5 sm:grid-cols-3 lg:grid-cols-4"
                       : "space-y-4"
                   }>
                     {filteredProducts.map((product, i) => (
-                      <ProductCard key={product.id} product={product} index={i} />
+                      <ProductCard key={product.id} product={dbToCard(product as any)} index={i} />
                     ))}
                   </div>
                 )}

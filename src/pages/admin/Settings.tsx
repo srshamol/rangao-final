@@ -49,6 +49,7 @@ interface FacebookPixel {
   access_token: string;
   test_event_code: string;
   enabled: boolean;
+  strict_purchase_mode?: boolean;
 }
 
 const SUPPORTED_SOCIAL_PLATFORMS = [
@@ -80,7 +81,8 @@ export default function AdminSettings() {
     website_url: "", mobile_logo_url: "", white_logo_url: "",
     logo_desktop_width: 140, logo_desktop_height: 40,
     logo_mobile_width: 100, logo_mobile_height: 30,
-    favicon_url: ""
+    favicon_url: "",
+    tagline: ""
   });
 
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
@@ -103,7 +105,7 @@ export default function AdminSettings() {
     bdcourier_enabled: false 
   });
   
-  const [fbPixel, setFbPixel] = useState<FacebookPixel>({ pixel_id: "", access_token: "", test_event_code: "", enabled: false });
+  const [fbPixel, setFbPixel] = useState<FacebookPixel>({ pixel_id: "", access_token: "", test_event_code: "", enabled: false, strict_purchase_mode: true });
 
   const [newPlatform, setNewPlatform] = useState("facebook");
   const [newUrl, setNewUrl] = useState("");
@@ -263,6 +265,73 @@ export default function AdminSettings() {
     return `https://wa.me/${rawNum}`;
   };
 
+  const handleWhatsAppChange = (val: string) => {
+    let cleaned = val.replace(/[^0-9+]/g, "");
+    let detectedCode = contactInfo.whatsapp_country_code || "+880";
+
+    // Auto-detect country code from pasted content
+    if (cleaned.startsWith("+880") || cleaned.startsWith("880")) {
+      detectedCode = "+880";
+      if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("+1") || (cleaned.startsWith("1") && cleaned.length > 10)) {
+      detectedCode = "+1";
+      if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("+44") || (cleaned.startsWith("44") && cleaned.length > 10)) {
+      detectedCode = "+44";
+      if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("+971") || (cleaned.startsWith("971") && cleaned.length > 10)) {
+      detectedCode = "+971";
+      if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("+966") || (cleaned.startsWith("966") && cleaned.length > 10)) {
+      detectedCode = "+966";
+      if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    }
+
+    // Auto-prepend country code prefix (e.g. Bangladesh) if typing local number
+    const prefix = detectedCode.replace("+", "");
+    if (detectedCode === "+880") {
+      if (cleaned.startsWith("01")) {
+        cleaned = "880" + cleaned.substring(1);
+      } else if (cleaned.startsWith("1") && !cleaned.startsWith("880")) {
+        cleaned = "880" + cleaned;
+      }
+    } else {
+      // General non-BD fallback: if it doesn't start with prefix and has content, prepend it
+      if (cleaned && !cleaned.startsWith(prefix) && (cleaned.startsWith("0") || cleaned.length >= 7)) {
+        if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
+        cleaned = prefix + cleaned;
+      }
+    }
+
+    setContactInfo(p => ({
+      ...p,
+      whatsapp: cleaned,
+      whatsapp_country_code: detectedCode
+    }));
+  };
+
+  const handleCountryCodeChange = (newCode: string) => {
+    let num = contactInfo.whatsapp.replace(/[^0-9]/g, "");
+    const oldPrefix = (contactInfo.whatsapp_country_code || "+880").replace("+", "");
+    const newPrefix = newCode.replace("+", "");
+
+    if (num.startsWith(oldPrefix)) {
+      num = newPrefix + num.substring(oldPrefix.length);
+    } else if (num) {
+      if (newPrefix === "880" && num.startsWith("0")) {
+        num = newPrefix + num.substring(1);
+      } else {
+        num = newPrefix + num;
+      }
+    }
+
+    setContactInfo(p => ({
+      ...p,
+      whatsapp_country_code: newCode,
+      whatsapp: num
+    }));
+  };
+
   // Dynamic social link helpers
   const handleAddSocialLink = () => {
     if (!newUrl.trim()) {
@@ -314,8 +383,7 @@ export default function AdminSettings() {
       <Tabs defaultValue="brand" className="space-y-6">
         <TabsList className="flex flex-wrap gap-2 bg-muted p-1.5 rounded-xl h-auto w-full">
           <TabsTrigger value="brand" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🎨 লোগো ও ব্র্যান্ড</TabsTrigger>
-          <TabsTrigger value="whatsapp" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">💬 হোয়াটসঅ্যাপ</TabsTrigger>
-          <TabsTrigger value="social" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔗 সোশ্যাল লিংক</TabsTrigger>
+          <TabsTrigger value="social" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔗 সোশ্যাল লিংক ও হোয়াটসঅ্যাপ</TabsTrigger>
           <TabsTrigger value="contact" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📞 কন্টাক্ট ও অ্যাড্রেস</TabsTrigger>
           <TabsTrigger value="ecommerce" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">💳 পেমেন্ট ও ডেলিভারি</TabsTrigger>
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
@@ -521,8 +589,9 @@ export default function AdminSettings() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: WhatsApp Management */}
-        <TabsContent value="whatsapp" className="space-y-6 outline-none">
+        {/* Tab 3: Social Media & WhatsApp Manager */}
+        <TabsContent value="social" className="space-y-6 outline-none">
+          {/* WhatsApp Settings Card */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2 text-success"><MessageSquare className="h-4.5 w-4.5 text-success" /> হোয়াটসঅ্যাপ সেটিংস</CardTitle>
@@ -545,7 +614,7 @@ export default function AdminSettings() {
                   <Label>কান্ট্রি কোড</Label>
                   <Select 
                     value={contactInfo.whatsapp_country_code || "+880"} 
-                    onValueChange={v => setContactInfo(p => ({ ...p, whatsapp_country_code: v }))}
+                    onValueChange={handleCountryCodeChange}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -562,10 +631,10 @@ export default function AdminSettings() {
                   <Label>হোয়াটসঅ্যাপ নম্বর</Label>
                   <Input 
                     value={contactInfo.whatsapp} 
-                    onChange={e => setContactInfo(p => ({ ...p, whatsapp: e.target.value }))} 
-                    placeholder="যেমন: 1812345678" 
+                    onChange={e => handleWhatsAppChange(e.target.value)} 
+                    placeholder="যেমন: 01812345678" 
                   />
-                  <p className="text-[10px] text-muted-foreground">কান্ট্রি কোড ছাড়া এবং স্পেস/হাইফেন ছাড়া নম্বরটি লিখুন।</p>
+                  <p className="text-[10px] text-muted-foreground">নম্বরটি টাইপ করুন। কান্ট্রি কোড ও প্রথম শূন্য স্বয়ংক্রিয়ভাবে ফর্ম্যাট হবে।</p>
                 </div>
               </div>
 
@@ -598,10 +667,8 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab 3: Social Media Manager */}
-        <TabsContent value="social" className="space-y-6 outline-none">
+          {/* Social Media Accounts Card */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2 text-amber-600"><Share2 className="h-4.5 w-4.5 text-amber-500" /> সোশ্যাল মিডিয়া অ্যাকাউন্টস</CardTitle>
@@ -723,6 +790,10 @@ export default function AdminSettings() {
                   <div className="space-y-2">
                     <Label>স্টোরের নাম (Business Name)</Label>
                     <Input value={storeInfo.name} onChange={e => setStoreInfo(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>স্টোরের ট্যাগলাইন / স্লোগান (Tagline)</Label>
+                    <Input value={storeInfo.tagline || ""} onChange={e => setStoreInfo(p => ({ ...p, tagline: e.target.value }))} placeholder="যেমন: প্রিমিয়াম ইসলামিক ও হোম ডেকোর" />
                   </div>
                   <div className="space-y-2">
                     <Label>প্রধান ফোন নম্বর</Label>
@@ -1007,6 +1078,17 @@ export default function AdminSettings() {
                 />
               </div>
 
+              <div className="flex items-center justify-between p-4 rounded-xl border bg-success/5 border-success/15">
+                <div className="space-y-1">
+                  <p className="font-bold text-sm">স্ট্রিক্ট পারচেজ মোড (Strict Purchase Mode)</p>
+                  <p className="text-xs text-muted-foreground">অন করলে ডুপ্লিকেট পারচেজ ট্র্যাকিং রোধ করতে ব্রাউজারে প্রতি অর্ডার কেবলমাত্র একবার ট্র্যাক হবে এবং সার্ভার-সাইড ইভেন্টের সাথে নিখুঁত ডিডুপ্লিকেশন (Deduplication) নিশ্চিত করতে eventID পাঠানো হবে</p>
+                </div>
+                <Switch 
+                  checked={fbPixel.strict_purchase_mode !== false} 
+                  onCheckedChange={v => setFbPixel(p => ({ ...p, strict_purchase_mode: v }))} 
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Facebook Pixel ID</Label>
@@ -1104,6 +1186,7 @@ export default function AdminSettings() {
             </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
 
       <MediaPicker 

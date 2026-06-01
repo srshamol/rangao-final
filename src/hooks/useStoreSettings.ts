@@ -183,6 +183,15 @@ export interface StoreInfo {
   logo_mobile_width?: number;
   logo_mobile_height?: number;
   favicon_url?: string;
+  tagline?: string;
+}
+
+export interface AnnouncementBarConfig {
+  enabled: boolean;
+  text: string;
+  bg_color: string;
+  text_color: string;
+  link_url?: string;
 }
 
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
@@ -273,7 +282,8 @@ const defaults = {
     district: "Dhaka",
     country: "Bangladesh",
     postal_code: "",
-    website_url: "https://rangao.com.bd"
+    website_url: "https://rangao.com.bd",
+    tagline: "প্রিমিয়াম ইসলামিক ও হোম ডেকোর"
   } as StoreInfo,
   trust_features: [
     { id: "tf-1", icon: "ShieldCheck", title: "১০০% প্রিমিয়াম কোয়ালিটি", desc: "সকল প্রোডাক্ট উন্নত মানের প্রিমিয়াম আমদানিকৃত কাঠ ও এক্রিলিক দিয়ে তৈরি।" },
@@ -320,6 +330,13 @@ const defaults = {
     { id: "g-2", image_url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80", title: "বেডরুম উডেন ওয়াল আর্ট", link: "/products" },
     { id: "g-3", image_url: "https://images.unsplash.com/photo-1617806118233-18e1db207f62?auto=format&fit=crop&w=600&q=80", title: "নিকাহনামা ফ্রেম কালেকশন", link: "/products" }
   ] as GalleryItem[],
+  announcement_bar: {
+    enabled: true,
+    text: "সারা বাংলাদেশে ক্যাশ অন ডেলিভারি এবং ৭ দিনের সহজ রিপ্লেসমেন্ট পলিসি!",
+    bg_color: "#102a20",
+    text_color: "#ffffff",
+    link_url: "",
+  } as AnnouncementBarConfig,
   homepage_section_order: DEFAULT_SECTION_ORDER,
 };
 
@@ -388,9 +405,11 @@ export function useStoreSettings() {
         statistics: { ...defaults.statistics, ...settings.statistics } as StatisticsConfig,
         homepageGallery: (settings.homepage_gallery || defaults.homepage_gallery) as GalleryItem[],
         sectionOrder,
+        announcementBar: { ...defaults.announcement_bar, ...settings.announcement_bar } as AnnouncementBarConfig,
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 

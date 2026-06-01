@@ -4,16 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
-import { CompareProvider } from "@/context/CompareContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import CartSidebar from "@/components/CartSidebar";
-import CompareBar from "@/components/CompareBar";
 import FBPixelProvider from "@/components/FBPixelProvider";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
 import Products from "./pages/Products";
-import Compare from "./pages/Compare";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -53,13 +50,21 @@ import StorageInitializer from "@/components/StorageInitializer";
 import MediaLibrary from "./pages/admin/MediaLibrary";
 import StorageDiagnostics from "./pages/admin/StorageDiagnostics";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
     <CartProvider>
-      <CompareProvider>
         <CustomerProvider>
           <Toaster />
           <Sonner />
@@ -68,14 +73,12 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <FBPixelProvider />
             <CartSidebar />
-            <CompareBar />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/products" element={<Products />} />
               <Route path="/category/:slug" element={<Products />} />
-              <Route path="/compare" element={<Compare />} />
               <Route path="/order-success/:orderNumber" element={<OrderSuccess />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:id" element={<BlogPost />} />
@@ -119,7 +122,6 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </CustomerProvider>
-      </CompareProvider>
     </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>

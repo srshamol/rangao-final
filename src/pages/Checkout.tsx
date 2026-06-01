@@ -30,6 +30,34 @@ const Checkout = () => {
     name: "", phone: "", email: "", division: "", district: "", thana: "", address: "",
   });
   const [payment, setPayment] = useState<PaymentMethod>("cod");
+  const [activePayments, setActivePayments] = useState<{ cod: boolean; bkash: boolean; nagad: boolean }>({ cod: true, bkash: false, nagad: false });
+
+  useEffect(() => {
+    const fetchPaymentSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from("store_settings" as any)
+          .select("value")
+          .eq("key", "payment_methods")
+          .single();
+        if (data && data.value) {
+          const val = data.value;
+          setActivePayments({
+            cod: val.cod ?? true,
+            bkash: val.bkash ?? false,
+            nagad: val.nagad ?? false
+          });
+          if (!val.cod) {
+            if (val.bkash) setPayment("bkash");
+            else if (val.nagad) setPayment("nagad");
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching payment settings:", err);
+      }
+    };
+    fetchPaymentSettings();
+  }, []);
 
   // Autofill from profile
   useEffect(() => {
@@ -156,6 +184,7 @@ const Checkout = () => {
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
       navigate(`/order-success/${order.order_number}`, {
         state: {
+          id: order.id,
           orderNumber: order.order_number,
           customerName: form.name,
           customerPhone: form.phone,
@@ -272,17 +301,17 @@ const Checkout = () => {
                 {/* Payment */}
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-4 rounded-2xl border bg-card p-6">
                   <h2 className="font-display text-lg font-bold text-card-foreground">পেমেন্ট মেথড</h2>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="flex flex-wrap justify-center items-stretch gap-2.5 sm:gap-4">
                     {([
-                      { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote },
-                      { id: "bkash" as const, label: "bKash", icon: Smartphone },
-                      { id: "nagad" as const, label: "Nagad", icon: CreditCard },
-                    ]).map(({ id, label, icon: Icon }) => (
+                      { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote, enabled: activePayments.cod },
+                      { id: "bkash" as const, label: "bKash", icon: Smartphone, enabled: activePayments.bkash },
+                      { id: "nagad" as const, label: "Nagad", icon: CreditCard, enabled: activePayments.nagad },
+                    ]).filter(p => p.enabled).map(({ id, label, icon: Icon }) => (
                       <button
                         key={id}
                         type="button"
                         onClick={() => setPayment(id)}
-                        className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 sm:p-4 text-xs sm:text-sm font-medium transition-all ${
+                        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 sm:p-4 text-xs sm:text-sm font-medium transition-all flex-1 min-w-[110px] max-w-[160px] ${
                           payment === id
                             ? "border-accent bg-accent/5 text-foreground"
                             : "border-border text-muted-foreground hover:border-accent/50"

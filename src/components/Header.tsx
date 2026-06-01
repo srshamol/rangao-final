@@ -8,6 +8,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
 import { useNavigate } from "react-router-dom";
+import MobileHeader from "./mobile/MobileHeader";
+import MobileDrawer from "./mobile/MobileDrawer";
+import MobileSearch from "./mobile/MobileSearch";
+import MobileBottomBar from "./mobile/MobileBottomBar";
+import AnnouncementBar from "./AnnouncementBar";
 
 const iconMap: Record<string, React.ElementType> = { Image, Key, Sparkles, Heart, Layers, Lightbulb, Gift, Palette };
 
@@ -27,6 +32,8 @@ const socialIconMap: Record<string, React.ElementType> = {
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -114,55 +121,23 @@ const Header = () => {
 
   return (
     <>
-      {/* Top Bar */}
-      <div className="relative z-50 hidden border-b border-primary-foreground/5 bg-primary text-primary-foreground md:block">
-        <div className="container flex h-9 items-center justify-between text-[11px]">
-          <div className="flex items-center gap-5">
-            <a href={`tel:${PHONE_NUMBER}`} className="flex items-center gap-1.5 text-primary-foreground/50 transition-colors hover:text-accent">
-              <Phone className="h-3 w-3" /> {PHONE_NUMBER}
-            </a>
-            <a href={`mailto:${contactEmail}`} className="flex items-center gap-1.5 text-primary-foreground/50 transition-colors hover:text-accent">
-              <Mail className="h-3 w-3" /> {contactEmail}
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-primary-foreground/30">সারা বাংলাদেশে ফ্রি ডেলিভারি</span>
-            <span className="text-primary-foreground/15">|</span>
-            <div className="flex items-center gap-2">
-              {settings?.contactInfo?.social_links && settings.contactInfo.social_links.length > 0 ? (
-                settings.contactInfo.social_links
-                  .filter(link => link.enabled)
-                  .map(link => {
-                    const Icon = socialIconMap[link.platform] || Globe;
-                    return (
-                      <a 
-                        key={link.id} 
-                        href={link.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-primary-foreground/40 transition-colors hover:text-accent"
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </a>
-                    );
-                  })
-              ) : (
-                <>
-                  <a href={settings?.contactInfo?.facebook_url || "#"} className="text-primary-foreground/40 transition-colors hover:text-accent"><Facebook className="h-3.5 w-3.5" /></a>
-                  <a href={settings?.contactInfo?.instagram_url || "#"} className="text-primary-foreground/40 transition-colors hover:text-accent"><Instagram className="h-3.5 w-3.5" /></a>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Header */}
-      <header className={`sticky top-0 z-40 w-full transition-all duration-500 ${
-        scrolled
-          ? "bg-primary/95 shadow-[0_4px_30px_-4px_hsl(var(--primary)/0.3)] backdrop-blur-2xl backdrop-saturate-150"
-          : "bg-primary"
-      }`}>
+      {/* Sticky Header Wrapper (handles Announcement Bar collapse and header stickiness dynamically) */}
+      <div className="sticky top-0 z-[1000] w-full">
+        <AnnouncementBar isScrolled={scrolled} />
+        <MobileHeader 
+          onMenuClick={() => setIsMobileDrawerOpen(true)} 
+          onSearchClick={() => setIsMobileSearchOpen(true)} 
+          storeInfo={settings?.storeInfo} 
+        />
+        
+        {/* Main Desktop Header */}
+        <header 
+          className={`w-full transition-all duration-500 hidden lg:block ${
+            scrolled
+              ? "bg-primary/95 shadow-[0_4px_30px_-4px_hsl(var(--primary)/0.3)] backdrop-blur-2xl backdrop-saturate-150"
+              : "bg-primary"
+          }`}
+        >
         <div className="container flex items-center justify-between py-0">
           {/* Logo */}
           <a href="/" className="group flex shrink-0 items-center gap-2.5 py-3">
@@ -592,6 +567,23 @@ const Header = () => {
           )}
         </AnimatePresence>
       </header>
+      </div>
+
+      <MobileDrawer 
+        isOpen={isMobileDrawerOpen} 
+        onClose={() => setIsMobileDrawerOpen(false)} 
+        categories={categories} 
+        getCatCount={getCatCount} 
+      />
+      <MobileSearch 
+        isOpen={isMobileSearchOpen} 
+        onClose={() => setIsMobileSearchOpen(false)} 
+        products={products} 
+        categories={categories} 
+      />
+      <MobileBottomBar 
+        onSearchClick={() => setIsMobileSearchOpen(true)} 
+      />
     </>
   );
 };

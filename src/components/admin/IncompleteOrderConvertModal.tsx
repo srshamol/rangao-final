@@ -32,8 +32,7 @@ interface Props {
 
 const shippingOptions = [
   { id: "dhaka", label: "ঢাকা সিটির ভিতরে", price: 70 },
-  { id: "chittagong", label: "চট্টগ্রাম সিটির ভিতরে", price: 70 },
-  { id: "outside", label: "ঢাকা এবং চট্টগ্রাম সিটির বাহিরে", price: 130 },
+  { id: "outside", label: "ঢাকা সিটির বাহিরে", price: 130 },
 ];
 
 export default function IncompleteOrderConvertModal({ open, onOpenChange, order, onConverted }: Props) {

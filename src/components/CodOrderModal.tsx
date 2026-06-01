@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type Product, formatPrice } from "@/data/products";
-import { User, Phone, MapPin, Loader2 } from "lucide-react";
+import { User, Phone, MapPin, Loader2, Banknote, Smartphone, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
@@ -20,8 +20,7 @@ type ShippingZone = "dhaka" | "chittagong" | "outside";
 
 const shippingOptions: { id: ShippingZone; label: string; price: number }[] = [
   { id: "dhaka", label: "ঢাকা সিটির ভিতরে", price: 70 },
-  { id: "chittagong", label: "চট্টগ্রাম সিটির ভিতরে", price: 70 },
-  { id: "outside", label: "ঢাকা এবং চট্টগ্রাম সিটির বাহিরে", price: 130 },
+  { id: "outside", label: "ঢাকা সিটির বাহিরে", price: 130 },
 ];
 
 const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
@@ -30,10 +29,39 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [shipping, setShipping] = useState<ShippingZone>("dhaka");
+  const [payment, setPayment] = useState<"cod" | "bkash" | "nagad">("cod");
+  const [activePayments, setActivePayments] = useState<{ cod: boolean; bkash: boolean; nagad: boolean }>({ cod: true, bkash: false, nagad: false });
   const [coupon, setCoupon] = useState("");
   const [orderNote, setOrderNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    const fetchPaymentSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from("store_settings" as any)
+          .select("value")
+          .eq("key", "payment_methods")
+          .single();
+        if (data && data.value) {
+          const val = data.value;
+          setActivePayments({
+            cod: val.cod ?? true,
+            bkash: val.bkash ?? false,
+            nagad: val.nagad ?? false
+          });
+          if (!val.cod) {
+            if (val.bkash) setPayment("bkash");
+            else if (val.nagad) setPayment("nagad");
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching payment settings:", err);
+      }
+    };
+    fetchPaymentSettings();
+  }, []);
 
   const { saveIncomplete, markConverted } = useIncompleteOrder({
     pageSource: "cod_modal",
@@ -76,7 +104,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             division: shippingLabel,
             address: address.trim(),
           },
-          payment_method: "ক্যাশ অন ডেলিভারি",
+          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
           subtotal,
           delivery_charge: deliveryCharge,
           total_amount: total,
@@ -101,6 +129,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
       navigate(`/order-success/${order.order_number}`, {
         state: {
+          id: order.id,
           orderNumber: order.order_number,
           customerName: name.trim(),
           customerPhone: phone.trim(),
@@ -111,7 +140,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             thana: "",
             address: address.trim(),
           },
-          paymentMethod: "ক্যাশ অন ডেলিভারি",
+          paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
           items: [{
             name: product.name,
             image: product.images[0],
@@ -134,16 +163,14 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg p-4 sm:p-6 gap-2 sm:gap-4 backdrop-blur-xl bg-background/95 border-border/60 shadow-2xl shadow-accent/10">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] sm:max-w-lg p-0 backdrop-blur-xl bg-background/95 border-border/60 shadow-2xl shadow-accent/10 flex flex-col overflow-hidden">
+        <DialogHeader className="p-4 sm:p-5 border-b border-border/40 shrink-0">
           <DialogTitle className="text-center font-display text-base sm:text-xl font-extrabold text-foreground">
-            ক্যাশ অন ডেলিভারিতে
-            <br />
             অর্ডার করতে আপনার তথ্য দিন
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 sm:space-y-5 pt-1 sm:pt-2">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Name */}
           <div className="space-y-1">
             <label className="font-bengali text-xs sm:text-sm font-semibold text-foreground">
@@ -182,6 +209,12 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             </div>
           </div>
 
+          {/* Order Note */}
+          <div className="space-y-1">
+            <label className="font-bengali text-xs sm:text-sm font-semibold text-foreground">অর্ডার নোট (ঐচ্ছিক)</label>
+            <Input value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder="অর্ডার সম্পর্কে কোনো বিশেষ তথ্য বা নির্দেশনা থাকলে এখানে লিখুন..." className="rounded-xl h-9 sm:h-10 text-sm" />
+          </div>
+
           {/* Shipping Method */}
           <div className="space-y-2">
             <h3 className="font-bengali text-xs sm:text-sm font-semibold text-foreground">শিপিং মেথড</h3>
@@ -204,6 +237,32 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
                   <span className="font-display text-xs sm:text-sm font-bold text-foreground">Tk {opt.price.toFixed(2)}</span>
                   <input type="radio" name="shipping" className="sr-only" checked={shipping === opt.id} onChange={() => setShipping(opt.id)} />
                 </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <h3 className="font-bengali text-xs sm:text-sm font-semibold text-foreground">পেমেন্ট মেথড</h3>
+            <div className="flex flex-wrap justify-center items-stretch gap-2">
+              {([
+                { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote, enabled: activePayments.cod },
+                { id: "bkash" as const, label: "bKash", icon: Smartphone, enabled: activePayments.bkash },
+                { id: "nagad" as const, label: "Nagad", icon: CreditCard, enabled: activePayments.nagad },
+              ]).filter(p => p.enabled).map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setPayment(id)}
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all flex-1 min-w-[100px] max-w-[140px] ${
+                    payment === id
+                      ? "border-accent bg-accent/5 text-foreground"
+                      : "border-border text-muted-foreground hover:border-accent/50"
+                  }`}
+                >
+                  <Icon className="h-4.5 w-4.5 text-accent" />
+                  <span className="text-[10px] sm:text-xs font-semibold leading-tight">{label}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -247,14 +306,9 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
               <span className="font-display text-lg sm:text-xl font-extrabold text-foreground">{formatPrice(total)}</span>
             </div>
           </div>
+        </div>
 
-          {/* Order Note */}
-          <div className="space-y-1">
-            <label className="font-bengali text-xs sm:text-sm font-semibold text-foreground">Order note</label>
-            <Input value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder="Order note" className="rounded-xl h-9 sm:h-10 text-sm" />
-          </div>
-
-          {/* Submit */}
+        <div className="p-4 sm:p-5 border-t border-border/40 shrink-0 bg-background/95">
           <Button
             onClick={handleSubmit}
             size="lg"

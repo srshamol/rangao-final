@@ -61,10 +61,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Only send for confirmed/delivered
-    if (!["confirmed", "delivered"].includes(order.order_status)) {
+    // Check if CAPI Purchase was already sent for this order to prevent duplicate fires
+    if (event_name === "Purchase") {
+      const { data: existingSent } = await supabase
+        .from("order_history")
+        .select("id")
+        .eq("order_id", order_id)
+        .eq("action", "fb_capi_sent")
+        .maybeSingle();
+
+      if (existingSent) {
+        return new Response(
+          JSON.stringify({ error: "Facebook CAPI Purchase event already sent for this order", skipped: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Only send for pending, confirmed, or delivered orders
+    if (!["pending", "confirmed", "delivered"].includes(order.order_status)) {
       return new Response(
-        JSON.stringify({ error: "Only confirmed/delivered orders can be sent", skipped: true }),
+        JSON.stringify({ error: "Only pending, confirmed, or delivered orders can be sent", skipped: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -111,6 +128,7 @@ Deno.serve(async (req) => {
     const eventData: Record<string, any> = {
       event_name: event_name,
       event_time: Math.floor(Date.now() / 1000),
+      event_id: order.order_number,
       event_source_url: Deno.env.get("SITE_URL") || "https://gadgetgram-sparkle.lovable.app",
       user_data: userData,
       custom_data: {

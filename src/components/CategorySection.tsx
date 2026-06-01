@@ -75,8 +75,10 @@ const CategorySection = ({
   if (!categories || categories.length === 0) return null;
 
   return (
-    <section className="py-20 md:py-28">
-      <div className="container">
+    <section className="py-20 md:py-28 bg-alternate-section/40 border-y border-border/30 relative overflow-hidden">
+      {/* Soft background decor */}
+      <div className="absolute top-0 left-0 w-64 h-64 bg-accent/[0.015] rounded-full blur-3xl pointer-events-none" />
+      <div className="container relative z-10">
         <div className="mx-auto mb-16 max-w-xl text-center">
           <motion.span
             initial={{ opacity: 0 }}
@@ -106,7 +108,7 @@ const CategorySection = ({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.15 }}
-              className="mt-4 text-base text-muted-foreground"
+              className="mt-4 text-base text-foreground/80 font-medium"
             >
               {subtitle}
             </motion.p>
@@ -149,7 +151,7 @@ const CategorySection = ({
                   className={`group relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl border-2 p-5 text-center transition-all duration-400 md:p-6 min-w-[170px] sm:min-w-[220px] shrink-0 snap-start ${
                     isActive
                       ? "border-accent bg-accent/5 shadow-[0_0_25px_-4px_hsl(var(--accent)/0.3)]"
-                      : "border-transparent bg-card shadow-[0_2px_20px_-4px_hsl(var(--foreground)/0.08)] hover:shadow-[0_8px_30px_-8px_hsl(var(--foreground)/0.15)]"
+                      : "border-border/60 bg-card shadow-premium-soft hover:shadow-[0_12px_35px_-8px_rgba(16,42,32,0.1)]"
                   }`}
                 >
                   <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br transition-opacity duration-500 ${

@@ -86,7 +86,7 @@ const IslamicCollection = ({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.15 }}
-            className="mt-4 text-base text-primary-foreground/75"
+            className="mt-4 text-base text-primary-foreground/90 font-medium"
           >
             {subtitle}
           </motion.p>
@@ -105,7 +105,7 @@ const IslamicCollection = ({
                 transition={{ delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -8 }}
                 onClick={() => navigate(`/product/${p.id}`)}
-                className="group relative overflow-hidden rounded-2xl border border-primary-foreground/10 bg-primary-foreground/[0.03] p-5 transition-all duration-300 hover:border-accent/30 cursor-pointer"
+                className="group relative overflow-hidden rounded-2xl border border-primary-foreground/15 bg-primary-foreground/[0.05] p-5 shadow-premium-soft transition-all duration-300 hover:border-accent/40 cursor-pointer"
               >
                 <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary/10">
                   <img
@@ -116,7 +116,7 @@ const IslamicCollection = ({
                 </div>
                 <div className="mt-5 space-y-2">
                   <h3 className="font-display text-lg font-bold group-hover:text-accent transition-colors">{p.name}</h3>
-                  <p className="text-sm text-primary-foreground/70 font-light line-clamp-2">{p.description?.slice(0, 100)}</p>
+                  <p className="text-sm text-primary-foreground/80 font-light line-clamp-2">{p.description?.slice(0, 100)}</p>
                   <div className="flex items-center justify-between pt-3">
                     <span className="font-display text-2xl font-bold text-accent">{formatPrice(price)}</span>
                     <Button

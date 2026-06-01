@@ -19,6 +19,7 @@ interface OrderItem {
 }
 
 interface OrderState {
+  id?: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
@@ -170,11 +171,67 @@ const OrderSuccess = () => {
   useEffect(() => {
     if (order && !purchaseTracked.current) {
       purchaseTracked.current = true;
-      trackPurchase(
-        order.orderNumber,
-        order.items.map((i) => ({ id: i.name })),
-        order.total
-      );
+
+      const checkAndTrack = async () => {
+        try {
+          const { data } = await supabase
+            .from("store_settings" as any)
+            .select("value")
+            .eq("key", "facebook_pixel")
+            .maybeSingle();
+
+          const config = data?.value as any;
+          const isStrict = config?.strict_purchase_mode !== false;
+
+          if (isStrict) {
+            const trackedOrdersStr = localStorage.getItem("fb_tracked_orders") || "[]";
+            let trackedOrders: string[] = [];
+            try {
+              trackedOrders = JSON.parse(trackedOrdersStr);
+            } catch {
+              trackedOrders = [];
+            }
+
+            if (trackedOrders.includes(order.orderNumber)) {
+              console.log("[Strict Purchase Mode] Duplicate purchase tracking prevented for:", order.orderNumber);
+              return;
+            }
+
+            trackedOrders.push(order.orderNumber);
+            localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
+          }
+
+          trackPurchase(
+            order.orderNumber,
+            order.items.map((i) => ({ id: i.name })),
+            order.total
+          );
+
+          // Trigger Conversions API (Server-side tracking) immediately on checkout completion
+          if (order.id) {
+            supabase.functions.invoke("fb-capi", {
+              body: { order_id: order.id, event_name: "Purchase" }
+            }).then(({ data, error }) => {
+              console.log("[Conversions API Checkout completion trigger]:", data, error);
+            });
+          }
+        } catch (e) {
+          console.error("Error checking strict purchase mode:", e);
+          trackPurchase(
+            order.orderNumber,
+            order.items.map((i) => ({ id: i.name })),
+            order.total
+          );
+
+          if (order.id) {
+            supabase.functions.invoke("fb-capi", {
+              body: { order_id: order.id, event_name: "Purchase" }
+            }).catch(err => console.error("Error in fallback CAPI trigger:", err));
+          }
+        }
+      };
+
+      checkAndTrack();
     }
   }, [order]);
 

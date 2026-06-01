@@ -106,7 +106,8 @@ export function useCategories(opts?: {
 
       return result;
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -166,7 +167,8 @@ export function useProducts(opts: {
       if (error) throw error;
       return (data || []) as DBProduct[];
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -186,7 +188,8 @@ export function useTestimonials(limit?: number) {
       if (error) return [] as DBTestimonial[];
       return (data || []) as DBTestimonial[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -204,7 +207,8 @@ export function useBrands() {
       if (error) return [] as DBBrand[];
       return (data || []) as DBBrand[];
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -226,7 +230,8 @@ export function useAutoStatistics() {
         reviews: reviews.count || 0,
       };
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -246,6 +251,7 @@ export function useProductCountByCategory() {
       });
       return counts;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 }

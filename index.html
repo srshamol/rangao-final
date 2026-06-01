@@ -7,8 +7,42 @@
     <meta name="description" content="Rangao (রাঙাও) — বাংলাদেশের সেরা প্রিমিয়াম ইসলামিক ওয়াল আর্ট, কাঠের ডেকোর, ক্যানভাস ও লাইফস্টাইল ডেকোর শপ।">
     <meta name="author" content="Rangao" />
 
-    
-    
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      (function() {
+        var cachedFavicon = localStorage.getItem("cached_favicon_url");
+        if (cachedFavicon && cachedFavicon.trim() !== "") {
+          var cacheBustedUrl = cachedFavicon + (cachedFavicon.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
+          var link = document.createElement("link");
+          link.id = "dynamic-favicon";
+          link.rel = "icon";
+          link.href = cacheBustedUrl;
+          
+          var appleLink = document.createElement("link");
+          appleLink.id = "dynamic-apple-icon";
+          appleLink.rel = "apple-touch-icon";
+          appleLink.href = cacheBustedUrl;
+          
+          document.head.appendChild(link);
+          document.head.appendChild(appleLink);
+        } else {
+          var link = document.createElement("link");
+          link.id = "dynamic-favicon";
+          link.rel = "icon";
+          link.href = "/favicon.ico?v=" + Date.now();
+          
+          var appleLink = document.createElement("link");
+          appleLink.id = "dynamic-apple-icon";
+          appleLink.rel = "apple-touch-icon";
+          appleLink.href = "/favicon.ico?v=" + Date.now();
+          
+          document.head.appendChild(link);
+          document.head.appendChild(appleLink);
+        }
+      })();
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9aeede4d-28db-4932-9f28-61b96355d06a/id-preview-06adaaa1--6b73ef53-b87e-4ab8-ab0c-22ff76323eca.lovable.app-1772083146563.png">
 

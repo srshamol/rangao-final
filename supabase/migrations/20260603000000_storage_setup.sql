@@ -1,7 +1,7 @@
 -- Safe, robust setup of storage buckets and row-level security (RLS) policies
 -- Run this migration or copy-paste it directly into your Supabase SQL Editor to solve "new row violates row-level security policy" errors!
 
-CREATE OR REPLACE FUNCTION storage.setup_buckets_and_policies()
+CREATE OR REPLACE FUNCTION public.setup_buckets_and_policies()
 RETURNS void AS $$
 BEGIN
   -- 1. Insert required public storage buckets if they do not exist
@@ -36,6 +36,7 @@ BEGIN
   TO authenticated 
   WITH CHECK (true);
 
+  -- 5. Create Update and Delete policies
   CREATE POLICY "Authenticated Update Access" 
   ON storage.objects 
   FOR UPDATE 
@@ -51,4 +52,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Execute the setup procedure
-SELECT storage.setup_buckets_and_policies();
+SELECT public.setup_buckets_and_policies();
+
+-- Clean up function
+DROP FUNCTION IF EXISTS public.setup_buckets_and_policies();

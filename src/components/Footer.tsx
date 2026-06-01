@@ -1,7 +1,8 @@
-import { Phone, Mail, Facebook, Instagram, MapPin, ArrowUpRight, ArrowUp, Banknote, Truck, ShieldCheck, Youtube, Music, Send, PhoneCall, Globe, Users, Linkedin, Play, Twitter } from "lucide-react";
+import { Phone, Mail, Facebook, Instagram, MapPin, ArrowUpRight, ArrowUp, Banknote, Truck, ShieldCheck, Youtube, Music, Send, PhoneCall, Globe, Users, Linkedin, Play, Twitter, ChevronDown } from "lucide-react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 const socialIconMap: Record<string, React.ElementType> = {
   facebook: Facebook,
@@ -19,6 +20,9 @@ const socialIconMap: Record<string, React.ElementType> = {
 
 const Footer = () => {
   const { data: settings } = useStoreSettings();
+  const [linksExpanded, setLinksExpanded] = useState(false);
+  const [catsExpanded, setCatsExpanded] = useState(false);
+  const [contactExpanded, setContactExpanded] = useState(false);
   
   // Query active categories dynamically from Supabase
   const { data: categories = [] } = useQuery({
@@ -132,9 +136,15 @@ const Footer = () => {
           </div>
 
           {/* Quick Links */}
-          <div>
-            <h4 className="mb-6 text-[11px] font-bold uppercase tracking-[0.25em] text-accent">দ্রুত লিংক</h4>
-            <div className="space-y-3.5">
+          <div className="border-b border-primary-foreground/5 pb-4 md:border-b-0 md:pb-0">
+            <button 
+              onClick={() => setLinksExpanded(!linksExpanded)}
+              className="flex w-full items-center justify-between text-left md:pointer-events-none md:block mb-4 md:mb-6"
+            >
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.25em] text-accent">দ্রুত লিংক</h4>
+              <ChevronDown className={`h-4 w-4 text-accent transition-transform duration-300 md:hidden ${linksExpanded ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`space-y-3.5 md:block ${linksExpanded ? "block" : "hidden"}`}>
               {[
                 { label: "হোম", href: "/" },
                 { label: "সমস্ত প্রোডাক্ট", href: "/products" },
@@ -150,9 +160,15 @@ const Footer = () => {
           </div>
 
           {/* Categories */}
-          <div>
-            <h4 className="mb-6 text-[11px] font-bold uppercase tracking-[0.25em] text-accent">ক্যাটাগরি</h4>
-            <div className="space-y-3.5">
+          <div className="border-b border-primary-foreground/5 pb-4 md:border-b-0 md:pb-0">
+            <button 
+              onClick={() => setCatsExpanded(!catsExpanded)}
+              className="flex w-full items-center justify-between text-left md:pointer-events-none md:block mb-4 md:mb-6"
+            >
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.25em] text-accent">ক্যাটাগরি</h4>
+              <ChevronDown className={`h-4 w-4 text-accent transition-transform duration-300 md:hidden ${catsExpanded ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`space-y-3.5 md:block ${catsExpanded ? "block" : "hidden"}`}>
               {parentCategories.map((cat) => (
                 <a key={cat.id} href={`/category/${cat.slug}`} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
                   {cat.name}
@@ -166,9 +182,15 @@ const Footer = () => {
           </div>
 
           {/* Contact */}
-          <div>
-            <h4 className="mb-6 text-[11px] font-bold uppercase tracking-[0.25em] text-accent">যোগাযোগ</h4>
-            <div className="space-y-3.5">
+          <div className="pb-4 md:pb-0">
+            <button 
+              onClick={() => setContactExpanded(!contactExpanded)}
+              className="flex w-full items-center justify-between text-left md:pointer-events-none md:block mb-4 md:mb-6"
+            >
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.25em] text-accent">যোগাযোগ</h4>
+              <ChevronDown className={`h-4 w-4 text-accent transition-transform duration-300 md:hidden ${contactExpanded ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`space-y-3.5 md:block ${contactExpanded ? "block" : "hidden"}`}>
               <a href={`tel:${phone}`} className="flex items-center gap-2.5 text-sm text-primary-foreground/50 transition-colors hover:text-accent">
                 <Phone className="h-4 w-4 shrink-0" /> {phone}
               </a>
@@ -181,7 +203,7 @@ const Footer = () => {
             </div>
 
             {/* Trust badges */}
-            <div className="mt-8 space-y-2">
+            <div className={`mt-8 space-y-2 md:block ${contactExpanded ? "block" : "hidden"}`}>
               {[
                 { icon: ShieldCheck, text: "১০০% প্রিমিয়াম কোয়ালিটি" },
                 { icon: Truck, text: "দ্রুত ও নিরাপদ ডেলিভারি" },

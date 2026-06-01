@@ -18,12 +18,19 @@ import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import FooterPromo from "@/components/FooterPromo";
 import DecorGallery from "@/components/DecorGallery";
+import { useEffect } from "react";
+import AppLoader from "@/components/AppLoader";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { DEFAULT_SECTION_ORDER } from "@/hooks/useStoreSettings";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: settings } = useStoreSettings();
+  const [mounted, setMounted] = useState(false);
+  const { data: settings, isLoading } = useStoreSettings();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Use admin-configured section order, fallback to default
   const sectionOrder = settings?.sectionOrder || DEFAULT_SECTION_ORDER;
@@ -223,6 +230,10 @@ const Index = () => {
       </div>
     );
   };
+
+  if (!mounted || isLoading) {
+    return <AppLoader />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
