@@ -679,7 +679,7 @@ const ProductDetail = () => {
           <div className="flex gap-2.5">
             <Button
               size="default"
-              className="h-11.5 flex-1 rounded-2xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
+              className="h-11.5 flex-1 rounded-xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
               disabled={product.stock === 0}
               onClick={() => {
                 addToCart(product, quantity);
@@ -690,7 +690,7 @@ const ProductDetail = () => {
             </Button>
             <Button
               size="default"
-              className="h-11.5 flex-[1.2] rounded-2xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
+              className="h-11.5 flex-[1.2] rounded-xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
               disabled={product.stock === 0}
               onClick={() => setCodModalOpen(true)}
             >
