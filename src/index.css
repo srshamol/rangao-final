@@ -213,3 +213,9 @@ body {
   }
 }
 
+/* Hide mobile bottom navigation and sticky CTA buttons when any modal dialog is open */
+body:has([role="dialog"]) .fixed.z-\[950\],
+body:has([role="dialog"]) .fixed.z-\[940\] {
+  display: none !important;
+}
+
