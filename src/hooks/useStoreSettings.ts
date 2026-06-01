@@ -206,6 +206,7 @@ const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
   { id: "why_choose", label: "কেন রাঙাও বেছে নেবেন", config: { enabled: true, desktop: true, mobile: true } },
   { id: "statistics", label: "পরিসংখ্যান", config: { enabled: true, desktop: true, mobile: true } },
   { id: "testimonials", label: "কাস্টমার রিভিউ", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "brands", label: "ব্র্যান্ড লোগো / পার্টনার", config: { enabled: true, desktop: true, mobile: true } },
   { id: "newsletter", label: "নিউজলেটার", config: { enabled: true, desktop: true, mobile: true } },
   { id: "gallery", label: "গ্যালারি / ইন্সপিরেশন", config: { enabled: true, desktop: true, mobile: true, title: "আমাদের ডেকর ইন্সপিরেশন", subtitle: "কাস্টমারদের ঘর থেকে কিছু সুন্দর মুহূর্ত" } },
   { id: "footer_promo", label: "ফুটোর প্রমোশন / CTA", config: { enabled: true, desktop: true, mobile: true, title: "রাঙাও দিয়ে আপনার ঘর সাজান", cta_text: "সব কালেকশন দেখুন", cta_url: "/products", bg_image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80" } },

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings, DEFAULT_SECTION_ORDER, type HomepageSectionOrder, type TrustFeatureItem, type HeroBannerSlide } from "@/hooks/useStoreSettings";
@@ -153,13 +153,36 @@ export default function HomepageManager() {
     settings?.offerBanner || { enabled: false, bg_image: "", title: "", subtitle: "", coupon_code: "", button_text: "", button_url: "", start_date: "", end_date: "", show_countdown: true }
   );
   const [statistics, setStatistics] = useState(
-    settings?.statistics || { mode: "auto", customers: 5000, orders: 10000, reviews: 4800, products: 200 }
+    settings?.statistics || { 
+      mode: "auto", 
+      customers: 5000, 
+      orders: 10000, 
+      reviews: 4800, 
+      products: 200,
+      use_bengali_digits: true,
+      labels: { customers: "সন্তুষ্ট গ্রাহক", orders: "ডেলিভারি সম্পন্ন", reviews: "গ্রাহক রিভিউ", products: "প্রিমিয়াম পণ্য" },
+      suffixes: { customers: "+", orders: "+", reviews: "+", products: "+" },
+      icons: { customers: "👥", orders: "📦", reviews: "⭐", products: "🎨" }
+    }
   );
   const [announcement, setAnnouncement] = useState(
     settings?.announcementBar || { enabled: true, text: "", bg_color: "#102a20", text_color: "#ffffff", link_url: "" }
   );
   const [saving, setSaving] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<string | null>(null);
+
+  // Synchronize state once store settings are loaded from React Query asynchronously
+  useEffect(() => {
+    if (settings) {
+      if (settings.sectionOrder) setSectionOrder(settings.sectionOrder);
+      if (settings.heroBanner?.slides) setHeroSlides(settings.heroBanner.slides);
+      if (settings.trustFeatures) setTrustItems(settings.trustFeatures);
+      if (settings.newsletter) setNewsletter(settings.newsletter);
+      if (settings.offerBanner) setOfferBanner(settings.offerBanner);
+      if (settings.statistics) setStatistics(settings.statistics);
+      if (settings.announcementBar) setAnnouncement(settings.announcementBar);
+    }
+  }, [settings]);
 
   const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>, i: number, type: "image" | "video") => {
     const file = e.target.files?.[0];
@@ -1061,87 +1084,127 @@ export default function HomepageManager() {
                         value={s.config.category_slug || ""}
                         onValueChange={(v) => updateSectionConfig(sid, { category_slug: v })}
                       >
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="ক্যাটাগরি বেছে নিন" /></SelectTrigger>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="ক্যাটাগরি সিলেক্ট করুন" /></SelectTrigger>
                         <SelectContent>
-                          {(allCategories || []).map((c) => (
-                            <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
+                          {allCategories?.map((c: any) => (
+                            <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
-                  <div>
-                    <label className="text-sm font-medium">ডেস্কটপ কলাম</label>
-                    <Select
-                      value={String(s.config.desktop_cols || 4)}
-                      onValueChange={(v) => updateSectionConfig(sid, { desktop_cols: Number(v) })}
-                    >
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[2, 3, 4].map((n) => <SelectItem key={n} value={String(n)}>{n} কলাম</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </TabsContent>
 
-        {/* ── OFFER BANNER TAB ── */}
+        {/* ── OFFER TAB ── */}
         <TabsContent value="offer" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Megaphone className="h-4 w-4 text-accent" />
-                অফার ব্যানার
+              <CardTitle className="text-base flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-accent" />
+                  অফার ব্যানার কনফিগারেশন
+                </span>
+                <Switch
+                  checked={offerBanner.enabled}
+                  onCheckedChange={(v) => setOfferBanner((o: any) => ({ ...o, enabled: v }))}
+                />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
-                <Switch
-                  checked={offerBanner.enabled}
-                  onCheckedChange={(v) => setOfferBanner((o) => ({ ...o, enabled: v }))}
-                />
-                <label className="font-medium text-sm">অফার ব্যানার সক্রিয় করুন</label>
-              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium">শিরোনাম</label>
-                  <Input value={offerBanner.title} onChange={(e) => setOfferBanner((o) => ({ ...o, title: e.target.value }))} className="mt-1" />
+                  <Input
+                    value={offerBanner.title}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, title: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">সাবটাইটেল</label>
-                  <Input value={offerBanner.subtitle} onChange={(e) => setOfferBanner((o) => ({ ...o, subtitle: e.target.value }))} className="mt-1" />
+                  <Input
+                    value={offerBanner.subtitle}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, subtitle: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">কুপন কোড</label>
-                  <Input value={offerBanner.coupon_code} onChange={(e) => setOfferBanner((o) => ({ ...o, coupon_code: e.target.value }))} className="mt-1 font-mono" placeholder="RANGAO20" />
+                  <Input
+                    value={offerBanner.coupon_code}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, coupon_code: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">ব্যানার ব্যাকগ্রাউন্ড ইমেজ URL</label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={offerBanner.bg_image}
+                      onChange={(e) => setOfferBanner((o: any) => ({ ...o, bg_image: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                    <input
+                      type="file"
+                      id="offer-bg-upload"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const media = await mediaService.upload(file, "images");
+                            if (media?.url) {
+                              setOfferBanner((o: any) => ({ ...o, bg_image: media.url }));
+                            }
+                          } catch (err: any) {
+                            toast({ title: "আপলোড ব্যর্থ", description: err.message, variant: "destructive" });
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById("offer-bg-upload")?.click()}
+                    >
+                      আপলোড
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">বাটন টেক্সট</label>
-                  <Input value={offerBanner.button_text} onChange={(e) => setOfferBanner((o) => ({ ...o, button_text: e.target.value }))} className="mt-1" />
+                  <Input
+                    value={offerBanner.button_text}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, button_text: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="text-sm font-medium">বাটন URL</label>
-                  <Input value={offerBanner.button_url} onChange={(e) => setOfferBanner((o) => ({ ...o, button_url: e.target.value }))} className="mt-1" placeholder="/products" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">ব্যাকগ্রাউন্ড ইমেজ URL</label>
-                  <Input value={offerBanner.bg_image} onChange={(e) => setOfferBanner((o) => ({ ...o, bg_image: e.target.value }))} className="mt-1" placeholder="https://..." />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">শুরুর তারিখ</label>
-                  <Input type="datetime-local" value={offerBanner.start_date} onChange={(e) => setOfferBanner((o) => ({ ...o, start_date: e.target.value }))} className="mt-1" />
+                  <Input
+                    value={offerBanner.button_url}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, button_url: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">শেষের তারিখ</label>
-                  <Input type="datetime-local" value={offerBanner.end_date} onChange={(e) => setOfferBanner((o) => ({ ...o, end_date: e.target.value }))} className="mt-1" />
+                  <label className="text-sm font-medium">অফার শেষ হওয়ার সময় (End Date)</label>
+                  <Input
+                    type="datetime-local"
+                    value={offerBanner.end_date ? offerBanner.end_date.substring(0, 16) : ""}
+                    onChange={(e) => setOfferBanner((o: any) => ({ ...o, end_date: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mt-8">
                   <Switch
                     checked={offerBanner.show_countdown}
-                    onCheckedChange={(v) => setOfferBanner((o) => ({ ...o, show_countdown: v }))}
+                    onCheckedChange={(v) => setOfferBanner((o: any) => ({ ...o, show_countdown: v }))}
                   />
                   <label className="text-sm font-medium">কাউন্টডাউন টাইমার দেখান</label>
                 </div>
@@ -1150,7 +1213,133 @@ export default function HomepageManager() {
           </Card>
         </TabsContent>
 
-        {/* ── TRUST FEATURES TAB ── */}
+        {/* ── STATISTICS TAB ── */}
+        <TabsContent value="stats" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-accent" />
+                পরিসংখ্যান সেকশন কনফিগারেশন
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Top Controls: Mode & Bengali Digits */}
+              <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 p-4 rounded-2xl border border-border/40">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <label className="font-semibold text-sm">ডেটা গণনা মোড (Mode)</label>
+                    <p className="text-xs text-muted-foreground">অটোমেটিক নাকি ম্যানুয়াল সংখ্যা ব্যবহার করবেন</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {(["auto", "manual"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setStatistics((s) => ({ ...s, mode: m }))}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${statistics.mode === m ? "bg-primary text-primary-foreground shadow" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                      >
+                        {m === "auto" ? "অটো" : "ম্যানুয়াল"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 border-l border-border/40 pl-0 sm:pl-6">
+                  <div className="space-y-0.5">
+                    <label className="font-semibold text-sm">বাংলা সংখ্যা প্রদর্শন</label>
+                    <p className="text-xs text-muted-foreground">কাউন্টার সংখ্যা বাংলায় দেখাবে কিনা</p>
+                  </div>
+                  <Switch
+                    checked={statistics.use_bengali_digits !== false}
+                    onCheckedChange={(v) => setStatistics((s) => ({ ...s, use_bengali_digits: v }))}
+                  />
+                </div>
+              </div>
+
+              {/* Stats Config Fields */}
+              <div className="space-y-5">
+                <h3 className="text-sm font-bold border-b pb-2">চারটি কাউন্টার ফিল্ড কনফিগার করুন</h3>
+                
+                {[
+                  { key: "customers", defaultLabel: "সন্তুষ্ট গ্রাহক", defaultIcon: "👥" },
+                  { key: "orders", defaultLabel: "ডেলিভারি সম্পন্ন", defaultIcon: "📦" },
+                  { key: "reviews", defaultLabel: "গ্রাহক রিভিউ", defaultIcon: "⭐" },
+                  { key: "products", defaultLabel: "প্রিমিয়াম পণ্য", defaultIcon: "🎨" },
+                ].map(({ key, defaultLabel, defaultIcon }) => {
+                  const currentLabel = statistics.labels?.[key] || defaultLabel;
+                  const currentSuffix = statistics.suffixes?.[key] || "+";
+                  const currentIcon = statistics.icons?.[key] || defaultIcon;
+
+                  return (
+                    <div key={key} className="p-4 border rounded-2xl bg-card/50 space-y-4 shadow-sm hover:border-accent/20 transition-all duration-300">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <span className="text-sm font-bold text-accent flex items-center gap-1.5">
+                          <span className="text-lg">{currentIcon}</span>
+                          {currentLabel}
+                        </span>
+                        <span className="text-[10px] font-mono uppercase bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">{key}</span>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-4">
+                        <div className="sm:col-span-2">
+                          <label className="text-xs font-semibold text-muted-foreground">কাস্টম লেবেল (Label)</label>
+                          <Input
+                            value={currentLabel}
+                            onChange={(e) => {
+                              const labels = { ...statistics.labels, [key]: e.target.value };
+                              setStatistics((s) => ({ ...s, labels }));
+                            }}
+                            className="mt-1 h-8.5 text-xs font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground">সাফিক্স (Suffix)</label>
+                          <Input
+                            value={currentSuffix}
+                            onChange={(e) => {
+                              const suffixes = { ...statistics.suffixes, [key]: e.target.value };
+                              setStatistics((s) => ({ ...s, suffixes }));
+                            }}
+                            className="mt-1 h-8.5 text-xs font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground">আইকন ইমোজি</label>
+                          <Input
+                            value={currentIcon}
+                            onChange={(e) => {
+                              const icons = { ...statistics.icons, [key]: e.target.value };
+                              setStatistics((s) => ({ ...s, icons }));
+                            }}
+                            className="mt-1 h-8.5 text-xs text-center"
+                          />
+                        </div>
+                        
+                        {statistics.mode === "manual" && (
+                          <div className="sm:col-span-4 mt-1 border-t pt-3">
+                            <label className="text-xs font-bold text-muted-foreground">ম্যানুয়াল সংখ্যা (Value)</label>
+                            <Input
+                              type="number"
+                              value={(statistics as any)[key] || 0}
+                              onChange={(e) => setStatistics((s) => ({ ...s, [key]: Number(e.target.value) }))}
+                              className="mt-1 h-8.5 text-xs font-semibold"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {statistics.mode === "auto" && (
+                <div className="rounded-xl bg-accent/5 border border-accent/15 p-4 text-xs text-muted-foreground">
+                  <p>💡 <strong>অটো মোড সক্রিয়:</strong> কাউন্টারের সংখ্যাগুলো সরাসরি ডেটাবেজের রিয়েল-টাইম রেকর্ড (যেমন: মোট কাস্টমার, সফল অর্ডার, মোট প্রোডাক্ট ও কাস্টমার রিভিউ) থেকে অটোমেটিকালি হিসাব করে দেখানো হবে।</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="trust" className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1201,61 +1390,6 @@ export default function HomepageManager() {
               কোনো আইটেম নেই। উপরে "আইটেম যোগ করুন" ক্লিক করুন।
             </div>
           )}
-        </TabsContent>
-
-        {/* ── STATISTICS TAB ── */}
-        <TabsContent value="stats" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart2 className="h-4 w-4 text-accent" />
-                পরিসংখ্যান সেকশন
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30">
-                <label className="font-medium text-sm">মোড:</label>
-                <div className="flex gap-3">
-                  {(["auto", "manual"] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setStatistics((s) => ({ ...s, mode: m }))}
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all ${statistics.mode === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                    >
-                      {m === "auto" ? "অটো (ডেটাবেস থেকে)" : "ম্যানুয়াল"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {statistics.mode === "manual" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {[
-                    { key: "customers", label: "সন্তুষ্ট গ্রাহক" },
-                    { key: "orders", label: "সফল অর্ডার" },
-                    { key: "reviews", label: "পজিটিভ রিভিউ" },
-                    { key: "products", label: "ইউনিক প্রোডাক্ট" },
-                  ].map(({ key, label }) => (
-                    <div key={key}>
-                      <label className="text-sm font-medium">{label}</label>
-                      <Input
-                        type="number"
-                        value={(statistics as any)[key]}
-                        onChange={(e) => setStatistics((s) => ({ ...s, [key]: Number(e.target.value) }))}
-                        className="mt-1"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {statistics.mode === "auto" && (
-                <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">
-                  <p>✅ অটো মোডে পরিসংখ্যান সরাসরি ডেটাবেস থেকে গণনা করা হবে।</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ── NEWSLETTER TAB ── */}

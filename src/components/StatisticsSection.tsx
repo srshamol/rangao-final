@@ -3,7 +3,12 @@ import { motion } from "framer-motion";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useAutoStatistics } from "@/hooks/useHomepageData";
 
-const CountUp = ({ target, duration = 2000 }: { target: number; duration?: number }) => {
+const toBengaliDigits = (numStr: string) => {
+  const bengaliDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+  return numStr.replace(/\d/g, (digit) => bengaliDigits[parseInt(digit)]);
+};
+
+const CountUp = ({ target, duration = 2000, useBengali = true }: { target: number; duration?: number; useBengali?: boolean }) => {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const animated = useRef(false);
@@ -31,7 +36,8 @@ const CountUp = ({ target, duration = 2000 }: { target: number; duration?: numbe
     return () => observer.disconnect();
   }, [target, duration]);
 
-  return <span ref={ref}>{count.toLocaleString("en")}</span>;
+  const formatted = count.toLocaleString("en");
+  return <span ref={ref}>{useBengali ? toBengaliDigits(formatted) : formatted}</span>;
 };
 
 const StatisticsSection = () => {
@@ -40,35 +46,37 @@ const StatisticsSection = () => {
   const config = settings?.statistics;
 
   const isAuto = config?.mode === "auto";
+  const useBengali = config?.use_bengali_digits !== false;
+
   const stats = [
     {
       value: isAuto ? (autoStats?.customers || 0) : (config?.customers || 5000),
-      label: "সন্তুষ্ট গ্রাহক",
-      suffix: "+",
-      icon: "👥",
+      label: config?.labels?.customers || "সন্তুষ্ট গ্রাহক",
+      suffix: config?.suffixes?.customers || "+",
+      icon: config?.icons?.customers || "👥",
     },
     {
       value: isAuto ? (autoStats?.orders || 0) : (config?.orders || 10000),
-      label: "সফল অর্ডার",
-      suffix: "+",
-      icon: "📦",
+      label: config?.labels?.orders || "ডেলিভারি সম্পন্ন",
+      suffix: config?.suffixes?.orders || "+",
+      icon: config?.icons?.orders || "📦",
     },
     {
       value: isAuto ? (autoStats?.reviews || 0) : (config?.reviews || 4800),
-      label: "পজিটিভ রিভিউ",
-      suffix: "+",
-      icon: "⭐",
+      label: config?.labels?.reviews || "গ্রাহক রিভিউ",
+      suffix: config?.suffixes?.reviews || "+",
+      icon: config?.icons?.reviews || "⭐",
     },
     {
       value: isAuto ? (autoStats?.products || 0) : (config?.products || 200),
-      label: "ইউনিক প্রোডাক্ট",
-      suffix: "+",
-      icon: "🎨",
+      label: config?.labels?.products || "প্রিমিয়াম পণ্য",
+      suffix: config?.suffixes?.products || "+",
+      icon: config?.icons?.products || "🎨",
     },
   ];
 
   return (
-    <section className="py-16 md:py-20 bg-gradient-to-br from-primary/[0.02] via-background to-accent/[0.02]">
+    <section className="py-16 md:py-20 bg-gradient-to-br from-primary/[0.02] via-background to-accent/[0.02] border-t border-border/10">
       <div className="container">
         <div className="grid grid-cols-2 gap-6 md:grid-cols-4 lg:gap-10">
           {stats.map((stat, i) => (
@@ -83,8 +91,8 @@ const StatisticsSection = () => {
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent/5 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <div className="relative text-3xl mb-3">{stat.icon}</div>
               <div className="relative font-display text-3xl font-extrabold text-foreground md:text-4xl lg:text-5xl">
-                <CountUp target={stat.value} />
-                <span className="text-accent">{stat.suffix}</span>
+                <CountUp target={stat.value} useBengali={useBengali} />
+                <span className="text-accent">{useBengali ? toBengaliDigits(stat.suffix) : stat.suffix}</span>
               </div>
               <p className="relative mt-2 text-sm font-semibold text-muted-foreground">{stat.label}</p>
             </motion.div>

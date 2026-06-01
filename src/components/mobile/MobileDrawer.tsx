@@ -3,6 +3,7 @@ import { X, ChevronDown, ShoppingBag, Gift, Star, Award, Layers, ClipboardList, 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCustomer } from "@/context/CustomerContext";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,26 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
   const navigate = useNavigate();
   const { user } = useCustomer();
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const { data: settings } = useStoreSettings();
+
+  const contact = settings?.contactInfo;
+  const rawPhone = contact?.phone || "01812-345678";
+
+  const toBengaliNumber = (numStr: string) => {
+    const bengaliDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+    return numStr.replace(/\d/g, (digit) => bengaliDigits[parseInt(digit)]);
+  };
+
+  const formatDisplayPhone = (phone: string) => {
+    let formatted = phone;
+    if (phone.startsWith("0")) {
+      formatted = `+880 ${phone.substring(1)}`;
+    }
+    return toBengaliNumber(formatted);
+  };
+
+  const cleanPhone = rawPhone.replace(/[^\d+]/g, "");
+  const telLink = cleanPhone.startsWith("+") ? `tel:${cleanPhone}` : `tel:+88${cleanPhone}`;
 
   // Scroll lock when drawer is open
   useEffect(() => {
@@ -198,8 +219,12 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
 
             {/* Footer contact info */}
             <div className="border-t border-border/40 p-5 bg-secondary/10 text-center">
-              <span className="text-[10px] font-bold text-muted-foreground/60 block uppercase tracking-widest">রাঙাও কাস্টমার কেয়ার</span>
-              <a href="tel:+8801812345678" className="text-sm font-extrabold text-primary hover:text-accent transition-colors block mt-1">+৮৮০ ১৮১২-৩৪৫৬৭৮</a>
+              <span className="text-[10px] font-bold text-muted-foreground/60 block uppercase tracking-widest">
+                {settings?.storeInfo?.name ? `${settings.storeInfo.name.split(" - ")[0]} কাস্টমার কেয়ার` : "রাঙাও কাস্টমার কেয়ার"}
+              </span>
+              <a href={telLink} className="text-sm font-extrabold text-primary hover:text-accent transition-colors block mt-1">
+                {formatDisplayPhone(rawPhone)}
+              </a>
             </div>
           </motion.div>
         </>
