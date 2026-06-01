@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { processImage, TARGET_WIDTHS } from "@/utils/imagePipeline";
+
 
 export interface MediaItem {
   id: string;
@@ -121,58 +123,143 @@ class MediaService {
       throw new Error(validation.error);
     }
 
-    // 2. Ensure Buckets Exist (Swallows errors to proceed to fallback if needed)
+    // 2. Ensure Buckets Exist
     try {
       await this.ensureBuckets();
     } catch (e) {
       console.warn("Bucket pre-checks failed, will try upload or Base64 fallback", e);
     }
 
-    // 3. Prepare Upload Path
-    const ext = file.name.split(".").pop();
+    // 3. Determine if we should perform conversion
+    const isConvertibleImage = file.type.startsWith("image/") && file.type !== "image/svg+xml" && bucket === "images";
+    
+    const ext = file.name.split(".").pop() || "";
     const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-    const path = customPath || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}_${cleanName}`;
+    const baseNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    const cleanBaseName = baseNameWithoutExt.replace(/[^a-zA-Z0-9]/g, "_");
+    
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const path = customPath || `${uniqueId}_${cleanName}`;
     
     let uploadError = null;
     let actualBucket = bucket;
     let fileUrl = "";
     let isFallbackBase64 = false;
+    let metadata: any = {};
     
-    try {
-      const result = await supabase.storage.from(bucket).upload(path, file);
-      uploadError = result.error;
-      
-      // Fallback: If specified bucket (e.g. images) fails with 'not found' or 'bucket' errors, retry on fallback 'uploads' bucket
-      if (uploadError && bucket !== "uploads") {
-        const msg = uploadError.message || "";
-        if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("bucket")) {
-          const fallbackResult = await supabase.storage.from("uploads").upload(path, file);
-          uploadError = fallbackResult.error;
-          actualBucket = "uploads";
-        }
-      }
-    } catch (e: any) {
-      uploadError = e;
-    }
-
-    if (uploadError) {
-      console.warn(`Supabase Storage upload failed, activating Base64 resilient failover. Error: ${uploadError.message || uploadError}`);
+    if (isConvertibleImage) {
+      const startTime = performance.now();
       try {
-        // Safe, resilient fallback to Base64
-        fileUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
+        // Run conversion pipeline
+        const pipelineResult = await processImage(file);
+        
+        // Upload Original as backup
+        const originalPath = `original/${path}`;
+        const originalResult = await supabase.storage.from(bucket).upload(originalPath, file);
+        if (originalResult.error) throw originalResult.error;
+        
+        const { data: originalUrlData } = supabase.storage.from(bucket).getPublicUrl(originalPath);
+        fileUrl = originalUrlData.publicUrl;
+        
+        const webpUrls: { [key: string]: string } = {};
+        const avifUrls: { [key: string]: string } = {};
+        
+        // Upload resized versions in parallel
+        const uploadPromises: Promise<any>[] = [];
+        
+        TARGET_WIDTHS.forEach((w) => {
+          const webpBlob = pipelineResult.webpSizes[w];
+          if (webpBlob) {
+            const webpPath = `webp/${w}w/${uniqueId}_${cleanBaseName}.webp`;
+            uploadPromises.push(
+              supabase.storage.from(bucket).upload(webpPath, webpBlob, { contentType: "image/webp" })
+                .then(res => {
+                  if (res.error) throw res.error;
+                  const { data } = supabase.storage.from(bucket).getPublicUrl(webpPath);
+                  webpUrls[`${w}w`] = data.publicUrl;
+                })
+            );
+          }
+          
+          const avifBlob = pipelineResult.avifSizes[w];
+          if (avifBlob) {
+            const avifPath = `avif/${w}w/${uniqueId}_${cleanBaseName}.avif`;
+            uploadPromises.push(
+              supabase.storage.from(bucket).upload(avifPath, avifBlob, { contentType: "image/avif" })
+                .then(res => {
+                  if (res.error) throw res.error;
+                  const { data } = supabase.storage.from(bucket).getPublicUrl(avifPath);
+                  avifUrls[`${w}w`] = data.publicUrl;
+                })
+            );
+          }
         });
-        isFallbackBase64 = true;
-      } catch (base64Err: any) {
-        throw new Error(`Upload and Base64 conversion failed: ${uploadError.message || uploadError}`);
+        
+        await Promise.all(uploadPromises);
+        
+        const endTime = performance.now();
+        const conversionTime = endTime - startTime;
+        
+        // Calculate total size of generated files vs original size
+        let totalOptimizedSize = 0;
+        Object.values(pipelineResult.webpSizes).forEach(b => totalOptimizedSize += b.size);
+        Object.values(pipelineResult.avifSizes).forEach(b => totalOptimizedSize += b.size);
+        const savingsPercent = Math.max(0, Math.round(((file.size - totalOptimizedSize / (TARGET_WIDTHS.length * 2)) / file.size) * 100));
+        
+        console.log(`[ImagePipeline] Conversion succeeded in ${conversionTime.toFixed(1)}ms. Average savings: ${savingsPercent}%`);
+        
+        metadata = {
+          width: pipelineResult.width,
+          height: pipelineResult.height,
+          originalSize: file.size,
+          original: fileUrl,
+          webp: webpUrls,
+          avif: avifUrls,
+          conversionTimeMs: conversionTime,
+          savingsPercent
+        };
+      } catch (e: any) {
+        console.error("Optimized conversion or upload failed, falling back to standard upload:", e);
+        uploadError = e;
       }
-    } else {
-      // 4. Generate URL from Supabase Storage
-      const { data: urlData } = supabase.storage.from(actualBucket).getPublicUrl(path);
-      fileUrl = urlData.publicUrl;
+    }
+    
+    // Fallback standard upload if not converted or if conversion failed
+    if (!isConvertibleImage || uploadError) {
+      uploadError = null;
+      try {
+        const result = await supabase.storage.from(bucket).upload(path, file);
+        uploadError = result.error;
+        
+        if (uploadError && bucket !== "uploads") {
+          const msg = uploadError.message || "";
+          if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("bucket")) {
+            const fallbackResult = await supabase.storage.from("uploads").upload(path, file);
+            uploadError = fallbackResult.error;
+            actualBucket = "uploads";
+          }
+        }
+      } catch (e: any) {
+        uploadError = e;
+      }
+
+      if (uploadError) {
+        console.warn(`Supabase Storage upload failed, activating Base64 resilient failover. Error: ${uploadError.message || uploadError}`);
+        try {
+          fileUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+          });
+          isFallbackBase64 = true;
+        } catch (base64Err: any) {
+          throw new Error(`Upload and Base64 conversion failed: ${uploadError.message || uploadError}`);
+        }
+      } else {
+        const { data: urlData } = supabase.storage.from(actualBucket).getPublicUrl(path);
+        fileUrl = urlData.publicUrl;
+      }
     }
 
     // 5. Save to Media Library
@@ -180,7 +267,7 @@ class MediaService {
       id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: file.name,
       url: fileUrl,
-      file_path: isFallbackBase64 ? undefined : path,
+      file_path: isFallbackBase64 ? undefined : (isConvertibleImage ? `original/${path}` : path),
       bucket_name: isFallbackBase64 ? "base64_fallback" : actualBucket,
       mime_type: file.type,
       file_size: file.size,
@@ -188,8 +275,9 @@ class MediaService {
       uploaded_at: new Date().toISOString()
     };
 
-    // Attempt to parse dimensions for images
-    if (file.type.startsWith("image/")) {
+    if (isConvertibleImage && !uploadError) {
+      newItem.metadata = metadata;
+    } else if (file.type.startsWith("image/")) {
       try {
         const dimensions = await this.getImageDimensions(fileUrl);
         newItem.metadata = {
@@ -205,6 +293,7 @@ class MediaService {
     await this.saveItemMetadata(newItem);
     return newItem;
   }
+
 
   /**
    * Registers an external URL asset into the media library

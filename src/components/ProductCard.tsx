@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useState } from "react";
 import CodOrderModal from "@/components/CodOrderModal";
 import type { DBProduct } from "@/hooks/useHomepageData";
+import BrokenImageGuard from "@/components/BrokenImageGuard";
+
 
 // Unified product shape accepted by the card
 export interface CardProduct {
@@ -91,11 +93,12 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
 
         {/* Image */}
         <div className="relative aspect-[4/3.5] overflow-hidden bg-gradient-to-br from-secondary to-secondary/30">
-          <img
+          <BrokenImageGuard
             src={product.images[0]}
             alt={product.name}
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
             loading="lazy"
+            sizes="(max-width: 640px) 150px, (max-width: 1024px) 250px, 350px"
           />
 
           <div className="absolute inset-0 flex items-center justify-center bg-primary/0 transition-all duration-500 group-hover:bg-primary/20">

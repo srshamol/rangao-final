@@ -6,6 +6,8 @@ import heroBgFallback from "@/assets/hero-banner.jpg";
 import heroVideoFallback from "@/assets/hero-video.mp4";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useAutoStatistics } from "@/hooks/useHomepageData";
+import OptimizedImage from "@/components/OptimizedImage";
+
 
 const toBanglaDigits = (num: number | string) => {
   const digits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
@@ -151,7 +153,8 @@ const HeroBanner = () => {
   const hero = settings?.heroBanner;
   const heroBg = hero?.banner_image_url || heroBgFallback;
   const heroVideo = hero?.banner_video_url || heroVideoFallback;
-  const [mediaReady, setMediaReady] = useState(false);
+  const [mediaReady, setMediaReady] = useState(true);
+
 
   useEffect(() => {
     if (heroBg) {
@@ -195,11 +198,14 @@ const HeroBanner = () => {
             <source src={hero.banner_video_url} type="video/mp4" />
           </video>
         ) : (
-          <img 
+          <OptimizedImage 
             src={heroBg} 
             onLoad={() => setMediaReady(true)}
             alt="Rangao premium Islamic home decor" 
-            className={`h-full w-full object-cover transition-opacity duration-1000 ${mediaReady ? 'opacity-100' : 'opacity-0'}`} 
+            loading="eager"
+            fetchPriority="high"
+            sizes="100vw"
+            className="h-full w-full object-cover" 
           />
         )}
       </motion.div>

@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { Image as ImageIcon } from "lucide-react";
+import OptimizedImage from "./OptimizedImage";
 
 interface BrokenImageGuardProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackUrl?: string;
   className?: string;
+  metadata?: any;
+  aspectRatio?: string;
+  containerClassName?: string;
 }
 
 export default function BrokenImageGuard({
@@ -11,6 +15,9 @@ export default function BrokenImageGuard({
   alt,
   fallbackUrl = "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=500&q=80", // Premium default wood placeholder
   className = "",
+  metadata,
+  aspectRatio,
+  containerClassName = "",
   ...props
 }: BrokenImageGuardProps) {
   const [imgSrc, setImgSrc] = useState<string>("");
@@ -41,12 +48,16 @@ export default function BrokenImageGuard({
   }
 
   return (
-    <img
+    <OptimizedImage
       src={imgSrc || fallbackUrl}
       alt={alt || "Media assets fallback"}
       onError={handleError}
       className={`object-cover ${className}`}
+      metadata={metadata}
+      aspectRatio={aspectRatio}
+      containerClassName={containerClassName}
       {...props}
     />
   );
 }
+

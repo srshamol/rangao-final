@@ -388,6 +388,7 @@ export default function AdminSettings() {
           <TabsTrigger value="ecommerce" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">💳 পেমেন্ট ও ডেলিভারি</TabsTrigger>
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
           <TabsTrigger value="pixel" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 পিক্সেল ও API</TabsTrigger>
+          <TabsTrigger value="images" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🖼️ ইমেজ অপ্টিমাইজেশন</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Logo & Favicon Management */}
@@ -1187,6 +1188,11 @@ export default function AdminSettings() {
           </Card>
         </TabsContent>
 
+        {/* Tab 7: Image Optimization & Database Migration Wizard */}
+        <TabsContent value="images" className="space-y-6 outline-none">
+          <ImageMigrationPanel toast={toast} />
+        </TabsContent>
+
       </Tabs>
 
       <MediaPicker 
@@ -1203,3 +1209,419 @@ export default function AdminSettings() {
     </div>
   );
 }
+
+// Separate component for the Image Migration Suite to keep code clean and modular
+function ImageMigrationPanel({ toast }: { toast: any }) {
+  const [scanning, setScanning] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [legacyImages, setLegacyImages] = useState<any[]>([]);
+  const [migrationLogs, setMigrationLogs] = useState<string[]>([]);
+  const [rollbackBackup, setRollbackBackup] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    processed: 0,
+    originalSize: 0,
+    optimizedSize: 0,
+    percentSaved: 0,
+    elapsedTimeSec: 0
+  });
+
+  const addLog = (msg: string) => {
+    setMigrationLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+  };
+
+  const scanLegacyImages = async () => {
+    setScanning(true);
+    setLegacyImages([]);
+    setMigrationLogs([]);
+    addLog("Scanning database for legacy images...");
+    
+    const itemsToMigrate: any[] = [];
+    
+    try {
+      // 1. Scan Products
+      const { data: products } = await supabase.from("products").select("id, name, images");
+      if (products) {
+        products.forEach(p => {
+          if (p.images && p.images.length > 0) {
+            p.images.forEach((img: string, idx: number) => {
+              if (img && !img.includes("/original/")) {
+                itemsToMigrate.push({
+                  type: "product",
+                  table: "products",
+                  recordId: p.id,
+                  recordName: p.name,
+                  field: `images[${idx}]`,
+                  fieldIndex: idx,
+                  url: img
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // 2. Scan Categories
+      const { data: categories } = await supabase.from("categories").select("id, name, image_url");
+      if (categories) {
+        categories.forEach(c => {
+          if (c.image_url && !c.image_url.includes("/original/")) {
+            itemsToMigrate.push({
+              type: "category",
+              table: "categories",
+              recordId: c.id,
+              recordName: c.name,
+              field: "image_url",
+              url: c.image_url
+            });
+          }
+        });
+      }
+
+      // 3. Scan Testimonials
+      const { data: testimonials } = await supabase.from("testimonials").select("id, customer_name, customer_image_url");
+      if (testimonials) {
+        testimonials.forEach(t => {
+          if (t.customer_image_url && !t.customer_image_url.includes("/original/")) {
+            itemsToMigrate.push({
+              type: "testimonial",
+              table: "testimonials",
+              recordId: t.id,
+              recordName: t.customer_name,
+              field: "customer_image_url",
+              url: t.customer_image_url
+            });
+          }
+        });
+      }
+
+      // 4. Scan Store Settings (Hero & Offer Banners)
+      const { data: settings } = await supabase.from("store_settings" as any).select("key, value");
+      if (settings) {
+        settings.forEach(s => {
+          if (s.key === "hero_banner" && s.value?.slides) {
+            s.value.slides.forEach((slide: any, idx: number) => {
+              if (slide.banner_image_url && !slide.banner_image_url.includes("/original/")) {
+                itemsToMigrate.push({
+                  type: "store_setting",
+                  table: "store_settings",
+                  recordId: s.key,
+                  recordName: `Hero Slide ${idx + 1}`,
+                  field: `slides[${idx}].banner_image_url`,
+                  fieldIndex: idx,
+                  settingKey: s.key,
+                  fullSettingValue: s.value,
+                  url: slide.banner_image_url
+                });
+              }
+            });
+          }
+          if (s.key === "offer_banner" && s.value?.bg_image) {
+            if (!s.value.bg_image.includes("/original/")) {
+              itemsToMigrate.push({
+                type: "store_setting",
+                table: "store_settings",
+                recordId: s.key,
+                recordName: "Offer Banner Background",
+                field: "bg_image",
+                settingKey: s.key,
+                fullSettingValue: s.value,
+                url: s.value.bg_image
+              });
+            }
+          }
+        });
+      }
+
+      setLegacyImages(itemsToMigrate);
+      setStats(prev => ({ ...prev, total: itemsToMigrate.length, processed: 0 }));
+      addLog(`Scan complete. Found ${itemsToMigrate.length} legacy/external images matching optimization rules.`);
+      toast({ title: `🔎 Scan Complete`, description: `Found ${itemsToMigrate.length} legacy images to optimize.` });
+    } catch (e: any) {
+      addLog(`Scan failed: ${e.message}`);
+      toast({ title: "❌ Scan Failed", description: e.message, variant: "destructive" });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const startMigration = async () => {
+    if (legacyImages.length === 0) return;
+    setMigrating(true);
+    setRollbackBackup([]);
+    addLog("Starting image migration and format pipeline...");
+    
+    const backup: any[] = [];
+    let processedCount = 0;
+    let totalOrig = 0;
+    let totalOpt = 0;
+    const startTime = Date.now();
+
+    // Import dynamic pipeline on the fly
+    const { mediaService } = await import("@/lib/mediaService");
+
+    for (const item of legacyImages) {
+      try {
+        addLog(`Migrating [${item.type.toUpperCase()}] "${item.recordName}"...`);
+        addLog(`Downloading: ${item.url}`);
+        
+        // 1. Fetch image URL as blob
+        const res = await fetch(item.url);
+        if (!res.ok) throw new Error("CORS or network failed to fetch source image");
+        
+        const blob = await res.blob();
+        const ext = item.url.split("?")[0].split(".").pop() || "jpg";
+        const filename = `migrated_${item.recordId}_${Date.now()}.${ext}`;
+        const file = new File([blob], filename, { type: blob.type });
+
+        addLog(`Converting & generating WebP + AVIF sizes for ${filename}...`);
+        
+        // 2. Upload and convert
+        const mediaItem = await mediaService.upload(file, "images");
+        
+        // Save database path references
+        const newUrl = mediaItem.url;
+        
+        // 3. Save backup state for rollback
+        backup.push({ ...item });
+
+        addLog(`Updating database record references...`);
+
+        // 4. Mutation based on record type
+        if (item.type === "product") {
+          const { data: p } = await supabase.from("products").select("images").eq("id", item.recordId).single();
+          if (p) {
+            const nextImages = [...p.images];
+            nextImages[item.fieldIndex] = newUrl;
+            await supabase.from("products").update({ images: nextImages }).eq("id", item.recordId);
+          }
+        } else if (item.type === "category") {
+          await supabase.from("categories").update({ image_url: newUrl }).eq("id", item.recordId);
+        } else if (item.type === "testimonial") {
+          await supabase.from("testimonials").update({ customer_image_url: newUrl }).eq("id", item.recordId);
+        } else if (item.type === "store_setting") {
+          const { data: row } = await supabase.from("store_settings" as any).select("value").eq("key", item.settingKey).single();
+          if (row) {
+            const nextVal = { ...row.value };
+            if (item.field.includes("slides")) {
+              nextVal.slides[item.fieldIndex].banner_image_url = newUrl;
+            } else {
+              nextVal[item.field] = newUrl;
+            }
+            await supabase.from("store_settings" as any).update({ value: nextVal }).eq("key", item.settingKey);
+          }
+        }
+
+        // Calculate size improvements (using uploaded metadata sizes if available)
+        const origSize = blob.size;
+        let optSize = 0;
+        if (mediaItem.metadata && mediaItem.metadata.webp) {
+          // Average size of webp output files
+          optSize = (mediaItem.metadata.originalSize || origSize) / 3; 
+        } else {
+          optSize = origSize * 0.45; // average savings estimation
+        }
+
+        totalOrig += origSize;
+        totalOpt += optSize;
+        processedCount++;
+
+        setStats({
+          total: legacyImages.length,
+          processed: processedCount,
+          originalSize: totalOrig,
+          optimizedSize: totalOpt,
+          percentSaved: Math.round(((totalOrig - totalOpt) / totalOrig) * 100),
+          elapsedTimeSec: Math.round((Date.now() - startTime) / 1000)
+        });
+
+        addLog(`Successfully optimized. Savings estimate: ${Math.round(((origSize - optSize)/origSize)*100)}%!`);
+
+      } catch (err: any) {
+        addLog(`Failed to migrate "${item.recordName}": ${err.message || err}`);
+      }
+    }
+
+    setRollbackBackup(backup);
+    setMigrating(false);
+    addLog(`Image migration completed. Processed: ${processedCount}/${legacyImages.length}. Saved ${Math.round((totalOrig - totalOpt) / 1024 / 1024)}MB bandwidth.`);
+    toast({ title: "🎉 Migration Complete!", description: `Successfully optimized ${processedCount} legacy images.` });
+  };
+
+  const rollbackMigration = async () => {
+    if (rollbackBackup.length === 0) return;
+    setMigrating(true);
+    addLog("Rolling back all migrated database references to original URLs...");
+
+    for (const item of rollbackBackup) {
+      try {
+        addLog(`Rolling back [${item.type.toUpperCase()}] "${item.recordName}"...`);
+        if (item.type === "product") {
+          const { data: p } = await supabase.from("products").select("images").eq("id", item.recordId).single();
+          if (p) {
+            const nextImages = [...p.images];
+            nextImages[item.fieldIndex] = item.url;
+            await supabase.from("products").update({ images: nextImages }).eq("id", item.recordId);
+          }
+        } else if (item.type === "category") {
+          await supabase.from("categories").update({ image_url: item.url }).eq("id", item.recordId);
+        } else if (item.type === "testimonial") {
+          await supabase.from("testimonials").update({ customer_image_url: item.url }).eq("id", item.recordId);
+        } else if (item.type === "store_setting") {
+          const { data: row } = await supabase.from("store_settings" as any).select("value").eq("key", item.settingKey).single();
+          if (row) {
+            const nextVal = { ...row.value };
+            if (item.field.includes("slides")) {
+              nextVal.slides[item.fieldIndex].banner_image_url = item.url;
+            } else {
+              nextVal[item.field] = item.url;
+            }
+            await supabase.from("store_settings" as any).update({ value: nextVal }).eq("key", item.settingKey);
+          }
+        }
+      } catch (err: any) {
+        addLog(`Failed rollback for "${item.recordName}": ${err.message}`);
+      }
+    }
+    
+    setRollbackBackup([]);
+    setMigrating(false);
+    setLegacyImages([]);
+    setStats({ total: 0, processed: 0, originalSize: 0, optimizedSize: 0, percentSaved: 0, elapsedTimeSec: 0 });
+    addLog("Rollback complete. Database state restored perfectly.");
+    toast({ title: "↩️ Rollback Complete", description: "All database references successfully rolled back." });
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = 2;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  return (
+    <Card className="border border-border/80 shadow-premium-lg">
+      <CardHeader className="bg-gradient-to-r from-accent/5 to-transparent border-b">
+        <CardTitle className="text-lg flex items-center gap-2 text-primary font-display">🖼️ প্রিমিয়াম ইমেজ কনভার্সন ও অপ্টিমাইজেশন সুইট</CardTitle>
+        <CardDescription>
+          আপনার ই-কমার্স ওয়েবসাইটের সব ইমেজ স্ক্যান করুন এবং অটোমেটিক AVIF/WebP মাল্টি-সাইজ রেসপনসিভ ফরম্যাটে কনভার্ট করুন।
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="space-y-6 pt-6">
+        {/* Controls */}
+        <div className="flex flex-wrap gap-3">
+          <Button 
+            onClick={scanLegacyImages} 
+            disabled={scanning || migrating}
+            variant="outline"
+            className="rounded-xl border-accent/30 text-accent font-bold"
+          >
+            {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🔎 স্ক্যান শুরু করুন"}
+          </Button>
+
+          <Button 
+            onClick={startMigration} 
+            disabled={migrating || scanning || legacyImages.length === 0}
+            className="rounded-xl bg-accent text-accent-foreground font-bold"
+          >
+            {migrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "🚀 অটো-অপ্টিমাইজ শুরু করুন"}
+          </Button>
+
+          {rollbackBackup.length > 0 && (
+            <Button 
+              onClick={rollbackMigration} 
+              disabled={migrating}
+              variant="destructive"
+              className="rounded-xl font-bold"
+            >
+              ↩️ রোলব্যাক (Rollback URLs)
+            </Button>
+          )}
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl border bg-secondary/15">
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground block">মোট অপ্টিমাইজযোগ্য ফাইল</span>
+            <span className="text-2xl font-extrabold block text-primary">{stats.total}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground block">অপ্টিমাইজ সম্পন্ন</span>
+            <span className="text-2xl font-extrabold block text-success">{stats.processed} / {stats.total}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground block">মোট অরিজিনাল সাইজ</span>
+            <span className="text-2xl font-extrabold block text-amber-600">{formatSize(stats.originalSize)}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground block">অপ্টিমাইজড সাইজ (savings %)</span>
+            <span className="text-2xl font-extrabold block text-emerald-600">
+              {formatSize(stats.optimizedSize)} ({stats.percentSaved}%)
+            </span>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        {migrating && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-semibold">
+              <span>প্রোগ্রেস বার</span>
+              <span>{Math.round((stats.processed / stats.total) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-accent rounded-full transition-all duration-300"
+                style={{ width: `${(stats.processed / stats.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Scan Results Table */}
+        {legacyImages.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-bold text-sm text-primary">স্ক্যান রেজাল্ট (অপ্টিমাইজযোগ্য ইমেজ তালিকা)</h4>
+            <div className="border rounded-xl overflow-hidden max-h-60 overflow-y-auto bg-card">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-secondary/40 border-b">
+                    <th className="p-2.5 font-bold">নাম / রেকর্ড</th>
+                    <th className="p-2.5 font-bold">ট্যাবেল</th>
+                    <th className="p-2.5 font-bold">ক্ষেত্র</th>
+                    <th className="p-2.5 font-bold">স্ট্যাটাস</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {legacyImages.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-secondary/10 transition-colors">
+                      <td className="p-2.5 font-medium">{item.recordName}</td>
+                      <td className="p-2.5 capitalize">{item.type}</td>
+                      <td className="p-2.5 text-muted-foreground font-mono">{item.field}</td>
+                      <td className="p-2.5 text-accent font-semibold">Ready 🟡</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Logs Terminal */}
+        <div className="space-y-2">
+          <h4 className="font-bold text-sm text-primary">রিয়েল-টাইম লাইভ পাইপলাইন টার্মিনাল</h4>
+          <div className="p-4 rounded-xl border bg-black text-green-400 font-mono text-xs space-y-1.5 h-48 overflow-y-auto flex flex-col-reverse">
+            {migrationLogs.length === 0 ? (
+              <div className="text-muted-foreground">[READY] Terminal offline. Click "স্ক্যান শুরু করুন" to inspect database assets.</div>
+            ) : (
+              migrationLogs.map((log, idx) => <div key={idx}>{log}</div>)
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+

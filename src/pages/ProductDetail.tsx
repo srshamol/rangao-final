@@ -18,6 +18,8 @@ import CodOrderModal from "@/components/CodOrderModal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import OptimizedImage from "@/components/OptimizedImage";
+
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -218,9 +220,12 @@ const ProductDetail = () => {
                     }}
                   >
                     <motion.div style={{ y: parallaxY }} className="h-full w-full">
-                      <img
+                      <OptimizedImage
                         src={product.images[selectedImage]}
                         alt={product.name}
+                        loading="eager"
+                        fetchPriority="high"
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="h-full w-full object-contain transition-transform duration-700 md:object-cover"
                         style={
                           isZoomed && window.innerWidth >= 768
@@ -294,7 +299,7 @@ const ProductDetail = () => {
                             : "border-border/30 opacity-50 hover:opacity-100"
                         }`}
                       >
-                        <img src={img} alt={`${product.name} - ${i + 1}`} className="h-full w-full object-cover" />
+                        <OptimizedImage src={img} alt={`${product.name} - ${i + 1}`} loading="lazy" sizes="100px" className="h-full w-full object-cover" />
                       </motion.button>
                     ))}
                   </div>
@@ -642,7 +647,7 @@ const ProductDetail = () => {
                       style={{ scrollSnapAlign: "start" }}
                     >
                       <div className="relative aspect-square overflow-hidden bg-secondary">
-                        <img src={rp.images[0]} alt={rp.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                        <OptimizedImage src={rp.images[0]} alt={rp.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" sizes="(max-width: 640px) 150px, 250px" />
                         <div className="absolute inset-0 bg-gradient-to-t from-foreground/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                       </div>
                       <div className="flex flex-1 flex-col p-4">
@@ -762,9 +767,11 @@ const ProductDetail = () => {
               className="relative max-h-[75vh] max-w-full overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <img
+              <OptimizedImage
                 src={product.images[lightboxImage]}
                 alt={`${product.name} full view`}
+                loading="eager"
+                sizes="90vw"
                 className="max-h-[75vh] max-w-full rounded-2xl object-contain shadow-2xl"
               />
             </motion.div>
@@ -780,7 +787,7 @@ const ProductDetail = () => {
                       lightboxImage === i ? "border-accent ring-2 ring-accent/30 scale-105" : "border-transparent opacity-40 hover:opacity-100"
                     }`}
                   >
-                    <img src={img} alt={`thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+                    <OptimizedImage src={img} alt={`thumbnail ${i + 1}`} loading="lazy" sizes="100px" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
