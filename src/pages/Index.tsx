@@ -28,16 +28,20 @@ const Index = () => {
   const [mounted, setMounted] = useState(false);
   const { data: settings, isLoading } = useStoreSettings();
 
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     setMounted(true);
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Use admin-configured section order, fallback to default
   const sectionOrder = settings?.sectionOrder || DEFAULT_SECTION_ORDER;
   const offerBanner = settings?.offerBanner;
   const newsletter = settings?.newsletter;
-
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   const renderSection = (sectionId: string, config: any) => {
     // Check visibility
