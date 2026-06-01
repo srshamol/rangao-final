@@ -13,6 +13,10 @@
     <script>
       (function() {
         var cachedFavicon = localStorage.getItem("cached_favicon_url");
+        if (cachedFavicon && (cachedFavicon.includes("lovable") || cachedFavicon.includes("gptengineer") || cachedFavicon.includes("lovable-uploader"))) {
+          localStorage.removeItem("cached_favicon_url");
+          cachedFavicon = null;
+        }
         if (cachedFavicon && cachedFavicon.trim() !== "") {
           var cacheBustedUrl = cachedFavicon + (cachedFavicon.indexOf('?') >= 0 ? '&' : '?') + 'v=' + Date.now();
           var link = document.createElement("link");

@@ -11,9 +11,12 @@ export default function SettingsSync() {
     // 1. Dynamic Favicon Synchronization with Cache Busting
     const faviconUrl = settings.storeInfo?.favicon_url;
     if (faviconUrl && faviconUrl.trim() !== "") {
-      localStorage.setItem("cached_favicon_url", faviconUrl);
-      const updateFavicons = () => {
-        const cacheBustedUrl = faviconUrl.includes("?") 
+      if (faviconUrl.includes("lovable") || faviconUrl.includes("gptengineer") || faviconUrl.includes("lovable-uploader")) {
+        localStorage.removeItem("cached_favicon_url");
+      } else {
+        localStorage.setItem("cached_favicon_url", faviconUrl);
+        const updateFavicons = () => {
+          const cacheBustedUrl = faviconUrl.includes("?") 
           ? `${faviconUrl}&v=${Date.now()}` 
           : `${faviconUrl}?v=${Date.now()}`;
 
@@ -42,9 +45,10 @@ export default function SettingsSync() {
           document.head.appendChild(appleIcon);
         }
         appleIcon.href = cacheBustedUrl;
-      };
+        };
 
-      updateFavicons();
+        updateFavicons();
+      }
     }
 
     // 2. Dynamic Title & SEO Synchronization
