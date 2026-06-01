@@ -676,36 +676,25 @@ const ProductDetail = () => {
 
         {/* Sticky Bottom CTA (Mobile) */}
         <div className="fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
-          <div className="flex flex-col gap-2.5">
-            <div className="flex gap-2.5">
-              <Button
-                size="default"
-                className="h-11 flex-1 rounded-2xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
-                disabled={product.stock === 0}
-                onClick={() => {
-                  addToCart(product, quantity);
-                  toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
-                }}
-              >
-                <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
-              </Button>
-              <Button
-                asChild
-                size="default"
-                className="h-11 flex-1 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 text-xs font-bold text-white shadow-[0_3px_12px_-3px_rgba(16,185,129,0.3)] cursor-pointer"
-              >
-                <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
-                  <MessageCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" /> WhatsApp এ অর্ডার
-                </a>
-              </Button>
-            </div>
+          <div className="flex gap-2.5">
             <Button
               size="default"
-              className="h-11.5 w-full rounded-2xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
+              className="h-11.5 flex-1 rounded-2xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
+              disabled={product.stock === 0}
+              onClick={() => {
+                addToCart(product, quantity);
+                toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+              }}
+            >
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
+            </Button>
+            <Button
+              size="default"
+              className="h-11.5 flex-[1.2] rounded-2xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
               disabled={product.stock === 0}
               onClick={() => setCodModalOpen(true)}
             >
-              <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> ক্যাশ অন ডেলিভারিতে অর্ডার করুন
+              <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> অর্ডার করুন
             </Button>
           </div>
         </div>

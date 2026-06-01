@@ -385,10 +385,10 @@ const HeroBanner = () => {
                 className="group text-center"
                 whileHover={{ scale: 1.08 }}
               >
-                <p className="font-display text-2xl font-extrabold text-accent md:text-3xl lg:text-4xl">
+                <p className="font-display text-lg sm:text-2xl font-extrabold text-accent md:text-3xl lg:text-4xl">
                   <AnimatedCounter target={stat.value} />
                 </p>
-                <p className="mt-1.5 text-[11px] font-semibold tracking-wider uppercase text-primary-foreground/40 transition-colors duration-300 group-hover:text-primary-foreground/70">
+                <p className="mt-1.5 text-[9px] sm:text-[11px] font-semibold tracking-normal sm:tracking-wider uppercase text-primary-foreground/40 transition-colors duration-300 group-hover:text-primary-foreground/70 leading-tight">
                   {stat.label}
                 </p>
               </motion.div>
