@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import {
-  MessageCircle, Phone, Star, ChevronLeft, ShieldCheck, Truck, Headset,
+  MessageCircle, Phone, Star, ChevronLeft, ChevronRight, X, ShieldCheck, Truck, Headset,
   ArrowRight, Check, Minus, Plus, ShoppingCart, Banknote, Heart, Share2,
   ZoomIn, Package, Award, Clock, Loader2
 } from "lucide-react";
@@ -93,6 +93,8 @@ const ProductDetail = () => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const [liked, setLiked] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(0);
   const { addToCart } = useCart();
   const imageRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
@@ -106,6 +108,21 @@ const ProductDetail = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowLeft") {
+        setLightboxImage((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+      }
+      if (e.key === "ArrowRight") {
+        setLightboxImage((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxOpen, product?.images?.length]);
 
   if (isLoading) {
     return (
@@ -182,10 +199,14 @@ const ProductDetail = () => {
                   {/* Main Image with Zoom */}
                   <div
                     ref={imageRef}
-                    className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-secondary to-secondary/30 shadow-premium-lg md:aspect-square md:cursor-crosshair lg:rounded-3xl"
+                    className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-secondary to-secondary/30 shadow-premium-lg md:aspect-square md:cursor-zoom-in lg:rounded-3xl"
                     onMouseMove={handleMouseMove}
                     onMouseEnter={() => setIsZoomed(true)}
                     onMouseLeave={() => setIsZoomed(false)}
+                    onClick={() => {
+                      setLightboxImage(selectedImage);
+                      setLightboxOpen(true);
+                    }}
                   >
                     <motion.div style={{ y: parallaxY }} className="h-full w-full">
                       <img
@@ -668,6 +689,83 @@ const ProductDetail = () => {
       <div className="hidden lg:block">
         <FloatingWhatsApp />
       </div>
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 p-4 backdrop-blur-md"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="absolute right-6 top-6 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Navigation buttons */}
+            {product.images.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxImage((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+                  }}
+                  className="absolute left-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxImage((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+                  }}
+                  className="absolute right-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+
+            {/* Image display */}
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="relative max-h-[75vh] max-w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={product.images[lightboxImage]}
+                alt={`${product.name} full view`}
+                className="max-h-[75vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              />
+            </motion.div>
+
+            {/* Thumbnail selector */}
+            {product.images.length > 1 && (
+              <div className="mt-8 flex gap-3 overflow-x-auto p-2" onClick={(e) => e.stopPropagation()}>
+                {product.images.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightboxImage(i)}
+                    className={`relative aspect-square h-14 overflow-hidden rounded-xl border-2 transition-all duration-300 md:h-16 ${
+                      lightboxImage === i ? "border-accent ring-2 ring-accent/30 scale-105" : "border-transparent opacity-40 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={img} alt={`thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <CodOrderModal open={codModalOpen} onOpenChange={setCodModalOpen} product={product} quantity={quantity} />
     </div>
   );
