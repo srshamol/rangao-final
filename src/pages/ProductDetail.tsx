@@ -675,29 +675,31 @@ const ProductDetail = () => {
         )}
 
         {/* Sticky Bottom CTA (Mobile) */}
-        <div className="fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
-          <div className="flex gap-2.5">
-            <Button
-              size="default"
-              className="h-11.5 flex-1 rounded-xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
-              disabled={product.stock === 0}
-              onClick={() => {
-                addToCart(product, quantity);
-                toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
-              }}
-            >
-              <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
-            </Button>
-            <Button
-              size="default"
-              className="h-11.5 flex-[1.2] rounded-xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
-              disabled={product.stock === 0}
-              onClick={() => setCodModalOpen(true)}
-            >
-              <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> অর্ডার করুন
-            </Button>
+        {!codModalOpen && (
+          <div className="mobile-sticky-cta fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
+            <div className="flex gap-2.5">
+              <Button
+                size="default"
+                className="h-11.5 flex-1 rounded-xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
+                disabled={product.stock === 0}
+                onClick={() => {
+                  addToCart(product, quantity);
+                  toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                }}
+              >
+                <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
+              </Button>
+              <Button
+                size="default"
+                className="h-11.5 flex-[1.2] rounded-xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
+                disabled={product.stock === 0}
+                onClick={() => setCodModalOpen(true)}
+              >
+                <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> অর্ডার করুন
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       <div className="pb-20 lg:pb-0">

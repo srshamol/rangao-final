@@ -42,7 +42,7 @@ const MobileBottomBar = ({ onSearchClick }: Props) => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[950] block h-[70px] border-t border-border/40 bg-background/85 pb-[calc(env(safe-area-inset-bottom)*0.8)] shadow-[0_-4px_30px_rgba(16,42,32,0.06)] backdrop-blur-lg lg:hidden">
+    <div className="mobile-bottom-bar fixed bottom-0 left-0 right-0 z-[950] block h-[70px] border-t border-border/40 bg-background/85 pb-[calc(env(safe-area-inset-bottom)*0.8)] shadow-[0_-4px_30px_rgba(16,42,32,0.06)] backdrop-blur-lg lg:hidden">
       <div className="mx-auto flex h-full max-w-md items-center justify-around px-2">
         {items.map((item) => {
           const Icon = item.icon;

@@ -214,8 +214,8 @@ body {
 }
 
 /* Hide mobile bottom navigation and sticky CTA buttons when any modal dialog is open */
-body:has([role="dialog"]) .fixed.z-\[950\],
-body:has([role="dialog"]) .fixed.z-\[940\] {
+body:has([role="dialog"]) .mobile-bottom-bar,
+body:has([role="dialog"]) .mobile-sticky-cta {
   display: none !important;
 }
 
