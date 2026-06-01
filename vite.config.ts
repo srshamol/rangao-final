@@ -32,14 +32,34 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ["@supabase/supabase-js"],
+  },
   build: {
-    assetsInlineLimit: 0,
+    target: "es2022",
+    cssCodeSplit: true,
+    minify: "esbuild",
+    assetsInlineLimit: 4096,
     sourcemap: false,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].[hash].js`,
         chunkFileNames: `assets/[name].[hash].js`,
         assetFileNames: `assets/[name].[hash].[ext]`,
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
+              return "react-vendor";
+            }
+            if (id.includes("@supabase")) {
+              return "supabase-vendor";
+            }
+            if (id.includes("framer-motion") || id.includes("recharts") || id.includes("@radix-ui")) {
+              return "ui-vendor";
+            }
+            return "vendor";
+          }
+        },
       },
     },
   },
