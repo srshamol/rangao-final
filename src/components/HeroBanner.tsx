@@ -374,7 +374,7 @@ const HeroBanner = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1, duration: 0.6 }}
-            className="mt-10 md:mt-16 flex flex-wrap items-center justify-between gap-y-6 gap-x-4 border-t border-primary-foreground/10 pt-8 md:gap-x-0">
+            className="mt-10 md:mt-16 grid grid-cols-4 items-center justify-between gap-x-2 border-t border-primary-foreground/10 pt-8 md:gap-x-0 w-full">
 
             {stats.map((stat, i) => (
               <motion.div
