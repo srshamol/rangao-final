@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatPrice, getStockLabel, getWhatsAppLink, PHONE_NUMBER } from "@/data/products";
+import { formatPrice, getStockLabel, PHONE_NUMBER } from "@/data/products";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
@@ -17,10 +17,12 @@ import { toast } from "sonner";
 import CodOrderModal from "@/components/CodOrderModal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { data: settings } = useStoreSettings();
 
   // Query product details dynamically from Supabase
   const { data: dbProduct, isLoading } = useQuery({
@@ -86,6 +88,13 @@ const ProductDetail = () => {
       rating: rp.rating || 4.9,
     }));
   }, [dbRelatedProducts]);
+
+  const dynamicWhatsAppLink = useMemo(() => {
+    if (!product) return "";
+    const number = settings?.contactInfo?.whatsapp || "8801XXXXXXXXX";
+    const message = `হ্যালো, আমি ${product.name} সম্পর্কে জানতে চাই।`;
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+  }, [settings, product]);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -392,45 +401,48 @@ const ProductDetail = () => {
                     </div>
 
                     {/* CTA Buttons - Hidden on mobile since sticky bar handles it */}
-                    <div className="hidden space-y-3 pt-2 lg:block">
-                      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                    <div className="hidden space-y-4 pt-2 lg:block">
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                          <Button
+                            size="lg"
+                            className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-accent to-accent/90 py-6.5 text-sm font-bold text-accent-foreground shadow-[0_4px_15px_-3px_rgba(197,168,92,0.35)] transition-all duration-300 hover:from-accent/95 hover:to-accent/85 hover:shadow-[0_8px_25px_-3px_rgba(197,168,92,0.55)] border border-accent/10"
+                            disabled={product.stock === 0}
+                            onClick={() => {
+                              addToCart(product, quantity);
+                              toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                            }}
+                          >
+                            <ShoppingCart className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                            কার্টে যোগ করুন
+                          </Button>
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                          <Button
+                            asChild
+                            size="lg"
+                            className="group w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 py-6.5 text-sm font-bold text-white shadow-[0_4px_15px_-3px_rgba(16,185,129,0.35)] transition-all duration-300 hover:from-emerald-500 hover:to-green-500 hover:shadow-[0_8px_25px_-3px_rgba(16,185,129,0.55)] cursor-pointer"
+                          >
+                            <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                              <MessageCircle className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                              WhatsApp এ অর্ডার
+                            </a>
+                          </Button>
+                        </motion.div>
+                      </div>
+
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           size="lg"
-                          className="group relative w-full overflow-hidden rounded-xl bg-accent py-6 text-base font-bold text-accent-foreground shadow-lg transition-all hover:bg-accent/90 hover:shadow-xl"
-                          disabled={product.stock === 0}
-                          onClick={() => {
-                            addToCart(product, quantity);
-                            toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
-                          }}
-                        >
-                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-background/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                          <ShoppingCart className="mr-2 h-5 w-5" />
-                          কার্টে যোগ করুন
-                        </Button>
-                      </motion.div>
-                      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
-                        <Button
-                          size="lg"
-                          className="group relative w-full overflow-hidden rounded-xl bg-success py-6 text-base font-bold text-success-foreground shadow-lg transition-all hover:bg-success/90 hover:shadow-xl"
+                          className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-success to-[#22995e] py-7 text-base font-extrabold text-white shadow-[0_4px_20px_-3px_rgba(43,178,114,0.35)] transition-all duration-300 hover:from-[#2bb272] hover:to-[#1f8c54] hover:shadow-[0_8px_28px_-3px_rgba(43,178,114,0.55)]"
                           disabled={product.stock === 0}
                           onClick={() => setCodModalOpen(true)}
                         >
-                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-background/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                          <Banknote className="mr-2 h-5 w-5" />
+                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                          <Banknote className="mr-2.5 h-5.5 w-5.5 shrink-0 transition-transform group-hover:scale-110" />
                           ক্যাশ অন ডেলিভারিতে অর্ডার করুন
                         </Button>
                       </motion.div>
-                      <Button
-                        asChild
-                        size="lg"
-                        variant="outline"
-                        className="w-full rounded-xl border-2 border-primary/20 py-6 text-base font-semibold text-primary transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground"
-                      >
-                        <a href={`tel:${PHONE_NUMBER}`}>
-                          <Phone className="mr-2 h-5 w-5" />
-                          কল করুন
-                        </a>
-                      </Button>
                     </div>
 
                     {/* Trust Badges - Premium Glass Cards */}
@@ -590,7 +602,7 @@ const ProductDetail = () => {
                   </p>
                   <div className="flex justify-center">
                     <Button asChild className="rounded-full bg-success px-6 text-success-foreground shadow-md hover:bg-success/90">
-                      <a href={getWhatsAppLink(product.name)} target="_blank" rel="noopener noreferrer">
+                      <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer">
                         <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp এ জিজ্ঞেস করুন
                       </a>
                     </Button>
@@ -658,26 +670,37 @@ const ProductDetail = () => {
         )}
 
         {/* Sticky Bottom CTA (Mobile) */}
-        <div className="fixed left-0 right-0 z-[940] border-t border-border/50 bg-background px-3 py-2.5 shadow-[0_-4px_25px_rgba(16,42,32,0.08)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
-          <div className="flex gap-2">
+        <div className="fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex gap-2.5">
+              <Button
+                size="default"
+                className="h-11 flex-1 rounded-2xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
+                disabled={product.stock === 0}
+                onClick={() => {
+                  addToCart(product, quantity);
+                  toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                }}
+              >
+                <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
+              </Button>
+              <Button
+                asChild
+                size="default"
+                className="h-11 flex-1 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 text-xs font-bold text-white shadow-[0_3px_12px_-3px_rgba(16,185,129,0.3)] cursor-pointer"
+              >
+                <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                  <MessageCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" /> WhatsApp এ অর্ডার
+                </a>
+              </Button>
+            </div>
             <Button
               size="default"
-              className="h-12 flex-1 rounded-xl bg-accent text-xs font-bold text-accent-foreground shadow-md"
-              disabled={product.stock === 0}
-              onClick={() => {
-                addToCart(product, quantity);
-                toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
-              }}
-            >
-              <ShoppingCart className="mr-1 h-4 w-4" /> কার্টে যোগ করুন
-            </Button>
-            <Button
-              size="default"
-              className="h-12 flex-1 rounded-xl bg-success text-xs font-bold text-success-foreground shadow-md"
+              className="h-11.5 w-full rounded-2xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
               disabled={product.stock === 0}
               onClick={() => setCodModalOpen(true)}
             >
-              <Banknote className="mr-1 h-4 w-4" /> ক্যাশ অন ডেলিভারি
+              <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> ক্যাশ অন ডেলিভারিতে অর্ডার করুন
             </Button>
           </div>
         </div>
