@@ -219,3 +219,41 @@ body:has([role="dialog"]) .mobile-sticky-cta {
   display: none !important;
 }
 
+/* Print Styles */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  /* Hide all dashboard/admin UI */
+  body * {
+    visibility: hidden;
+  }
+  /* Only show print container */
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  #printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    min-height: 100%;
+    background-color: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  /* Keep print look elegant */
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: auto;
+    margin: 15mm 10mm 15mm 10mm;
+  }
+}
+
+

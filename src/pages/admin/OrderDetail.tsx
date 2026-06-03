@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,10 @@ import OrderCourierTab from "@/components/admin/order-tabs/CourierTab";
 import OrderTrackingTab from "@/components/admin/order-tabs/TrackingTab";
 import OrderDeliveryTab from "@/components/admin/order-tabs/DeliveryTab";
 import OrderHistoryTab from "@/components/admin/order-tabs/HistoryTab";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 const statusLabels: Record<string, string> = {
   pending: "পেন্ডিং", confirmed: "কনফার্মড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
@@ -44,6 +48,24 @@ export default function OrderDetail() {
   const qc = useQueryClient();
   const [showDelete, setShowDelete] = useState(false);
   const [steadfastLoading, setSteadfastLoading] = useState(false);
+  const [printType, setPrintType] = useState<"invoice" | "packing_slip" | null>(null);
+  const { data: settings } = useStoreSettings();
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintType(null);
+    };
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
+  const triggerPrint = (type: "invoice" | "packing_slip") => {
+    setPrintType(type);
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
+
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["admin-order", id],
@@ -208,9 +230,21 @@ export default function OrderDetail() {
                 <MapPin className="h-4 w-4" /> ট্র্যাক
               </Button>
             )}
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={handlePrint}>
-              <Printer className="h-4 w-4" /> প্রিন্ট
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <Printer className="h-4 w-4" /> প্রিন্ট
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("invoice")}>
+                  🧾 ইনভয়েস প্রিন্ট (Invoice)
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("packing_slip")}>
+                  📦 প্যাকিং স্লিপ প্রিন্ট (Packing Slip)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {canDelete && (
               <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
                 onClick={() => setShowDelete(true)}>
@@ -270,6 +304,240 @@ export default function OrderDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ================= PRINT ZONE (Only visible during print) ================= */}
+      {printType && (
+        <div id="printable-area" className="p-6 font-sans bg-white text-black">
+          {printType === "invoice" ? (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  {settings?.storeInfo?.logo_url ? (
+                    <img
+                      src={settings.storeInfo.logo_url}
+                      alt={settings.storeInfo.name || "Rangao"}
+                      className="h-10 object-contain mb-2"
+                    />
+                  ) : (
+                    <h2 className="text-xl font-bold tracking-tight text-gray-900">
+                      {settings?.storeInfo?.name || "Rangao - রাঙাও"}
+                    </h2>
+                  )}
+                  {settings?.storeInfo?.tagline && (
+                    <p className="text-xs text-gray-500 italic mb-1">{settings.storeInfo.tagline}</p>
+                  )}
+                  <p className="text-[10px] text-gray-600">
+                    {settings?.storeInfo?.address || "ঢাকা, বাংলাদেশ"}
+                  </p>
+                  <p className="text-[10px] text-gray-600">
+                    ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.com.bd"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <h1 className="text-2xl font-black text-gray-900 tracking-wider">INVOICE</h1>
+                  <p className="text-xs font-bold text-gray-800 mt-1">অর্ডার নম্বর: {order.order_number}</p>
+                  <p className="text-[10px] text-gray-600">
+                    তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Details (Bill/Ship to + Payment Info) */}
+              <div className="grid grid-cols-2 gap-6 text-xs">
+                <div className="border rounded-lg p-3 bg-gray-50/50">
+                  <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">ডেলিভারি ঠিকানা (Shipping Address)</h3>
+                  <p className="font-bold text-gray-900">{order.customer_name}</p>
+                  <p className="font-medium text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
+                  <p className="text-gray-700 mt-1">{(address as any)?.address || (address as any)?.city || "—"}</p>
+                  {order.notes && (
+                    <div className="mt-2 text-[10px] border-t pt-1 text-gray-600 italic">
+                      নোট: {order.notes}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border rounded-lg p-3 bg-gray-50/50 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">পেমেন্ট ও অর্ডার বিবরণ</h3>
+                    <div className="grid grid-cols-2 gap-y-1 text-[11px] text-gray-700">
+                      <span className="font-medium">পেমেন্ট মেথড:</span>
+                      <span className="font-semibold text-right">{order.payment_method}</span>
+                      
+                      <span className="font-medium">পেমেন্ট স্ট্যাটাস:</span>
+                      <span className="font-semibold text-right">{order.payment_status}</span>
+
+                      <span className="font-medium">অর্ডার স্ট্যাটাস:</span>
+                      <span className="font-semibold text-right">{statusLabels[order.order_status] || order.order_status}</span>
+                    </div>
+                  </div>
+                  {(address as any)?.tracking_number && (
+                    <div className="mt-2 text-[10px] border-t pt-1 text-gray-600">
+                      কুরিয়ার: <span className="font-semibold">{(address as any).courier_company}</span> | ট্র্যাকিং: <span className="font-semibold font-mono">{(address as any).tracking_number}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-gray-100 border-b font-bold text-gray-900">
+                      <th className="px-4 py-2 w-10">ক্রমিক</th>
+                      <th className="px-4 py-2">আইটেম বিবরণ</th>
+                      <th className="px-4 py-2 text-right">ইউনিট মূল্য</th>
+                      <th className="px-4 py-2 text-center w-16">পরিমাণ</th>
+                      <th className="px-4 py-2 text-right w-24">মোট</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-gray-800">
+                    {items && items.map((item: any, i: number) => (
+                      <tr key={item.id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-2.5 text-center">{i + 1}</td>
+                        <td className="px-4 py-2.5">
+                          <p className="font-semibold text-gray-900">{item.product_name}</p>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">৳{Number(item.unit_price).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-center">{item.quantity}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold">৳{Number(item.total_price).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pricing breakdown */}
+              <div className="flex justify-end">
+                <div className="w-64 border rounded-lg p-3 bg-gray-50/50 space-y-1.5 text-xs text-gray-800">
+                  <div className="flex justify-between">
+                    <span>সাবটোটাল:</span>
+                    <span>৳{Number(order.subtotal || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ডেলিভারি চার্জ:</span>
+                    <span>৳{Number(order.delivery_charge || 0).toLocaleString()}</span>
+                  </div>
+                  {order.discount_amount > 0 && (
+                    <div className="flex justify-between text-red-600">
+                      <span>ডিসকাউন্ট:</span>
+                      <span>-৳{Number(order.discount_amount).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-gray-900">
+                    <span>সর্বমোট:</span>
+                    <span>৳{Number(order.total_amount || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider & Footer signature */}
+              <div className="pt-8 flex justify-between items-end text-xs text-gray-600">
+                <div>
+                  <p className="font-semibold text-gray-800">আমাদের থেকে কেনাকাটা করার জন্য ধন্যবাদ!</p>
+                  <p className="text-[10px] mt-0.5 text-gray-500">কোনো জিজ্ঞাসা থাকলে যোগাযোগ করুন: {settings?.storeInfo?.phone}</p>
+                </div>
+                <div className="text-center w-36 border-t pt-1.5">
+                  <p className="font-semibold text-gray-900">কর্তৃপক্ষের স্বাক্ষর</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Packing Slip Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-gray-900">
+                    {settings?.storeInfo?.name || "Rangao - রাঙাও"}
+                  </h2>
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Fulfillment Packing Slip</p>
+                </div>
+                <div className="text-right">
+                  <h1 className="text-2xl font-black text-gray-900 tracking-wider">PACKING SLIP</h1>
+                  <p className="text-xs font-bold text-gray-800 mt-1">অর্ডার নম্বর: {order.order_number}</p>
+                  <p className="text-[10px] text-gray-600">
+                    তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Delivery and Packing Details */}
+              <div className="grid grid-cols-2 gap-6 text-xs">
+                <div className="border rounded-lg p-3 bg-gray-50/50">
+                  <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">ডেলিভারি গ্রহীতা (Recipient)</h3>
+                  <p className="font-bold text-gray-900 text-sm">{order.customer_name}</p>
+                  <p className="font-bold text-gray-800 mt-0.5 text-sm">ফোন: {order.customer_phone}</p>
+                  <p className="text-gray-700 mt-1">{(address as any)?.address || (address as any)?.city || "—"}</p>
+                </div>
+
+                <div className="border rounded-lg p-3 bg-gray-50/50 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">শিপিং ও কুরিয়ার বিবরণ</h3>
+                    <div className="grid grid-cols-2 gap-y-1 text-gray-700">
+                      <span className="font-medium">কুরিয়ার কোম্পানি:</span>
+                      <span className="font-bold text-right">{(address as any)?.courier_company || "Not Assigned"}</span>
+
+                      <span className="font-medium">ট্র্যাকিং নম্বর:</span>
+                      <span className="font-bold font-mono text-right">{(address as any)?.tracking_number || "—"}</span>
+
+                      <span className="font-medium">পেমেন্ট টাইপ:</span>
+                      <span className="font-bold text-right text-red-600">{order.payment_method === "cod" ? `ক্যাশ অন ডেলিভারি (৳${Number(order.total_amount).toLocaleString()})` : "প্রিপেইড (Prepaid)"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Notes / Instructions */}
+              {order.notes && (
+                <div className="border-l-4 border-amber-500 bg-amber-50/50 p-3 rounded-r-lg text-xs">
+                  <span className="font-bold text-amber-800 block mb-0.5">কাস্টমার নির্দেশনা (Order Note):</span>
+                  <p className="text-gray-800">{order.notes}</p>
+                </div>
+              )}
+
+              {/* Items checklist */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-gray-100 border-b font-bold text-gray-900">
+                      <th className="px-4 py-2 w-16 text-center">চেক [✓]</th>
+                      <th className="px-4 py-2">আইটেম বিবরণ</th>
+                      <th className="px-4 py-2 text-center w-24">পরিমাণ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-gray-800">
+                    {items && items.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-3 text-center">
+                          <div className="w-5 h-5 mx-auto border-2 border-gray-400 rounded-md bg-white"></div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-gray-900 text-sm">{item.product_name}</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">আইটেম আইডি: {item.id}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-base text-gray-900">{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Packing Footer */}
+              <div className="pt-8 grid grid-cols-2 gap-6 text-xs text-gray-600">
+                <div>
+                  <p className="mb-4">প্যাকার সাইন: ___________________________</p>
+                  <p>তারিখ ও সময়: ____/____/________   ____ : ____</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-800">রাঙাও - অর্ডার প্রসেসিং শীট</p>
+                  <p className="text-[10px] mt-0.5">পণ্যটি ডেলিভারি কুরিয়ারে হস্তান্তরের পূর্বে সতর্কতার সাথে মিলিয়ে নিন।</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
