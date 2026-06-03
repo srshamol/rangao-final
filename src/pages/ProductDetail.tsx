@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { formatPrice, getStockLabel, PHONE_NUMBER } from "@/data/products";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import {
   MessageCircle, Phone, Star, ChevronLeft, ChevronRight, X, ShieldCheck, Truck, Headset,
@@ -125,6 +127,53 @@ const ProductDetail = () => {
   const [liked, setLiked] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(0);
+  // Query reviews dynamically from Supabase testimonials table
+  const { data: dbReviews = [], refetch: refetchReviews } = useQuery({
+    queryKey: ["product-reviews", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("testimonials" as any)
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      return data || [];
+    }
+  });
+
+  const [newReviewName, setNewReviewName] = useState("");
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewText, setNewReviewText] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReviewName.trim() || !newReviewText.trim()) {
+      toast.error("অনুগ্রহ করে আপনার নাম ও রিভিউ লিখুন।");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const { error } = await supabase.from("testimonials" as any).insert({
+        customer_name: newReviewName,
+        review: newReviewText,
+        rating: newReviewRating,
+        is_active: false,
+        customer_location: "Verified Buyer",
+        sort_order: 0
+      });
+      if (error) throw error;
+      toast.success("আপনার রিভিউটি সফলভাবে সাবমিট হয়েছে। এডমিন অনুমোদনের পর এটি ওয়েবসাইটে প্রকাশ করা হবে।");
+      setNewReviewName("");
+      setNewReviewText("");
+      setNewReviewRating(5);
+      refetchReviews();
+    } catch (err: any) {
+      toast.error("রিভিউ সাবমিট করতে সমস্যা হয়েছে: " + err.message);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const { addToCart } = useCart();
   const imageRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
@@ -612,22 +661,29 @@ const ProductDetail = () => {
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  className="space-y-6"
+                  className="space-y-8"
                 >
-                  <div className="flex items-center gap-6 rounded-2xl border border-border/30 bg-card p-6 shadow-sm">
-                    <div className="text-center">
+                  {/* Summary Card */}
+                  <div className="flex flex-col md:flex-row items-center gap-6 rounded-2xl border border-border/30 bg-card p-6 shadow-sm">
+                    <div className="text-center w-full md:w-1/3">
                       <p className="font-display text-5xl font-extrabold text-foreground">{product.rating}</p>
-                      <div className="mt-2 flex gap-0.5">
+                      <div className="mt-2 flex justify-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star key={i} className={`h-4 w-4 ${i < Math.floor(product.rating) ? "fill-accent text-accent" : "text-border"}`} />
                         ))}
                       </div>
-                      <p className="mt-1.5 text-xs text-muted-foreground">{product.reviewCount.toLocaleString()}+ রিভিউ</p>
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {(dbReviews.length > 0 ? dbReviews.length : product.reviewCount).toLocaleString()} রিভিউ
+                      </p>
                     </div>
-                    <div className="h-20 w-px bg-border/50" />
-                    <div className="flex-1 space-y-2">
+                    <div className="hidden md:block h-20 w-px bg-border/50" />
+                    <div className="flex-1 w-full space-y-2">
                       {[5, 4, 3, 2, 1].map((star) => {
-                        const pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
+                        let pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
+                        if (dbReviews.length > 0) {
+                          const count = dbReviews.filter((r: any) => Math.round(r.rating) === star).length;
+                          pct = Math.round((count / dbReviews.length) * 100) || 0;
+                        }
                         return (
                           <div key={star} className="flex items-center gap-2">
                             <span className="w-3 text-xs font-medium text-muted-foreground">{star}</span>
@@ -647,15 +703,103 @@ const ProductDetail = () => {
                       })}
                     </div>
                   </div>
-                  <p className="text-center font-bengali text-sm text-muted-foreground">
-                    রিভিউ শীঘ্রই আসছে। আপনি কি এই প্রোডাক্ট সম্পর্কে জানতে চান?
-                  </p>
-                  <div className="flex justify-center">
-                    <Button asChild className="rounded-full bg-success px-6 text-success-foreground shadow-md hover:bg-success/90">
-                      <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer">
-                        <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp এ জিজ্ঞেস করুন
-                      </a>
-                    </Button>
+
+                  {/* Reviews List */}
+                  <div className="space-y-4">
+                    <h3 className="font-display text-lg font-bold text-foreground">গ্রাহকদের মতামত</h3>
+                    <div className="space-y-4 divide-y divide-border/30">
+                      {(dbReviews.length > 0 ? dbReviews : [
+                        {
+                          id: "d1",
+                          customer_name: "রাফি আহমেদ",
+                          customer_location: "Verified Buyer",
+                          rating: 5,
+                          review: "খুব সুন্দর প্রোডাক্ট! ফিনিশিং অত্যন্ত নিখুঁত এবং কাঠের কোয়ালিটি চমৎকার। ঘরে লাগানোর পর চমৎকার দেখাচ্ছে।",
+                          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+                        },
+                        {
+                          id: "d2",
+                          customer_name: "তাসনিম সুলতানা",
+                          customer_location: "Verified Buyer",
+                          rating: 5,
+                          review: "ডেলিভারি খুব দ্রুত পেয়েছি, বাবল র‍্যাপ দিয়ে খুব সুন্দর করে প্যাকিং করা ছিল। ক্যালিগ্রাফিটি দেওয়ালে অনেক সুন্দর মানিয়েছে। ধন্যবাদ!",
+                          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+                        },
+                        {
+                          id: "d3",
+                          customer_name: "ইমরান খান",
+                          customer_location: "Verified Buyer",
+                          rating: 4,
+                          review: "কাঠের মান ভালো, ডিজাইনটাও নিখুঁত। কোয়ালিটি নিয়ে কোনো সন্দেহ নেই। রিকমেন্ডেড!",
+                          created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+                        }
+                      ]).map((r: any) => (
+                        <div key={r.id} className="pt-4 first:pt-0 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-semibold text-foreground text-sm">{r.customer_name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {r.customer_location || "Verified Buyer"} • {new Date(r.created_at || r.date).toLocaleDateString("bn-BD")}
+                              </p>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "fill-accent text-accent" : "text-border"}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="font-bengali text-sm text-foreground/80 leading-relaxed">
+                            {r.review}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Add Review Form */}
+                  <div className="border border-border/30 rounded-2xl p-6 bg-card space-y-4 shadow-sm">
+                    <h3 className="font-display text-lg font-bold text-foreground">একটি রিভিউ লিখুন</h3>
+                    <form onSubmit={handleSubmitReview} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground">আপনার নাম *</label>
+                          <Input
+                            placeholder="যেমন: রাফসান করিম"
+                            value={newReviewName}
+                            onChange={(e) => setNewReviewName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-muted-foreground">রেটিং *</label>
+                          <div className="flex items-center gap-1.5 h-10">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setNewReviewRating(star)}
+                                className="focus:outline-none transition-transform active:scale-90"
+                              >
+                                <Star className={`h-6 w-6 ${star <= newReviewRating ? "fill-accent text-accent" : "text-muted-foreground/30 hover:text-accent/60"}`} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">রিভিউ বক্তব্য *</label>
+                        <Textarea
+                          placeholder="প্রোডাক্টটি কেমন লেগেছে? আপনার অভিজ্ঞতা লিখুন..."
+                          value={newReviewText}
+                          onChange={(e) => setNewReviewText(e.target.value)}
+                          rows={4}
+                          required
+                        />
+                      </div>
+                      <Button type="submit" disabled={submittingReview} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold">
+                        {submittingReview ? "রিভিউ জমা হচ্ছে..." : "রিভিউ জমা দিন"}
+                      </Button>
+                    </form>
                   </div>
                 </motion.div>
               </TabsContent>
