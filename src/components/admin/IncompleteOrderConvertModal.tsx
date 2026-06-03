@@ -49,7 +49,11 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("নাম দিন"); return; }
-    if (!phone.trim() || phone.length < 11) { toast.error("সঠিক ফোন নাম্বার দিন"); return; }
+    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
+    if (!phone.trim() || !bdPhoneRegex.test(phone.trim())) {
+      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+      return;
+    }
     if (!address.trim()) { toast.error("ঠিকানা দিন"); return; }
     setSubmitting(true);
 

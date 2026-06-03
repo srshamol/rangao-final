@@ -94,22 +94,40 @@ export default function OptimizedImage({
 
   // Preload priority images for LCP optimization
   useEffect(() => {
+    let linkElement: HTMLLinkElement | null = null;
+
     if (loading === "eager" && fetchPriority === "high" && sources.isOptimized && typeof window !== "undefined") {
-      const existingPreload = document.querySelector(`link[rel="preload"][href="${sources.fallback}"]`);
+      const srcToSearch = sources.avif || sources.webp || sources.fallback;
+      const selector = srcToSearch === sources.fallback
+        ? `link[rel="preload"][href="${sources.fallback}"]`
+        : `link[rel="preload"][imagesrcset*="${srcToSearch.split(" ")[0]}"]`;
+
+      const existingPreload = document.querySelector(selector);
       if (!existingPreload) {
         const link = document.createElement("link");
         link.rel = "preload";
         link.as = "image";
-        link.href = sources.fallback!;
+        
         if (sources.avif) {
-          link.imageSrcset = sources.avif;
+          link.setAttribute("imagesrcset", sources.avif);
+          link.setAttribute("imagesizes", sizes);
         } else if (sources.webp) {
-          link.imageSrcset = sources.webp;
+          link.setAttribute("imagesrcset", sources.webp);
+          link.setAttribute("imagesizes", sizes);
+        } else {
+          link.href = sources.fallback!;
         }
-        link.imageSizes = sizes;
+        
         document.head.appendChild(link);
+        linkElement = link;
       }
     }
+
+    return () => {
+      if (linkElement && linkElement.parentNode) {
+        linkElement.parentNode.removeChild(linkElement);
+      }
+    };
   }, [loading, fetchPriority, sources, sizes]);
 
   // Handle visual properties to prevent layout shifts (CLS)
@@ -133,7 +151,7 @@ export default function OptimizedImage({
       src={sources.fallback}
       alt={alt}
       loading={loading}
-      fetchPriority={fetchPriority}
+      {...({ fetchpriority: fetchPriority } as any)}
       style={computedStyle}
       className={`w-full h-auto transition-all duration-300 ${className}`}
       {...props}

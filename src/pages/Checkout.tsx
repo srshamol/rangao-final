@@ -7,7 +7,7 @@ import { formatPrice } from "@/data/products";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { Trash2, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, Loader2 } from "lucide-react";
+import { Trash2, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, Loader2, AlertCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { trackInitiateCheckout } from "@/lib/fbpixel";
@@ -116,6 +116,11 @@ const Checkout = () => {
       toast.error("সকল প্রয়োজনীয় তথ্য পূরণ করুন");
       return;
     }
+    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
+    if (!bdPhoneRegex.test(form.phone.trim())) {
+      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+      return;
+    }
     if (submitting) return;
     setSubmitting(true);
 
@@ -125,13 +130,31 @@ const Checkout = () => {
       const check = await checkOrderAllowed(form.phone, clientIP);
       if (!check.allowed) {
         const whatsapp = storeSettings?.contactInfo?.whatsapp || "";
-        toast.error(check.message, {
-          duration: 8000,
-          action: whatsapp ? {
-            label: "WhatsApp-এ যোগাযোগ",
-            onClick: () => window.open(`https://wa.me/${whatsapp}`, "_blank"),
-          } : undefined,
-        });
+        toast.custom((t) => (
+          <div className="flex w-full max-w-[360px] md:max-w-md items-center justify-between gap-3 rounded-2xl border border-destructive/15 bg-background p-4 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full bg-destructive/10 p-2 text-destructive shrink-0">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-foreground">অর্ডার সীমাবদ্ধতা</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{check.message}</p>
+              </div>
+            </div>
+            {whatsapp && (
+              <button
+                onClick={() => {
+                  window.open(`https://wa.me/${whatsapp}`, "_blank");
+                  toast.dismiss(t);
+                }}
+                className="shrink-0 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#20ba56] transition-colors flex items-center gap-1.5"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                WhatsApp
+              </button>
+            )}
+          </div>
+        ), { duration: 8000 });
         setSubmitting(false);
         return;
       }

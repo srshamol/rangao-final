@@ -171,9 +171,11 @@ export default function HomepageManager() {
   const [saving, setSaving] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<string | null>(null);
 
+  const [hasLoaded, setHasLoaded] = useState(false);
+
   // Synchronize state once store settings are loaded from React Query asynchronously
   useEffect(() => {
-    if (settings) {
+    if (settings && !hasLoaded) {
       if (settings.sectionOrder) setSectionOrder(settings.sectionOrder);
       if (settings.heroBanner?.slides) setHeroSlides(settings.heroBanner.slides);
       if (settings.trustFeatures) setTrustItems(settings.trustFeatures);
@@ -181,8 +183,9 @@ export default function HomepageManager() {
       if (settings.offerBanner) setOfferBanner(settings.offerBanner);
       if (settings.statistics) setStatistics(settings.statistics);
       if (settings.announcementBar) setAnnouncement(settings.announcementBar);
+      setHasLoaded(true);
     }
-  }, [settings]);
+  }, [settings, hasLoaded]);
 
   const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>, i: number, type: "image" | "video") => {
     const file = e.target.files?.[0];
@@ -304,6 +307,7 @@ export default function HomepageManager() {
         upsertSetting("announcement_bar", announcement),
       ]);
       qc.invalidateQueries({ queryKey: ["store-settings-all"] });
+      setHasLoaded(false);
       toast({ title: "✅ সব পরিবর্তন সেভ হয়েছে", description: "হোমপেজ আপডেট হয়েছে।" });
     } catch (e: any) {
       toast({ title: "ত্রুটি", description: e.message, variant: "destructive" });

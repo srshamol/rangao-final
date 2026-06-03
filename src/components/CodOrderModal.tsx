@@ -86,7 +86,11 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("আপনার নাম দিন"); return; }
-    if (!phone.trim() || phone.length < 11) { toast.error("সঠিক ফোন নাম্বার দিন"); return; }
+    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
+    if (!phone.trim() || !bdPhoneRegex.test(phone.trim())) {
+      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+      return;
+    }
     if (!address.trim()) { toast.error("আপনার ঠিকানা দিন"); return; }
     if (submitting) return;
     setSubmitting(true);

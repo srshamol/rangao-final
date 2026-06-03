@@ -30,10 +30,10 @@ const mainItems = [
 
 const orderSubItems = [
   { title: "সব অর্ডার", url: "/admin/orders", icon: ShoppingCart },
-  { title: "পেন্ডিং", url: "/admin/orders?status=pending", icon: Clock },
+  { title: "পেন্ডিং", url: "/admin/orders?status=pending", icon: Clock, badgeKey: "pending" },
   { title: "শিপড", url: "/admin/orders?status=shipped", icon: Truck },
   { title: "ডেলিভারড", url: "/admin/orders?status=delivered", icon: PackageCheck },
-  { title: "ইনকমপ্লিট", url: "/admin/incomplete-orders", icon: AlertTriangle, showBadge: true },
+  { title: "ইনকমপ্লিট", url: "/admin/incomplete-orders", icon: AlertTriangle, badgeKey: "incomplete" },
 ];
 
 const bottomItems = [
@@ -65,17 +65,25 @@ export default function AdminSidebar() {
   const faviconUrl = settings?.storeInfo?.favicon_url;
   const businessName = settings?.storeInfo?.name ? settings.storeInfo.name.split(" - ")[0] : "Rangao";
 
-  const { data: incompleteCount = 0 } = useQuery({
-    queryKey: ["incomplete-orders-count"],
+  const { data: orderCounts = { pending: 0, incomplete: 0 } } = useQuery({
+    queryKey: ["admin-sidebar-order-counts"],
     queryFn: async () => {
-      const { data: countData, error } = await supabase
+      const { count: pendingCount } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("order_status", "pending");
+
+      const { count: incompleteCount } = await supabase
         .from("incomplete_orders" as any)
         .select("*", { count: "exact", head: true })
         .in("status", ["abandoned", "contacted"]);
-      if (error) return 0;
-      return countData?.length || 0;
+
+      return {
+        pending: pendingCount || 0,
+        incomplete: incompleteCount || 0,
+      };
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const linkClass = "rounded-xl px-3 py-2.5 text-sidebar-foreground/70 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
@@ -162,9 +170,9 @@ export default function AdminSidebar() {
                             <NavLink to={sub.url} end className="rounded-lg px-2.5 py-2 text-sidebar-foreground/60 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
                               <sub.icon className="mr-2 h-3.5 w-3.5" />
                               <span className="text-xs">{sub.title}</span>
-                              {sub.showBadge && incompleteCount > 0 && (
+                              {sub.badgeKey && orderCounts[sub.badgeKey as keyof typeof orderCounts] > 0 && (
                                 <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                                  {incompleteCount}
+                                  {orderCounts[sub.badgeKey as keyof typeof orderCounts]}
                                 </span>
                               )}
                             </NavLink>

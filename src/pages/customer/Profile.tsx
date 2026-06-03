@@ -21,6 +21,13 @@ export default function CustomerProfile() {
   });
 
   const handleSave = async () => {
+    if (form.phone.trim()) {
+      const bdPhoneRegex = /^(01[3-9]\d{8})$/;
+      if (!bdPhoneRegex.test(form.phone.trim())) {
+        toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+        return;
+      }
+    }
     setSaving(true);
     try {
       await updateProfile({
