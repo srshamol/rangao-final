@@ -57,14 +57,22 @@ export default function OrderDetail() {
       setPrintType(null);
     };
     window.addEventListener("afterprint", handleAfterPrint);
+
+    if (printType !== null) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 350);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("afterprint", handleAfterPrint);
+      };
+    }
+
     return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
+  }, [printType]);
 
   const triggerPrint = (type: "invoice" | "packing_slip") => {
     setPrintType(type);
-    setTimeout(() => {
-      window.print();
-    }, 200);
   };
 
 

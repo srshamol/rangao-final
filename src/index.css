@@ -221,22 +221,30 @@ body:has([role="dialog"]) .mobile-sticky-cta {
 
 /* Print Styles */
 @media print {
-  body {
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
     background-color: white !important;
     color: black !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  /* Hide standard React app root */
-  #root {
+  /* Hide standard React app root and all other elements in body */
+  #root, 
+  body > *:not(#printable-area) {
     display: none !important;
   }
   /* Only show print container (rendered via portal directly under body) */
   #printable-area {
     display: block !important;
+    position: static !important;
     background-color: white !important;
     color: black !important;
-    width: 100%;
+    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     font-size: 11px;
