@@ -75,13 +75,72 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     }, 2000);
   };
 
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+
   const subtotal = product.price * quantity;
   const deliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
-  const total = subtotal + deliveryCharge;
 
-  const handleApplyCoupon = () => {
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discount_type === "percentage") {
+      discountAmount = (subtotal * Number(appliedCoupon.discount_value)) / 100;
+      if (appliedCoupon.max_discount) {
+        discountAmount = Math.min(discountAmount, Number(appliedCoupon.max_discount));
+      }
+    } else if (appliedCoupon.discount_type === "flat") {
+      discountAmount = Number(appliedCoupon.discount_value);
+    } else if (appliedCoupon.discount_type === "free_delivery") {
+      discountAmount = deliveryCharge;
+    }
+  }
+
+  const total = Math.max(0, subtotal + deliveryCharge - discountAmount);
+
+  const handleApplyCoupon = async () => {
     if (!coupon.trim()) return;
-    toast.error("এই কুপনটি বৈধ নয়");
+    try {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", coupon.trim().toUpperCase())
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error || !data) {
+        toast.error("এই কুপনটি সঠিক নয় বা বর্তমানে সক্রিয় নেই");
+        setAppliedCoupon(null);
+        return;
+      }
+
+      // Check dates
+      const now = new Date();
+      if (data.valid_from && new Date(data.valid_from) > now) {
+        toast.error("এই কুপনটি ব্যবহারের সময় এখনও শুরু হয়নি");
+        return;
+      }
+      if (data.valid_to && new Date(data.valid_to) < now) {
+        toast.error("এই কুপনটির মেয়াদ শেষ হয়ে গেছে");
+        return;
+      }
+
+      // Check min order
+      if (data.min_order && subtotal < Number(data.min_order)) {
+        toast.error(`এই কুপনটি ব্যবহার করতে ন্যূনতম ৳${Number(data.min_order).toLocaleString()} অর্ডার করতে হবে`);
+        return;
+      }
+
+      // Check usage limit
+      if (data.usage_limit && data.used_count >= data.usage_limit) {
+        toast.error("এই কুপনটি ব্যবহারের সীমা অতিক্রম করেছে");
+        return;
+      }
+
+      setAppliedCoupon(data);
+      toast.success("কুপন সফলভাবে যুক্ত হয়েছে!");
+    } catch (err) {
+      console.error("Error applying coupon:", err);
+      toast.error("কুপন যাচাইতে সমস্যা হয়েছে");
+    }
   };
 
   const handleSubmit = async () => {
@@ -111,6 +170,8 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
           subtotal,
           delivery_charge: deliveryCharge,
+          discount_amount: discountAmount,
+          coupon_code: appliedCoupon ? appliedCoupon.code : null,
           total_amount: total,
           notes: orderNote.trim() || null,
         })
@@ -127,6 +188,14 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
         total_price: subtotal,
       });
       if (itemsError) throw itemsError;
+
+      // Update coupon usage count if used
+      if (appliedCoupon) {
+        await supabase
+          .from("coupons")
+          .update({ used_count: (appliedCoupon.used_count || 0) + 1 })
+          .eq("id", appliedCoupon.id);
+      }
 
       await markConverted(order.id);
       onOpenChange(false);
@@ -305,6 +374,12 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
               <span className="font-bengali font-semibold text-muted-foreground">ডেলিভারি চার্জ</span>
               <span className="font-display font-bold text-foreground">{formatPrice(deliveryCharge)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm text-red-600 font-semibold animate-fade-in">
+                <span className="font-bengali">ডিসকাউন্ট {appliedCoupon ? `(${appliedCoupon.code})` : ""}</span>
+                <span className="font-display">- {formatPrice(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t pt-1.5 sm:pt-2">
               <span className="font-bengali text-sm sm:text-base font-bold text-foreground">সর্বমোট</span>
               <span className="font-display text-lg sm:text-xl font-extrabold text-foreground">{formatPrice(total)}</span>

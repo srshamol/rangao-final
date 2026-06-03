@@ -33,8 +33,11 @@ export default function AdminCoupons() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const isFreeDelivery = form.discount_type === "free_delivery";
       const payload = {
         ...form,
+        discount_type: (isFreeDelivery ? "flat" : form.discount_type) as any,
+        discount_value: isFreeDelivery ? 0 : form.discount_value,
         valid_from: form.valid_from || new Date().toISOString(),
         valid_to: form.valid_to || null,
       };
@@ -72,9 +75,12 @@ export default function AdminCoupons() {
   };
 
   const openEdit = (c: any) => {
+    const isFreeDelivery = c.discount_type === "flat" && Number(c.discount_value) === 0;
     setEditId(c.id);
     setForm({
-      code: c.code, discount_type: c.discount_type, discount_value: Number(c.discount_value),
+      code: c.code,
+      discount_type: isFreeDelivery ? "free_delivery" : c.discount_type,
+      discount_value: isFreeDelivery ? 0 : Number(c.discount_value),
       min_order: Number(c.min_order), max_discount: c.max_discount ? Number(c.max_discount) : null,
       valid_from: c.valid_from?.split("T")[0] || "", valid_to: c.valid_to?.split("T")[0] || "",
       usage_limit: c.usage_limit, is_active: c.is_active,
@@ -103,6 +109,7 @@ export default function AdminCoupons() {
                     <SelectContent>
                       <SelectItem value="percentage">পার্সেন্টেজ (%)</SelectItem>
                       <SelectItem value="flat">ফ্ল্যাট (৳)</SelectItem>
+                      <SelectItem value="free_delivery">ফ্রি ডেলিভারি</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -167,7 +174,11 @@ export default function AdminCoupons() {
                   <TableRow key={c.id}>
                     <TableCell className="font-mono font-bold">{c.code}</TableCell>
                     <TableCell>
-                      {c.discount_type === "percentage" ? `${Number(c.discount_value)}%` : `৳${Number(c.discount_value).toLocaleString()}`}
+                      {c.discount_type === "percentage" 
+                        ? `${Number(c.discount_value)}%` 
+                        : c.discount_type === "free_delivery"
+                        ? "ফ্রি ডেলিভারি"
+                        : `৳${Number(c.discount_value).toLocaleString()}`}
                     </TableCell>
                     <TableCell>৳{Number(c.min_order).toLocaleString()}</TableCell>
                     <TableCell>{c.used_count}/{c.usage_limit ?? "∞"}</TableCell>
