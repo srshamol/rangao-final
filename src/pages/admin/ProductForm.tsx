@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, X, Upload, Image as ImageIcon, GripVertical, Star, Trash2, Save, Eye, Loader2 } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
 
+import { mediaService } from "@/lib/mediaService";
+
 interface SpecItem {
   label: string;
   value: string;
@@ -93,32 +95,13 @@ export default function ProductForm() {
     }
   }, [existing]);
 
-  const ensureBucket = async () => {
-    const { data: buckets } = await supabase.storage.listBuckets();
-    if (!buckets?.find((b) => b.id === "product-images")) {
-      await supabase.storage.createBucket("product-images", { public: true });
-    }
-  };
-
   const uploadImages = async (files: FileList | File[]) => {
     setUploading(true);
     try {
-      await ensureBucket();
       const urls: string[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024) {
-          toast({ title: "ত্রুটি", description: `${file.name} ৫MB এর বেশি`, variant: "destructive" });
-          continue;
-        }
-        const ext = file.name.split(".").pop();
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage.from("product-images").upload(path, file);
-        if (error) {
-          toast({ title: "আপলোড ত্রুটি", description: error.message, variant: "destructive" });
-          continue;
-        }
-        const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(path);
-        urls.push(urlData.publicUrl);
+        const mediaItem = await mediaService.upload(file, "images");
+        urls.push(mediaItem.url);
       }
       if (urls.length > 0) {
         setForm((f) => ({ ...f, images: [...f.images, ...urls] }));

@@ -17,6 +17,7 @@ import {
   CheckCircle2, XCircle, Send, Plus, Trash2, Smartphone, Globe, 
   MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud 
 } from "lucide-react";
+import { mediaService } from "@/lib/mediaService";
 import type { StoreInfo, ContactInfo, SocialLinkItem } from "@/hooks/useStoreSettings";
 import MediaPicker from "@/components/MediaPicker";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
@@ -160,31 +161,14 @@ export default function AdminSettings() {
   const whiteLogoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
-  const ensureBucket = async () => {
-    const { data: buckets } = await supabase.storage.listBuckets();
-    if (!buckets?.find((b) => b.id === "product-images")) {
-      await supabase.storage.createBucket("product-images", { public: true });
-    }
-  };
-
   const uploadFile = async (file: File, field: "logo_url" | "mobile_logo_url" | "white_logo_url" | "favicon_url") => {
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "❌ আপলোড ত্রুটি", description: "ফাইলের সাইজ ৫MB এর বেশি হতে পারবে না", variant: "destructive" });
-      return;
-    }
     setUploadingField(field);
     try {
-      await ensureBucket();
-      const ext = file.name.split(".").pop();
-      const path = `branding/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("product-images").upload(path, file);
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(path);
+      const mediaItem = await mediaService.upload(file, "images");
       
       setStoreInfo(prev => ({
         ...prev,
-        [field]: urlData.publicUrl
+        [field]: mediaItem.url
       }));
       toast({ title: "✅ আপলোড সফল হয়েছে", description: "পরিবর্তন সংরক্ষণ করতে নিচে সেভ করুন বাটনে ক্লিক করুন।" });
     } catch (e: any) {
