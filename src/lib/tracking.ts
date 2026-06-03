@@ -170,22 +170,26 @@ export function initializeScripts() {
       debugLog('tiktok', `Initializing TikTok Pixel: ${ttId}`);
 
       (function(w: any, d: Document, t: string) {
-        w.TiktokSdkObject = t;
+        w.TiktokAnalyticsObject = t;
         var ttq = (w[t] = w[t] || []);
         ttq.methods = [
           "page", "track", "identify", "instances", "debug", "on", "off",
-          "once", "ready", "alias", "group", "trackWithSegmentEvent",
-          "setAndTrack", "doubleTrack"
+          "once", "ready", "alias", "group", "enableCookie", "disableCookie",
+          "holdConsent", "revokeConsent", "grantConsent"
         ];
-        ttq.setAndTrack = function(e: any) {
-          return function() {
-            e.set.apply(e, arguments);
-            e.track.apply(e, arguments);
+        ttq.setAndDefer = function(t: any, e: any) {
+          t[e] = function() {
+            t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
           };
         };
-        ttq.instance = function(e: any) {
-          var t = ttq._i[e] || [];
-          return t;
+        for (var i = 0; i < ttq.methods.length; i++) {
+          ttq.setAndDefer(ttq, ttq.methods[i]);
+        }
+        ttq.instance = function(t: any) {
+          for (var e = ttq._i[t] || [], n = 0; n < ttq.methods.length; n++) {
+            ttq.setAndDefer(e, ttq.methods[n]);
+          }
+          return e;
         };
         ttq.load = function(e: any, n: any) {
           var r = "https://analytics.tiktok.com/i18n/pixel/events.js";
@@ -196,10 +200,10 @@ export function initializeScripts() {
           ttq._t[e] = +new Date();
           ttq._o = ttq._o || {};
           ttq._o[e] = n || {};
-          var o = d.createElement("script");
+          var o = d.createElement("script") as any;
           o.type = "text/javascript";
           o.async = !0;
-          o.src = r;
+          o.src = r + "?sdkid=" + e + "&lib=" + t;
           var i = d.getElementsByTagName("script")[0];
           i?.parentNode?.insertBefore(o, i);
         };
