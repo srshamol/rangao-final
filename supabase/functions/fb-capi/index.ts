@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("order_id", order_id);
 
-    // Fetch FB settings from store_settings using admin client
+    // Fetch FB/TikTok settings from store_settings using admin client
     const { data: fbRow } = await supabaseAdmin
       .from("store_settings")
       .select("value")
@@ -107,86 +107,180 @@ Deno.serve(async (req) => {
       .single();
 
     const fbSettings = fbRow?.value as any;
-    if (!fbSettings?.meta_pixel_id || !fbSettings?.meta_access_token || !fbSettings?.meta_capi_enabled || !fbSettings?.global_enabled) {
+    
+    const metaCapiEnabled = fbSettings?.meta_pixel_id && fbSettings?.meta_access_token && fbSettings?.meta_capi_enabled && fbSettings?.global_enabled;
+    const tiktokCapiEnabled = fbSettings?.tiktok_pixel_id && fbSettings?.tiktok_access_token && fbSettings?.tiktok_enabled && fbSettings?.global_enabled;
+
+    if (!metaCapiEnabled && !tiktokCapiEnabled) {
       return new Response(
-        JSON.stringify({ error: "Facebook Conversions API not configured or disabled" }),
+        JSON.stringify({ error: "Neither Facebook CAPI nor TikTok Events API is configured or enabled" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build CAPI event
-    const userData: Record<string, any> = {};
-    if (order.customer_phone) {
-      userData.ph = [await sha256(order.customer_phone.replace(/[^0-9]/g, ""))];
-    }
-    if (order.customer_email) {
-      userData.em = [await sha256(order.customer_email.toLowerCase().trim())];
-    }
-    if (order.customer_name) {
-      const nameParts = order.customer_name.trim().split(" ");
-      if (nameParts[0]) userData.fn = [await sha256(nameParts[0].toLowerCase())];
-      if (nameParts.length > 1) userData.ln = [await sha256(nameParts[nameParts.length - 1].toLowerCase())];
-    }
-    userData.country = [await sha256("bd")];
+    let fbSuccess = false;
+    let fbResult = null;
+    let ttSuccess = false;
+    let ttResult = null;
 
-    const contentIds = (items || []).map((i: any) => i.product_id || i.product_name);
-    const numItems = (items || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
+    // 1. Meta Conversions API (CAPI)
+    if (metaCapiEnabled) {
+      try {
+        const userData: Record<string, any> = {};
+        if (order.customer_phone) {
+          userData.ph = [await sha256(order.customer_phone.replace(/[^0-9]/g, ""))];
+        }
+        if (order.customer_email) {
+          userData.em = [await sha256(order.customer_email.toLowerCase().trim())];
+        }
+        if (order.customer_name) {
+          const nameParts = order.customer_name.trim().split(" ");
+          if (nameParts[0]) userData.fn = [await sha256(nameParts[0].toLowerCase())];
+          if (nameParts.length > 1) userData.ln = [await sha256(nameParts[nameParts.length - 1].toLowerCase())];
+        }
+        userData.country = [await sha256("bd")];
 
-    const eventData: Record<string, any> = {
-      event_name: event_name,
-      event_time: Math.floor(Date.now() / 1000),
-      event_id: order.order_number,
-      event_source_url: Deno.env.get("SITE_URL") || "https://gadgetgram-sparkle.lovable.app",
-      user_data: userData,
-      custom_data: {
-        value: Number(order.total_amount),
-        currency: "BDT",
-        content_ids: contentIds,
-        content_type: "product",
-        num_items: numItems,
-        order_id: order.order_number,
-      },
-      action_source: "website",
-    };
+        const contentIds = (items || []).map((i: any) => i.product_id || i.product_name);
+        const numItems = (items || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
 
-    const payload: Record<string, any> = {
-      data: [eventData],
-      access_token: fbSettings.meta_access_token,
-    };
+        const eventData: Record<string, any> = {
+          event_name: event_name,
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: order.order_number,
+          event_source_url: Deno.env.get("SITE_URL") || "https://gadgetgram-sparkle.lovable.app",
+          user_data: userData,
+          custom_data: {
+            value: Number(order.total_amount),
+            currency: "BDT",
+            content_ids: contentIds,
+            content_type: "product",
+            num_items: numItems,
+            order_id: order.order_number,
+          },
+          action_source: "website",
+        };
 
-    if (fbSettings.meta_test_event_code) {
-      payload.test_event_code = fbSettings.meta_test_event_code;
-    }
+        const payload: Record<string, any> = {
+          data: [eventData],
+          access_token: fbSettings.meta_access_token,
+        };
 
-    const apiVersion = fbSettings.meta_api_version || "v21.0";
+        if (fbSettings.meta_test_event_code) {
+          payload.test_event_code = fbSettings.meta_test_event_code;
+        }
 
-    // Send to Facebook
-    const fbResponse = await fetch(
-      `https://graph.facebook.com/${apiVersion}/${fbSettings.meta_pixel_id}/events`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        const apiVersion = fbSettings.meta_api_version || "v21.0";
+
+        const fbResponse = await fetch(
+          `https://graph.facebook.com/${apiVersion}/${fbSettings.meta_pixel_id}/events`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        fbResult = await fbResponse.json();
+        fbSuccess = fbResponse.ok && !fbResult.error;
+
+        await supabase.from("order_history").insert({
+          order_id: order_id,
+          action: "fb_capi_sent",
+          details: fbSuccess
+            ? `Facebook CAPI ${event_name} ইভেন্ট সফলভাবে পাঠানো হয়েছে`
+            : `Facebook CAPI ব্যর্থ: ${fbResult.error?.message || JSON.stringify(fbResult)}`,
+          staff_name: "System",
+        });
+      } catch (err: any) {
+        console.error("FB CAPI execution error:", err);
       }
-    );
+    }
 
-    const fbResult = await fbResponse.json();
+    // 2. TikTok Events API (Conversions API)
+    if (tiktokCapiEnabled) {
+      try {
+        let ttEventName = event_name;
+        if (event_name === "Purchase") {
+          ttEventName = "CompletePayment";
+        } else if (event_name === "Lead") {
+          ttEventName = "SubmitForm";
+        }
 
-    // Log the result
-    const success = fbResponse.ok && !fbResult.error;
-    await supabase.from("order_history").insert({
-      order_id: order_id,
-      action: "fb_capi_sent",
-      details: success
-        ? `Facebook CAPI ${event_name} ইভেন্ট সফলভাবে পাঠানো হয়েছে`
-        : `Facebook CAPI ব্যর্থ: ${fbResult.error?.message || JSON.stringify(fbResult)}`,
-      staff_name: "System",
-    });
+        const ttContents = (items || []).map((i: any) => ({
+          content_id: String(i.product_id || i.product_name),
+          content_name: i.product_name,
+          quantity: Number(i.quantity || 1),
+          price: Number(i.price || 0)
+        }));
+
+        const ttEvent: Record<string, any> = {
+          event: ttEventName,
+          event_id: order.order_number,
+          timestamp: new Date().toISOString(),
+          user: {
+            phone_number: order.customer_phone ? await sha256(order.customer_phone.replace(/[^0-9]/g, "")) : undefined,
+            email: order.customer_email ? await sha256(order.customer_email.toLowerCase().trim()) : undefined,
+          },
+          properties: {
+            value: Number(order.total_amount),
+            currency: "BDT",
+            content_type: "product",
+            contents: ttContents
+          },
+          context: {
+            user_agent: req.headers.get("user-agent") || undefined,
+            ip: req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || undefined
+          }
+        };
+
+        const ttPayload: Record<string, any> = {
+          pixel_code: fbSettings.tiktok_pixel_id,
+          events: [ttEvent]
+        };
+
+        // If the merchant configures a test event code under fbSettings
+        if (fbSettings.tiktok_test_event_code) {
+          ttPayload.test_event_code = fbSettings.tiktok_test_event_code;
+        } else if (fbSettings.meta_test_event_code?.startsWith("TEST")) {
+          // Fallback if they put it in meta but it is a TikTok style code
+          ttPayload.test_event_code = fbSettings.meta_test_event_code;
+        }
+
+        const ttResponse = await fetch(
+          "https://business-api.tiktok.com/open_api/v1.3/event/track/",
+          {
+            method: "POST",
+            headers: {
+              "Access-Token": fbSettings.tiktok_access_token,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(ttPayload),
+          }
+        );
+
+        ttResult = await ttResponse.json();
+        ttSuccess = ttResponse.ok && ttResult.code === 0;
+
+        await supabase.from("order_history").insert({
+          order_id: order_id,
+          action: "fb_capi_sent", // logged under the same action so it syncs to UI logs naturally
+          details: ttSuccess
+            ? `TikTok Conversions API ${ttEventName} ইভেন্ট সফলভাবে পাঠানো হয়েছে`
+            : `TikTok Conversions API ব্যর্থ: ${ttResult.message || JSON.stringify(ttResult)} (Code: ${ttResult.code})`,
+          staff_name: "System",
+        });
+      } catch (err: any) {
+        console.error("TikTok Event API execution error:", err);
+      }
+    }
 
     return new Response(
       JSON.stringify({
-        success,
+        success: fbSuccess || ttSuccess,
+        fb_success: fbSuccess,
         fb_response: fbResult,
+        tt_success: ttSuccess,
+        tt_response: ttResult,
         event_name,
         order_number: order.order_number,
       }),
@@ -210,3 +304,4 @@ async function sha256(value: string): Promise<string> {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
