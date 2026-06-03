@@ -533,7 +533,7 @@ const ProductDetail = () => {
                   বিবরণ
                 </TabsTrigger>
                 <TabsTrigger value="specs" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
-                  স্পেসিফিকেশন
+                  বিশেষত্ব
                 </TabsTrigger>
                 <TabsTrigger value="reviews" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
                   রিভিউ
@@ -586,7 +586,7 @@ const ProductDetail = () => {
                   className="overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm"
                 >
                   <div className="border-b bg-gradient-to-r from-primary/5 to-transparent px-6 py-4">
-                    <h3 className="font-display text-base font-bold text-foreground">টেকনিক্যাল স্পেসিফিকেশন</h3>
+                    <h3 className="font-display text-base font-bold text-foreground">পণ্যের বিশেষত্ব</h3>
                   </div>
                   <div className="divide-y divide-border/30">
                     {product.specs.map((spec, i) => (
