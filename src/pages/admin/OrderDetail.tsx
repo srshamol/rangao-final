@@ -186,6 +186,7 @@ export default function OrderDetail() {
   if (isLoading || !order) return <p className="text-center py-8">লোড হচ্ছে...</p>;
 
   const s = order.order_status;
+  const address = typeof order.shipping_address === "object" ? order.shipping_address : {};
   const canConfirm = s === "pending";
   const canCancel = s !== "delivered" && s !== "cancelled" && s !== "courier_cancelled";
   const canDelete = s === "cancelled" || s === "courier_cancelled" || s === "pending";
