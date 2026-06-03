@@ -233,13 +233,18 @@ body:has([role="dialog"]) .mobile-sticky-cta {
     margin: 0 !important;
     padding: 0 !important;
   }
-  /* Hide standard React app root and all other elements in body */
-  #root, 
-  body > *:not(#printable-area) {
+  /* Hide standard React app root and other root elements except the print targets */
+  #root,
+  body > *:not(.print-target) {
     display: none !important;
   }
-  /* Only show print container (rendered via portal directly under body) */
-  #printable-area {
+  /* Hide both print containers by default in print view */
+  #printable-invoice,
+  #printable-packing-slip {
+    display: none !important;
+  }
+  /* Only show print container that matches the trigger class on body */
+  body.print-invoice #printable-invoice {
     display: block !important;
     position: static !important;
     background-color: white !important;
@@ -250,6 +255,48 @@ body:has([role="dialog"]) .mobile-sticky-cta {
     font-size: 11px;
     line-height: 1.4;
   }
+  body.print-packing-slip #printable-packing-slip {
+    display: block !important;
+    position: static !important;
+    background-color: white !important;
+    color: black !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  /* Force light theme colors on all children inside both print containers (crucial for dark mode users) */
+  #printable-invoice *,
+  #printable-packing-slip * {
+    background-color: transparent !important;
+    color: black !important;
+    border-color: #d1d5db !important; /* light gray borders */
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  #printable-invoice h1, #printable-invoice h2, #printable-invoice h3, #printable-invoice p, #printable-invoice span, #printable-invoice td, #printable-invoice th,
+  #printable-packing-slip h1, #printable-packing-slip h2, #printable-packing-slip h3, #printable-packing-slip p, #printable-packing-slip span, #printable-packing-slip td, #printable-packing-slip th {
+    color: black !important;
+  }
+  #printable-invoice .bg-gray-100, #printable-packing-slip .bg-gray-100 {
+    background-color: #f3f4f6 !important;
+  }
+  #printable-invoice .bg-gray-50\/50, #printable-packing-slip .bg-gray-50\/50 {
+    background-color: #f9fafb !important;
+  }
+  #printable-invoice .text-red-600, #printable-packing-slip .text-red-600 {
+    color: #dc2626 !important;
+  }
+  #printable-invoice .text-amber-800, #printable-packing-slip .text-amber-800 {
+    color: #b45309 !important;
+  }
+  #printable-invoice .border-amber-500, #printable-packing-slip .border-amber-500 {
+    border-color: #f59e0b !important;
+  }
+  #printable-invoice .bg-amber-50\/50, #printable-packing-slip .bg-amber-50\/50 {
+    background-color: #fffbeb !important;
+  }
   .no-print {
     display: none !important;
   }
@@ -257,7 +304,7 @@ body:has([role="dialog"]) .mobile-sticky-cta {
     size: A5 portrait;
     margin: 6mm;
   }
+}/* Hide print elements on screen */
+.print-target {
+  display: none !important;
 }
-
-
-

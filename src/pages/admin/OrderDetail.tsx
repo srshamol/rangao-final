@@ -49,30 +49,22 @@ export default function OrderDetail() {
   const qc = useQueryClient();
   const [showDelete, setShowDelete] = useState(false);
   const [steadfastLoading, setSteadfastLoading] = useState(false);
-  const [printType, setPrintType] = useState<"invoice" | "packing_slip" | null>(null);
   const { data: settings } = useStoreSettings();
 
   useEffect(() => {
     const handleAfterPrint = () => {
-      setPrintType(null);
+      document.body.classList.remove("print-invoice", "print-packing-slip");
     };
     window.addEventListener("afterprint", handleAfterPrint);
-
-    if (printType !== null) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 350);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener("afterprint", handleAfterPrint);
-      };
-    }
-
     return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, [printType]);
+  }, []);
 
   const triggerPrint = (type: "invoice" | "packing_slip") => {
-    setPrintType(type);
+    document.body.classList.remove("print-invoice", "print-packing-slip");
+    document.body.classList.add(type === "invoice" ? "print-invoice" : "print-packing-slip");
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
 
 
@@ -316,235 +308,238 @@ export default function OrderDetail() {
       </AlertDialog>
 
       {/* ================= PRINT ZONE (Only visible during print) ================= */}
-      {printType && createPortal(
-        <div id="printable-area" className="p-3 font-sans bg-white text-black text-[10px] leading-snug">
-          {printType === "invoice" ? (
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="flex justify-between items-start border-b pb-2">
-                <div>
-                  {settings?.storeInfo?.logo_url ? (
-                    <img
-                      src={settings.storeInfo.logo_url}
-                      alt={settings.storeInfo.name || "Rangao"}
-                      className="h-8 object-contain mb-1"
-                    />
-                  ) : (
-                    <h2 className="text-base font-bold tracking-tight text-gray-900">
-                      {settings?.storeInfo?.name || "Rangao - রাঙাও"}
-                    </h2>
-                  )}
-                  {settings?.storeInfo?.tagline && (
-                    <p className="text-[9px] text-gray-500 italic mb-0.5">{settings.storeInfo.tagline}</p>
-                  )}
-                  <p className="text-[9px] text-gray-600">
-                    {settings?.storeInfo?.address || "ঢাকা, বাংলাদেশ"}
-                  </p>
-                  <p className="text-[9px] text-gray-600">
-                    ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.com.bd"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <h1 className="text-lg font-black text-gray-900 tracking-wider">INVOICE</h1>
-                  <p className="text-[10px] font-bold text-gray-800 mt-0.5">অর্ডার নম্বর: {order.order_number}</p>
-                  <p className="text-[9px] text-gray-600">
-                    তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Details (Bill/Ship to + Payment Info) */}
-              <div className="grid grid-cols-2 gap-4 text-[10px]">
-                <div className="border rounded-md p-2 bg-gray-50/50">
-                  <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">ডেলিভারি ঠিকানা (Shipping Address)</h3>
-                  <p className="font-bold text-gray-900">{order.customer_name}</p>
-                  <p className="font-medium text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
-                  <p className="text-gray-700 mt-0.5">{(address as any)?.address || (address as any)?.city || "—"}</p>
-                  {order.notes && (
-                    <div className="mt-1.5 text-[8.5px] border-t pt-1 text-gray-600 italic">
-                      নোট: {order.notes}
-                    </div>
-                  )}
-                </div>
-
-                <div className="border rounded-md p-2 bg-gray-50/50 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">পেমেন্ট ও অর্ডার বিবরণ</h3>
-                    <div className="grid grid-cols-2 gap-y-0.5 text-[9.5px] text-gray-700">
-                      <span className="font-medium">পেমেন্ট মেথড:</span>
-                      <span className="font-semibold text-right">{order.payment_method}</span>
-                      
-                      <span className="font-medium">পেমেন্ট স্ট্যাটাস:</span>
-                      <span className="font-semibold text-right">{order.payment_status}</span>
-
-                      <span className="font-medium">অর্ডার স্ট্যাটাস:</span>
-                      <span className="font-semibold text-right">{statusLabels[order.order_status] || order.order_status}</span>
-                    </div>
-                  </div>
-                  {(address as any)?.tracking_number && (
-                    <div className="mt-1.5 text-[8.5px] border-t pt-1 text-gray-600">
-                      কুরিয়ার: <span className="font-semibold">{(address as any).courier_company}</span> | ট্র্যাকিং: <span className="font-semibold font-mono">{(address as any).tracking_number}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-left text-[9.5px]">
-                  <thead>
-                    <tr className="bg-gray-100 border-b font-bold text-gray-900">
-                      <th className="px-3 py-1 w-10 text-center">ক্রমিক</th>
-                      <th className="px-3 py-1">আইটেম বিবরণ</th>
-                      <th className="px-3 py-1 text-right">ইউনিট মূল্য</th>
-                      <th className="px-3 py-1 text-center w-12">পরিমাণ</th>
-                      <th className="px-3 py-1 text-right w-20">মোট</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-gray-800">
-                    {items && items.map((item: any, i: number) => (
-                      <tr key={item.id} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-1.5 text-center">{i + 1}</td>
-                        <td className="px-3 py-1.5">
-                          <p className="font-semibold text-gray-900">{item.product_name}</p>
-                        </td>
-                        <td className="px-3 py-1.5 text-right">৳{Number(item.unit_price).toLocaleString()}</td>
-                        <td className="px-3 py-1.5 text-center">{item.quantity}</td>
-                        <td className="px-3 py-1.5 text-right font-semibold">৳{Number(item.total_price).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pricing breakdown */}
-              <div className="flex justify-end">
-                <div className="w-52 border rounded-md p-2 bg-gray-50/50 space-y-1 text-[9.5px] text-gray-800">
-                  <div className="flex justify-between">
-                    <span>সাবটোটাল:</span>
-                    <span>৳{Number(order.subtotal || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ডেলিভারি চার্জ:</span>
-                    <span>৳{Number(order.delivery_charge || 0).toLocaleString()}</span>
-                  </div>
-                  {order.discount_amount > 0 && (
-                    <div className="flex justify-between text-red-600">
-                      <span>ডিসকাউন্ট:</span>
-                      <span>-৳{Number(order.discount_amount).toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-1 font-bold text-[10px] text-gray-900">
-                    <span>সর্বমোট:</span>
-                    <span>৳{Number(order.total_amount || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider & Footer signature */}
-              <div className="pt-4 flex justify-between items-end text-[9px] text-gray-600">
-                <div>
-                  <p className="font-semibold text-gray-800">আমাদের থেকে কেনাকাটা করার জন্য ধন্যবাদ!</p>
-                  <p className="text-[8px] mt-0.5 text-gray-500 font-mono">কোনো জিজ্ঞাসা থাকলে যোগাযোগ করুন: {settings?.storeInfo?.phone}</p>
-                </div>
-                <div className="text-center w-28 border-t pt-1">
-                  <p className="font-semibold text-gray-900">কর্তৃপক্ষের স্বাক্ষর</p>
-                </div>
-              </div>
+      {/* Invoice Print Container */}
+      {createPortal(
+        <div id="printable-invoice" className="print-target p-3 font-sans bg-white text-black text-[10px] leading-snug">
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex justify-between items-start border-b pb-2">
+            <div>
+              {settings?.storeInfo?.logo_url ? (
+                <img
+                  src={settings.storeInfo.logo_url}
+                  alt={settings.storeInfo.name || "Rangao"}
+                  className="h-8 object-contain mb-1"
+                />
+              ) : (
+                <h2 className="text-base font-bold tracking-tight text-gray-900">
+                  {settings?.storeInfo?.name || "Rangao - রাঙাও"}
+                </h2>
+              )}
+              {settings?.storeInfo?.tagline && (
+                <p className="text-[9px] text-gray-500 italic mb-0.5">{settings.storeInfo.tagline}</p>
+              )}
+              <p className="text-[9px] text-gray-600">
+                {settings?.storeInfo?.address || "ঢাকা, বাংলাদেশ"}
+              </p>
+              <p className="text-[9px] text-gray-600">
+                ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.com.bd"}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Packing Slip Header */}
-              <div className="flex justify-between items-start border-b pb-2">
-                <div>
-                  <h2 className="text-base font-bold tracking-tight text-gray-900">
-                    {settings?.storeInfo?.name || "Rangao - রাঙাও"}
-                  </h2>
-                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Fulfillment Packing Slip</p>
-                </div>
-                <div className="text-right">
-                  <h1 className="text-lg font-black text-gray-900 tracking-wider">PACKING SLIP</h1>
-                  <p className="text-[10px] font-bold text-gray-800 mt-0.5">অর্ডার নম্বর: {order.order_number}</p>
-                  <p className="text-[9px] text-gray-600">
-                    তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
-                  </p>
-                </div>
-              </div>
+            <div className="text-right">
+              <h1 className="text-lg font-black text-gray-900 tracking-wider">INVOICE</h1>
+              <p className="text-[10px] font-bold text-gray-800 mt-0.5">অর্ডার নম্বর: {order.order_number}</p>
+              <p className="text-[9px] text-gray-600">
+                তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
+              </p>
+            </div>
+          </div>
 
-              {/* Delivery and Packing Details */}
-              <div className="grid grid-cols-2 gap-4 text-[10px]">
-                <div className="border rounded-md p-2 bg-gray-50/50">
-                  <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">ডেলিভারি গ্রহীতা (Recipient)</h3>
-                  <p className="font-bold text-gray-900">{order.customer_name}</p>
-                  <p className="font-bold text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
-                  <p className="text-gray-700 mt-0.5">{(address as any)?.address || (address as any)?.city || "—"}</p>
-                </div>
-
-                <div className="border rounded-md p-2 bg-gray-50/50 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">শিপিং ও কুরিয়ার বিবরণ</h3>
-                    <div className="grid grid-cols-2 gap-y-0.5 text-gray-700">
-                      <span className="font-medium">কুরিয়ার কোম্পানি:</span>
-                      <span className="font-bold text-right">{(address as any)?.courier_company || "Not Assigned"}</span>
-
-                      <span className="font-medium">ট্র্যাকিং নম্বর:</span>
-                      <span className="font-bold font-mono text-right">{(address as any)?.tracking_number || "—"}</span>
-
-                      <span className="font-medium">পেমেন্ট টাইপ:</span>
-                      <span className="font-bold text-right text-red-600">{order.payment_method === "cod" ? `ক্যাশ অন ডেলিভারি (৳${Number(order.total_amount).toLocaleString()})` : "প্রিপেইড (Prepaid)"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Notes / Instructions */}
+          {/* Details (Bill/Ship to + Payment Info) */}
+          <div className="grid grid-cols-2 gap-4 text-[10px]">
+            <div className="border rounded-md p-2 bg-gray-50/50">
+              <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">ডেলিভারি ঠিকানা (Shipping Address)</h3>
+              <p className="font-bold text-gray-900">{order.customer_name}</p>
+              <p className="font-medium text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
+              <p className="text-gray-700 mt-0.5">{(address as any)?.address || (address as any)?.city || "—"}</p>
               {order.notes && (
-                <div className="border-l-2 border-amber-500 bg-amber-50/50 p-2 rounded-r-md text-[9.5px]">
-                  <span className="font-bold text-amber-800 block mb-0.5">কাস্টমার নির্দেশনা (Order Note):</span>
-                  <p className="text-gray-800">{order.notes}</p>
+                <div className="mt-1.5 text-[8.5px] border-t pt-1 text-gray-600 italic">
+                  নোট: {order.notes}
                 </div>
               )}
+            </div>
 
-              {/* Items checklist */}
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-left text-[9.5px]">
-                  <thead>
-                    <tr className="bg-gray-100 border-b font-bold text-gray-900">
-                      <th className="px-3 py-1 w-12 text-center">চেক [✓]</th>
-                      <th className="px-3 py-1">আইটেম বিবরণ</th>
-                      <th className="px-3 py-1 text-center w-20">পরিমাণ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-gray-800">
-                    {items && items.map((item: any) => (
-                      <tr key={item.id} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-2 text-center">
-                          <div className="w-4 h-4 mx-auto border border-gray-400 rounded bg-white"></div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <p className="font-bold text-gray-900">{item.product_name}</p>
-                          <p className="text-[8.5px] text-gray-500 mt-0.5">আইটেম আইডি: {item.id}</p>
-                        </td>
-                        <td className="px-3 py-2 text-center font-bold text-xs text-gray-900">{item.quantity}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="border rounded-md p-2 bg-gray-50/50 flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">পেমেন্ট ও অর্ডার বিবরণ</h3>
+                <div className="grid grid-cols-2 gap-y-0.5 text-[9.5px] text-gray-700">
+                  <span className="font-medium">পেমেন্ট মেথড:</span>
+                  <span className="font-semibold text-right">{order.payment_method}</span>
+                  
+                  <span className="font-medium">পেমেন্ট স্ট্যাটাস:</span>
+                  <span className="font-semibold text-right">{order.payment_status}</span>
+
+                  <span className="font-medium">অর্ডার স্ট্যাটাস:</span>
+                  <span className="font-semibold text-right">{statusLabels[order.order_status] || order.order_status}</span>
+                </div>
+              </div>
+              {(address as any)?.tracking_number && (
+                <div className="mt-1.5 text-[8.5px] border-t pt-1 text-gray-600">
+                  কুরিয়ার: <span className="font-semibold">{(address as any).courier_company}</span> | ট্র্যাকিং: <span className="font-semibold font-mono">{(address as any).tracking_number}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-left text-[9.5px]">
+              <thead>
+                <tr className="bg-gray-100 border-b font-bold text-gray-900">
+                  <th className="px-3 py-1 w-10 text-center">ক্রমিক</th>
+                  <th className="px-3 py-1">আইটেম বিবরণ</th>
+                  <th className="px-3 py-1 text-right">ইউনিট মূল্য</th>
+                  <th className="px-3 py-1 text-center w-12">পরিমাণ</th>
+                  <th className="px-3 py-1 text-right w-20">মোট</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-gray-800">
+                {items && items.map((item: any, i: number) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50">
+                    <td className="px-3 py-1.5 text-center">{i + 1}</td>
+                    <td className="px-3 py-1.5">
+                      <p className="font-semibold text-gray-900">{item.product_name}</p>
+                    </td>
+                    <td className="px-3 py-1.5 text-right">৳{Number(item.unit_price).toLocaleString()}</td>
+                    <td className="px-3 py-1.5 text-center">{item.quantity}</td>
+                    <td className="px-3 py-1.5 text-right font-semibold">৳{Number(item.total_price).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pricing breakdown */}
+          <div className="flex justify-end">
+            <div className="w-52 border rounded-md p-2 bg-gray-50/50 space-y-1 text-[9.5px] text-gray-800">
+              <div className="flex justify-between">
+                <span>সাবটোটাল:</span>
+                <span>৳{Number(order.subtotal || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ডেলিভারি চার্জ:</span>
+                <span>৳{Number(order.delivery_charge || 0).toLocaleString()}</span>
+              </div>
+              {order.discount_amount > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>ডিসকাউন্ট:</span>
+                  <span>-৳{Number(order.discount_amount).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-1 font-bold text-[10px] text-gray-900">
+                <span>সর্বমোট:</span>
+                <span>৳{Number(order.total_amount || 0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider & Footer signature */}
+          <div className="pt-4 flex justify-between items-end text-[9px] text-gray-600">
+            <div>
+              <p className="font-semibold text-gray-800">আমাদের থেকে কেনাকাটা করার জন্য ধন্যবাদ!</p>
+              <p className="text-[8px] mt-0.5 text-gray-500 font-mono">কোনো জিজ্ঞাসা থাকলে যোগাযোগ করুন: {settings?.storeInfo?.phone}</p>
+            </div>
+            <div className="text-center w-28 border-t pt-1">
+              <p className="font-semibold text-gray-900">কর্তৃপক্ষের স্বাক্ষর</p>
+            </div>
+          </div>
+        </div>
+      </div>, document.body)}
+
+      {/* Packing Slip Print Container */}
+      {createPortal(
+        <div id="printable-packing-slip" className="print-target p-3 font-sans bg-white text-black text-[10px] leading-snug">
+          <div className="space-y-3">
+            {/* Packing Slip Header */}
+            <div className="flex justify-between items-start border-b pb-2">
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-gray-900">
+                  {settings?.storeInfo?.name || "Rangao - রাঙাও"}
+                </h2>
+                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Fulfillment Packing Slip</p>
+              </div>
+              <div className="text-right">
+                <h1 className="text-lg font-black text-gray-900 tracking-wider">PACKING SLIP</h1>
+                <p className="text-[10px] font-bold text-gray-800 mt-0.5">অর্ডার নম্বর: {order.order_number}</p>
+                <p className="text-[9px] text-gray-600">
+                  তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
+                </p>
+              </div>
+            </div>
+
+            {/* Delivery and Packing Details */}
+            <div className="grid grid-cols-2 gap-4 text-[10px]">
+              <div className="border rounded-md p-2 bg-gray-50/50">
+                <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">ডেলিভারি গ্রহীতা (Recipient)</h3>
+                <p className="font-bold text-gray-900">{order.customer_name}</p>
+                <p className="font-bold text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
+                <p className="text-gray-700 mt-0.5">{(address as any)?.address || (address as any)?.city || "—"}</p>
               </div>
 
-              {/* Packing Footer */}
-              <div className="pt-4 grid grid-cols-2 gap-4 text-[9px] text-gray-600">
+              <div className="border rounded-md p-2 bg-gray-50/50 flex flex-col justify-between">
                 <div>
-                  <p className="mb-2">প্যাকার সাইন: ___________________________</p>
-                  <p>তারিখ ও সময়: ____/____/________   ____ : ____</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-800">রাঙাও - অর্ডার প্রসেসিং শীট</p>
-                  <p className="text-[8px] mt-0.5">পণ্যটি ডেলিভারি কুরিয়ারে হস্তান্তরের পূর্বে সতর্কতার সাথে মিলিয়ে নিন।</p>
+                  <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">শিপিং ও কুরিয়ার বিবরণ</h3>
+                  <div className="grid grid-cols-2 gap-y-0.5 text-gray-700">
+                    <span className="font-medium">কুরিয়ার কোম্পানি:</span>
+                    <span className="font-bold text-right">{(address as any)?.courier_company || "Not Assigned"}</span>
+
+                    <span className="font-medium">ট্র্যাকিং নম্বর:</span>
+                    <span className="font-bold font-mono text-right">{(address as any)?.tracking_number || "—"}</span>
+
+                    <span className="font-medium">পেমেন্ট টাইপ:</span>
+                    <span className="font-bold text-right text-red-600">{order.payment_method === "cod" ? `ক্যাশ অন ডেলিভারি (৳${Number(order.total_amount).toLocaleString()})` : "প্রিপেইড (Prepaid)"}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Order Notes / Instructions */}
+            {order.notes && (
+              <div className="border-l-2 border-amber-500 bg-amber-50/50 p-2 rounded-r-md text-[9.5px]">
+                <span className="font-bold text-amber-800 block mb-0.5">কাস্টমার নির্দেশনা (Order Note):</span>
+                <p className="text-gray-800">{order.notes}</p>
+              </div>
+            )}
+
+            {/* Items checklist */}
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-left text-[9.5px]">
+                <thead>
+                  <tr className="bg-gray-100 border-b font-bold text-gray-900">
+                    <th className="px-3 py-1 w-12 text-center">চেক [✓]</th>
+                    <th className="px-3 py-1">আইটেম বিবরণ</th>
+                    <th className="px-3 py-1 text-center w-20">পরিমাণ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-gray-800">
+                  {items && items.map((item: any) => (
+                    <tr key={item.id} className="hover:bg-gray-50/50">
+                      <td className="px-3 py-2 text-center">
+                        <div className="w-4 h-4 mx-auto border border-gray-400 rounded bg-white"></div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <p className="font-bold text-gray-900">{item.product_name}</p>
+                        <p className="text-[8.5px] text-gray-500 mt-0.5">আইটেম আইডি: {item.id}</p>
+                      </td>
+                      <td className="px-3 py-2 text-center font-bold text-xs text-gray-900">{item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Packing Footer */}
+            <div className="pt-4 grid grid-cols-2 gap-4 text-[9px] text-gray-600">
+              <div>
+                <p className="mb-2">প্যাকার সাইন: ___________________________</p>
+                <p>তারিখ ও সময়: ____/____/________   ____ : ____</p>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-gray-800">রাঙাও - অর্ডার প্রসেসিং শীট</p>
+                <p className="text-[8px] mt-0.5">পণ্যটি ডেলিভারি কুরিয়ারে হস্তান্তরের পূর্বে সতর্কতার সাথে মিলিয়ে নিন।</p>
+              </div>
+            </div>
+          </div>
         </div>,
         document.body
       )}
