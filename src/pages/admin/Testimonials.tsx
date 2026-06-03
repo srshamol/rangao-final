@@ -50,6 +50,36 @@ export default function AdminTestimonials() {
     },
   });
 
+  const { data: products = [] } = useQuery({
+    queryKey: ["admin-products-minimal"],
+    queryFn: async () => {
+      const { data } = await supabase.from("products").select("id, name");
+      return data || [];
+    }
+  });
+
+  const getProductName = (productId?: string) => {
+    if (!productId) return "Homepage (সাধারণ)";
+    const prod = products.find((p: any) => p.id === productId);
+    return prod ? prod.name : "প্রোডাক্ট লোড হচ্ছে...";
+  };
+
+  const approve = useMutation({
+    mutationFn: async (testimonialId: string) => {
+      const { error } = await supabase
+        .from("testimonials" as any)
+        .update({ is_active: true })
+        .eq("id", testimonialId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
+      toast({ title: "রিভিউটি অনুমোদিত হয়েছে" });
+    },
+    onError: (e: any) => toast({ title: "ত্রুটি", description: e.message, variant: "destructive" }),
+  });
+
   const save = useMutation({
     mutationFn: async () => {
       if (editId) {
@@ -179,6 +209,7 @@ export default function AdminTestimonials() {
               <TableRow>
                 <TableHead>নাম</TableHead>
                 <TableHead>লোকেশন</TableHead>
+                <TableHead>প্রোডাক্ট</TableHead>
                 <TableHead>রেটিং</TableHead>
                 <TableHead>রিভিউ</TableHead>
                 <TableHead>স্ট্যাটাস</TableHead>
@@ -190,6 +221,7 @@ export default function AdminTestimonials() {
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.customer_name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{t.customer_location || "—"}</TableCell>
+                  <TableCell className="max-w-[150px] truncate text-sm">{getProductName(t.product_id)}</TableCell>
                   <TableCell>
                     <div className="flex gap-0.5">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -200,9 +232,18 @@ export default function AdminTestimonials() {
                   <TableCell className="max-w-[200px]">
                     <p className="line-clamp-2 text-sm text-muted-foreground">{t.review}</p>
                   </TableCell>
-                  <TableCell>{t.is_active ? "✅" : "❌"}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <span className={t.is_active ? "text-emerald-600 font-semibold" : "text-amber-600 font-semibold"}>
+                      {t.is_active ? "সক্রিয়" : "পেন্ডিং"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 items-center">
+                      {!t.is_active && (
+                        <Button variant="outline" size="sm" className="h-7 text-[10px] px-1.5 border-emerald-500 text-emerald-600 hover:bg-emerald-50" onClick={() => approve.mutate(t.id)}>
+                          অনুমোদন করুন
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => del.mutate(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>

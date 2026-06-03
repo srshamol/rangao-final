@@ -64,6 +64,13 @@ const ProductDetail = () => {
       { label: "ফিনিশিং", value: "ম্যাট লেজার কাট" }
     ];
 
+    // Compute dynamic rating and reviewCount from approved database reviews
+    const hasReviews = dbReviews && dbReviews.length > 0;
+    const computedRating = hasReviews 
+      ? Number((dbReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / dbReviews.length).toFixed(1))
+      : dbProduct.rating || 4.9;
+    const computedReviewCount = hasReviews ? dbReviews.length : dbProduct.review_count || 48;
+
     return {
       id: dbProduct.id,
       name: dbProduct.name,
@@ -75,8 +82,8 @@ const ProductDetail = () => {
       originalPrice: dbProduct.sale_price ? dbProduct.regular_price : undefined,
       images: dbProduct.images?.length ? dbProduct.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
       stock: dbProduct.stock_quantity ?? 10,
-      rating: dbProduct.rating || 4.9,
-      reviewCount: dbProduct.review_count || 48,
+      rating: computedRating,
+      reviewCount: computedReviewCount,
       category: dbProduct.category || "",
       categoryLabel: dbProduct.categoryLabel || dbProduct.category || "হোম ডেকোর",
       features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
@@ -84,7 +91,7 @@ const ProductDetail = () => {
         : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
       specs: finalSpecs
     };
-  }, [dbProduct]);
+  }, [dbProduct, dbReviews]);
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
@@ -135,9 +142,11 @@ const ProductDetail = () => {
         .from("testimonials" as any)
         .select("*")
         .eq("is_active", true)
+        .eq("product_id", id)
         .order("created_at", { ascending: false });
       return data || [];
-    }
+    },
+    enabled: !!id
   });
 
   const [newReviewName, setNewReviewName] = useState("");
@@ -159,7 +168,8 @@ const ProductDetail = () => {
         rating: newReviewRating,
         is_active: false,
         customer_location: "Verified Buyer",
-        sort_order: 0
+        sort_order: 0,
+        product_id: id
       });
       if (error) throw error;
       toast.success("আপনার রিভিউটি সফলভাবে সাবমিট হয়েছে। এডমিন অনুমোদনের পর এটি ওয়েবসাইটে প্রকাশ করা হবে।");
