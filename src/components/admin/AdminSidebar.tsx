@@ -37,21 +37,21 @@ const orderSubItems = [
 ];
 
 const bottomItems = [
-  { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
-  { title: "ব্লগ ও টিপস", url: "/admin/blog", icon: BookOpen },
-  { title: "টেস্টিমোনিয়াল", url: "/admin/testimonials", icon: Star },
-  { title: "ব্র্যান্ডস", url: "/admin/brands", icon: Shield },
-  { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
   { title: "প্রোডাক্ট", url: "/admin/products", icon: Package },
   { title: "ক্যাটাগরি", url: "/admin/categories", icon: FolderTree },
-  { title: "মিডিয়া লাইব্রেরি", url: "/admin/media-library", icon: FolderTree },
-  { title: "স্টোরেজ ডায়াগনস্টিকস", url: "/admin/settings/storage-diagnostics", icon: Shield },
   { title: "ইনভেন্টরি", url: "/admin/inventory", icon: Warehouse },
   { title: "কুপন", url: "/admin/coupons", icon: Ticket },
+  { title: "টেসটিমোনিয়াল", url: "/admin/testimonials", icon: Star },
+  { title: "ব্লগ ও টিপস", url: "/admin/blog", icon: BookOpen },
+  { title: "ব্র্যান্ডস", url: "/admin/brands", icon: Shield },
   { title: "ফাইন্যান্স", url: "/admin/finance", icon: DollarSign },
   { title: "কাস্টমার", url: "/admin/customers", icon: Users },
-  { title: "সেটিংস", url: "/admin/settings", icon: Settings },
+  { title: "মিডিয়া লাইব্রেরি", url: "/admin/media-library", icon: FolderTree },
+  { title: "স্টোরেজ ডায়াগনস্টিকস", url: "/admin/settings/storage-diagnostics", icon: Shield },
+  { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
+  { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
   { title: "অর্ডার কন্ট্রোল", url: "/admin/order-control", icon: Shield },
+  { title: "সেটিংস", url: "/admin/settings", icon: Settings },
 ];
 
 import { useStoreSettings } from "@/hooks/useStoreSettings";
