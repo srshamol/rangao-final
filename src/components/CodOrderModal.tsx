@@ -82,15 +82,18 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   let discountAmount = 0;
   if (appliedCoupon) {
+    const isFreeDelivery = appliedCoupon.discount_type === "free_delivery" || 
+      (appliedCoupon.discount_type === "flat" && Number(appliedCoupon.discount_value) === 0);
+
     if (appliedCoupon.discount_type === "percentage") {
       discountAmount = (subtotal * Number(appliedCoupon.discount_value)) / 100;
       if (appliedCoupon.max_discount) {
         discountAmount = Math.min(discountAmount, Number(appliedCoupon.max_discount));
       }
+    } else if (isFreeDelivery) {
+      discountAmount = deliveryCharge;
     } else if (appliedCoupon.discount_type === "flat") {
       discountAmount = Number(appliedCoupon.discount_value);
-    } else if (appliedCoupon.discount_type === "free_delivery") {
-      discountAmount = deliveryCharge;
     }
   }
 

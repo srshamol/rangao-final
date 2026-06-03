@@ -92,8 +92,10 @@ export default function AdminCoupons() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">কুপন ম্যানেজমেন্ট</h1>
+        <Button onClick={() => { resetForm(); setOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> নতুন কুপন
+        </Button>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-          <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> নতুন কুপন</Button></DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>{editId ? "কুপন এডিট" : "নতুন কুপন"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -115,7 +117,12 @@ export default function AdminCoupons() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">মান</label>
-                  <Input type="number" value={form.discount_value} onChange={(e) => setForm((f) => ({ ...f, discount_value: Number(e.target.value) }))} />
+                  <Input 
+                    type="number" 
+                    value={form.discount_type === "free_delivery" ? 0 : form.discount_value} 
+                    disabled={form.discount_type === "free_delivery"}
+                    onChange={(e) => setForm((f) => ({ ...f, discount_value: Number(e.target.value) }))} 
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
