@@ -176,7 +176,7 @@ export default function AdminCoupons() {
                     <TableCell>
                       {c.discount_type === "percentage" 
                         ? `${Number(c.discount_value)}%` 
-                        : c.discount_type === "free_delivery"
+                        : (c.discount_type === "free_delivery" || (c.discount_type === "flat" && Number(c.discount_value) === 0))
                         ? "ফ্রি ডেলিভারি"
                         : `৳${Number(c.discount_value).toLocaleString()}`}
                     </TableCell>
