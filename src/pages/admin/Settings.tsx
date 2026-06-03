@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { StoreInfo, ContactInfo, SocialLinkItem } from "@/hooks/useStoreSettings";
 import MediaPicker from "@/components/MediaPicker";
-import { trackLead } from "@/lib/tracking";
+import { trackLead, isValidTrackingId } from "@/lib/tracking";
 
 interface DeliveryCharges {
   dhaka_inside: number;
@@ -1249,10 +1249,10 @@ export default function AdminSettings() {
                         );
                       }
                       const hasAnyConfigured = (
-                        (dbTracking.meta_pixel_enabled && dbTracking.meta_pixel_id?.trim()) ||
-                        (dbTracking.gtm_enabled && dbTracking.gtm_id?.trim()) ||
-                        (dbTracking.ga4_enabled && dbTracking.ga4_id?.trim()) ||
-                        (dbTracking.tiktok_enabled && dbTracking.tiktok_pixel_id?.trim())
+                        (dbTracking.meta_pixel_enabled && isValidTrackingId('meta', dbTracking.meta_pixel_id)) ||
+                        (dbTracking.gtm_enabled && isValidTrackingId('gtm', dbTracking.gtm_id)) ||
+                        (dbTracking.ga4_enabled && isValidTrackingId('ga4', dbTracking.ga4_id)) ||
+                        (dbTracking.tiktok_enabled && isValidTrackingId('tiktok', dbTracking.tiktok_pixel_id))
                       );
                       if (!hasAnyConfigured) {
                         return (
@@ -1487,10 +1487,10 @@ export default function AdminSettings() {
                     <span className="text-[10px] text-muted-foreground block">Browser Events</span>
                     {(() => {
                       const isActive = tracking.global_enabled && (
-                        (tracking.meta_pixel_enabled && tracking.meta_pixel_id?.trim()) ||
-                        (tracking.gtm_enabled && tracking.gtm_id?.trim()) ||
-                        (tracking.ga4_enabled && tracking.ga4_id?.trim()) ||
-                        (tracking.tiktok_enabled && tracking.tiktok_pixel_id?.trim())
+                        (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) ||
+                        (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) ||
+                        (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) ||
+                        (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id))
                       );
                       return (
                         <span className={`font-bold text-sm block mt-1 ${isActive ? "text-green-500" : "text-red-500"}`}>
@@ -1504,7 +1504,7 @@ export default function AdminSettings() {
                     {(() => {
                       const isActive = tracking.global_enabled &&
                         tracking.meta_capi_enabled &&
-                        tracking.meta_pixel_id?.trim() &&
+                        isValidTrackingId('meta', tracking.meta_pixel_id) &&
                         tracking.meta_access_token?.trim();
                       return (
                         <span className={`font-bold text-sm block mt-1 ${isActive ? "text-blue-500" : "text-red-500"}`}>
@@ -1516,8 +1516,8 @@ export default function AdminSettings() {
                   <div className="p-3 rounded-xl border bg-secondary/10 text-center">
                     <span className="text-[10px] text-muted-foreground block">Deduplication Matching</span>
                     {(() => {
-                      const hasPixel = tracking.meta_pixel_enabled && tracking.meta_pixel_id?.trim();
-                      const hasCAPI = tracking.meta_capi_enabled && tracking.meta_pixel_id?.trim() && tracking.meta_access_token?.trim();
+                      const hasPixel = tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id);
+                      const hasCAPI = tracking.meta_capi_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) && tracking.meta_access_token?.trim();
                       const isVerified = tracking.global_enabled && hasPixel && hasCAPI;
                       
                       return (
@@ -1541,10 +1541,10 @@ export default function AdminSettings() {
                       disabled={!tracking.global_enabled}
                       onClick={() => {
                         const activeEngines = [];
-                        if (tracking.meta_pixel_enabled && tracking.meta_pixel_id?.trim()) activeEngines.push("Meta Pixel");
-                        if (tracking.gtm_enabled && tracking.gtm_id?.trim()) activeEngines.push("GTM");
-                        if (tracking.ga4_enabled && tracking.ga4_id?.trim()) activeEngines.push("GA4");
-                        if (tracking.tiktok_enabled && tracking.tiktok_pixel_id?.trim()) activeEngines.push("TikTok");
+                        if (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) activeEngines.push("Meta Pixel");
+                        if (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) activeEngines.push("GTM");
+                        if (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) activeEngines.push("GA4");
+                        if (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id)) activeEngines.push("TikTok");
 
                         if (activeEngines.length === 0) {
                           toast({ 
@@ -1573,16 +1573,16 @@ export default function AdminSettings() {
                     <>
                       <div className="text-gray-400 border-b border-green-950 pb-1 mb-1 font-semibold">--- Live Session Logs ---</div>
                       <div>[SYSTEM] Unified tracking engine initialized successfully.</div>
-                      {tracking.meta_pixel_enabled && tracking.meta_pixel_id?.trim() ? (
+                      {tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) ? (
                         <div>[SYSTEM] Meta Pixel loaded: {tracking.meta_pixel_id}</div>
                       ) : null}
-                      {tracking.gtm_enabled && tracking.gtm_id?.trim() ? (
+                      {tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id) ? (
                         <div>[SYSTEM] Google Tag Manager loaded: {tracking.gtm_id}</div>
                       ) : null}
-                      {tracking.ga4_enabled && tracking.ga4_id?.trim() ? (
+                      {tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id) ? (
                         <div>[SYSTEM] Google Analytics 4 loaded: {tracking.ga4_id}</div>
                       ) : null}
-                      {tracking.tiktok_enabled && tracking.tiktok_pixel_id?.trim() ? (
+                      {tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id) ? (
                         <div>[SYSTEM] TikTok Pixel loaded: {tracking.tiktok_pixel_id}</div>
                       ) : null}
                       {localLogs.filter(log => !log.includes("initialized successfully")).map((log, idx) => (

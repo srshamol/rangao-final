@@ -29,6 +29,36 @@ interface TrackingConfig {
   tiktok_debug_mode: boolean;
 }
 
+export function isValidTrackingId(type: 'meta' | 'gtm' | 'ga4' | 'tiktok', value: string | undefined | null): boolean {
+  if (!value) return false;
+  const val = value.trim();
+  if (!val) return false;
+  
+  const lowerVal = val.toLowerCase();
+  if (
+    lowerVal.includes("your") || 
+    lowerVal.includes("placeholder") || 
+    lowerVal.includes("xxxx") || 
+    lowerVal.includes("test") || 
+    lowerVal.includes("mock")
+  ) {
+    return false;
+  }
+
+  switch (type) {
+    case 'meta':
+      return /^\d+$/.test(val) && val !== '123456789012345';
+    case 'gtm':
+      return /^GTM-[A-Z0-9]+$/i.test(val) && !/^GTM-X+$/i.test(val);
+    case 'ga4':
+      return /^G-[A-Z0-9]+$/i.test(val) && !/^G-X+$/i.test(val);
+    case 'tiktok':
+      return /^[A-Z0-9]+$/i.test(val) && !/^C?X+$/i.test(val);
+    default:
+      return true;
+  }
+}
+
 let activeConfig: TrackingConfig | null = null;
 const loadedScripts = new Set<string>();
 
@@ -61,7 +91,7 @@ export function initializeScripts() {
   }
 
   // --- META PIXEL ---
-  if (activeConfig.meta_pixel_enabled && activeConfig.meta_pixel_id) {
+  if (activeConfig.meta_pixel_enabled && isValidTrackingId('meta', activeConfig.meta_pixel_id)) {
     const pixelId = activeConfig.meta_pixel_id.trim();
     if (!loadedScripts.has(`meta-${pixelId}`)) {
       debugLog('meta', `Initializing Meta Pixel: ${pixelId}`);
@@ -88,7 +118,7 @@ export function initializeScripts() {
   }
 
   // --- GOOGLE ANALYTICS 4 ---
-  if (activeConfig.ga4_enabled && activeConfig.ga4_id) {
+  if (activeConfig.ga4_enabled && isValidTrackingId('ga4', activeConfig.ga4_id)) {
     const gaId = activeConfig.ga4_id.trim();
     if (!loadedScripts.has(`ga4-${gaId}`)) {
       debugLog('google', `Initializing GA4: ${gaId}`);
@@ -112,7 +142,7 @@ export function initializeScripts() {
   }
 
   // --- GOOGLE TAG MANAGER ---
-  if (activeConfig.gtm_enabled && activeConfig.gtm_id) {
+  if (activeConfig.gtm_enabled && isValidTrackingId('gtm', activeConfig.gtm_id)) {
     const gtmId = activeConfig.gtm_id.trim();
     if (!loadedScripts.has(`gtm-${gtmId}`)) {
       debugLog('google', `Initializing Google Tag Manager: ${gtmId}`);
@@ -134,7 +164,7 @@ export function initializeScripts() {
   }
 
   // --- TIKTOK PIXEL ---
-  if (activeConfig.tiktok_enabled && activeConfig.tiktok_pixel_id) {
+  if (activeConfig.tiktok_enabled && isValidTrackingId('tiktok', activeConfig.tiktok_pixel_id)) {
     const ttId = activeConfig.tiktok_pixel_id.trim();
     if (!loadedScripts.has(`tiktok-${ttId}`)) {
       debugLog('tiktok', `Initializing TikTok Pixel: ${ttId}`);
