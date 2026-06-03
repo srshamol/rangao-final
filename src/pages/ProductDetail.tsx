@@ -43,9 +43,30 @@ const ProductDetail = () => {
 
   const product = useMemo(() => {
     if (!dbProduct) return null;
+
+    const baseSpecs = Array.isArray(dbProduct.specifications)
+      ? (dbProduct.specifications as unknown as { label: string; value: string }[])
+      : [];
+
+    const specs = [...baseSpecs];
+    if (dbProduct.brand && !specs.some(s => s.label.toLowerCase() === "ব্র্যান্ড" || s.label.toLowerCase() === "brand")) {
+      specs.unshift({ label: "ব্র্যান্ড", value: dbProduct.brand });
+    }
+    if (dbProduct.sku && !specs.some(s => s.label.toLowerCase() === "sku")) {
+      specs.push({ label: "SKU", value: dbProduct.sku });
+    }
+
+    const finalSpecs = specs.length > 0 ? specs : [
+      { label: "উপাদান", value: "প্রিমিয়াম উড / অ্যাক্রিলিক" },
+      { label: "অরিজিন", value: "বাংলাদেশ" },
+      { label: "ফিনিশিং", value: "ম্যাট লেজার কাট" }
+    ];
+
     return {
       id: dbProduct.id,
       name: dbProduct.name,
+      brand: dbProduct.brand || "",
+      sku: dbProduct.sku || "",
       shortDescription: dbProduct.short_description || dbProduct.description?.slice(0, 120) || "প্রিমিয়াম কোয়ালিটির ইসলামিক ও হোম ডেকোর প্রোডাক্ট।",
       fullDescription: dbProduct.description || "",
       price: dbProduct.sale_price ?? dbProduct.regular_price,
@@ -55,13 +76,11 @@ const ProductDetail = () => {
       rating: dbProduct.rating || 4.9,
       reviewCount: dbProduct.review_count || 48,
       category: dbProduct.category || "",
-      categoryLabel: dbProduct.category === "wall-canvas" ? "ওয়াল ক্যানভাস" : dbProduct.category === "calligraphy-art" ? "ক্যালিগ্রাফি আর্ট" : "হোম ডেকোর",
-      features: dbProduct.tags || ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
-      specs: [
-        { label: "উপাদান", value: "প্রিমিয়াম উড / অ্যাক্রিলিক" },
-        { label: "অরিজিন", value: "বাংলাদেশ" },
-        { label: "ফিনিশিং", value: "ম্যাট লেজার কাট" }
-      ]
+      categoryLabel: dbProduct.categoryLabel || dbProduct.category || "হোম ডেকোর",
+      features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
+        ? dbProduct.tags
+        : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
+      specs: finalSpecs
     };
   }, [dbProduct]);
 
@@ -344,6 +363,19 @@ const ProductDetail = () => {
                     <h1 className="font-display text-2xl font-extrabold leading-tight text-foreground md:text-3xl lg:text-4xl">
                       {product.name}
                     </h1>
+
+                    {/* Brand & SKU */}
+                    {(product.brand || product.sku) && (
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        {product.brand && (
+                          <span>ব্র্যান্ড: <strong className="text-foreground">{product.brand}</strong></span>
+                        )}
+                        {product.brand && product.sku && <span className="text-border">|</span>}
+                        {product.sku && (
+                          <span>SKU: <strong className="text-foreground font-mono">{product.sku}</strong></span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Short Description + Full summary */}
                     <div className="space-y-2">
