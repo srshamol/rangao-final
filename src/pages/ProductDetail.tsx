@@ -43,6 +43,21 @@ const ProductDetail = () => {
     enabled: !!id
   });
 
+  // Query reviews dynamically from Supabase testimonials table
+  const { data: dbReviews = [], refetch: refetchReviews } = useQuery({
+    queryKey: ["product-reviews", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("testimonials" as any)
+        .select("*")
+        .eq("is_active", true)
+        .eq("product_id", id)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!id
+  });
+
   const product = useMemo(() => {
     if (!dbProduct) return null;
 
@@ -134,20 +149,6 @@ const ProductDetail = () => {
   const [liked, setLiked] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(0);
-  // Query reviews dynamically from Supabase testimonials table
-  const { data: dbReviews = [], refetch: refetchReviews } = useQuery({
-    queryKey: ["product-reviews", id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("testimonials" as any)
-        .select("*")
-        .eq("is_active", true)
-        .eq("product_id", id)
-        .order("created_at", { ascending: false });
-      return data || [];
-    },
-    enabled: !!id
-  });
 
   const [newReviewName, setNewReviewName] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
