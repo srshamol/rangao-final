@@ -56,6 +56,7 @@ const AdminBrands = lazy(() => import("./pages/admin/Brands"));
 const AdminHomepageSEO = lazy(() => import("./pages/admin/HomepageSEO"));
 const MediaLibrary = lazy(() => import("./pages/admin/MediaLibrary"));
 const StorageDiagnostics = lazy(() => import("./pages/admin/StorageDiagnostics"));
+const BlogManager = lazy(() => import("./pages/admin/BlogManager"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -128,6 +129,7 @@ const App = () => (
                   <Route path="testimonials" element={<AdminTestimonials />} />
                   <Route path="brands" element={<AdminBrands />} />
                   <Route path="homepage-seo" element={<AdminHomepageSEO />} />
+                  <Route path="blog" element={<BlogManager />} />
                   <Route path="incomplete-orders" element={<IncompleteOrders />} />
                   <Route path="order-control" element={<OrderControl />} />
                 </Route>

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, ShoppingCart, Warehouse, Ticket, Settings,
   LogOut, FolderTree, DollarSign, Users, ChevronDown, Clock, Truck,
-  PackageCheck, AlertTriangle, Home, Shield, Star, Globe,
+  PackageCheck, AlertTriangle, Home, Shield, Star, Globe, BookOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ const orderSubItems = [
 
 const bottomItems = [
   { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
+  { title: "ব্লগ ও টিপস", url: "/admin/blog", icon: BookOpen },
   { title: "টেস্টিমোনিয়াল", url: "/admin/testimonials", icon: Star },
   { title: "ব্র্যান্ডস", url: "/admin/brands", icon: Shield },
   { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
