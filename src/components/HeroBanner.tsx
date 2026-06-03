@@ -313,17 +313,23 @@ const HeroBanner = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="font-display text-4xl font-extrabold leading-[1.25] pb-3 text-primary-foreground sm:text-5xl md:text-6xl lg:text-7xl">
-            {activeSlide.title.split("\n").map((line, i) =>
-              <span key={i}>
-                {i === 0 ? line :
-                  <motion.span className="inline-block pb-3 bg-gradient-to-r from-accent via-amber-300 to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
-                    {line}
-                  </motion.span>
-                }
-                {i === 0 && activeSlide.title.includes("\n") && <br />}
+            className={cn(
+              "font-display text-4xl font-extrabold pb-3 text-primary-foreground sm:text-5xl md:text-6xl lg:text-7xl flex flex-col gap-1 md:gap-2",
+              activeSlide.text_align === "center" && "items-center",
+              activeSlide.text_align === "right" && "items-end",
+              (activeSlide.text_align === "left" || !activeSlide.text_align) && "items-start"
+            )}>
+            {activeSlide.title.split("\n").map((line, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "block leading-[1.3] pb-1",
+                  i > 0 && "bg-gradient-to-r from-accent via-amber-300 to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x"
+                )}
+              >
+                {line}
               </span>
-            )}
+            ))}
           </motion.h1>
 
           {/* Decorative line under heading */}
