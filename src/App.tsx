@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import CartSidebar from "@/components/CartSidebar";
-import FBPixelProvider from "@/components/FBPixelProvider";
+import TrackingProvider from "@/components/TrackingProvider";
 import SettingsSync from "@/components/SettingsSync";
 import StorageInitializer from "@/components/StorageInitializer";
 
@@ -85,7 +85,7 @@ const App = () => (
           <SettingsSync />
           <StorageInitializer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <FBPixelProvider />
+            <TrackingProvider />
             <CartSidebar />
             <Suspense fallback={<LoadingPlaceholder />}>
               <Routes>

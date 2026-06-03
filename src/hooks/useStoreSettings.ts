@@ -184,6 +184,23 @@ export interface StoreInfo {
   logo_mobile_height?: number;
   favicon_url?: string;
   tagline?: string;
+  tracking?: {
+    global_enabled: boolean;
+    environment: string;
+    meta_pixel_enabled: boolean;
+    meta_pixel_id: string;
+    meta_capi_enabled: boolean;
+    meta_strict_purchase_mode: boolean;
+    meta_debug_mode: boolean;
+    gtm_enabled: boolean;
+    gtm_id: string;
+    ga4_enabled: boolean;
+    ga4_id: string;
+    google_debug_mode: boolean;
+    tiktok_enabled: boolean;
+    tiktok_pixel_id: string;
+    tiktok_debug_mode: boolean;
+  };
 }
 
 export interface AnnouncementBarConfig {
@@ -284,7 +301,24 @@ const defaults = {
     country: "Bangladesh",
     postal_code: "",
     website_url: "https://rangao.com.bd",
-    tagline: "প্রিমিয়াম ইসলামিক ও হোম ডেকোর"
+    tagline: "প্রিমিয়াম ইসলামিক ও হোম ডেকোর",
+    tracking: {
+      global_enabled: true,
+      environment: "production",
+      meta_pixel_enabled: false,
+      meta_pixel_id: "",
+      meta_capi_enabled: false,
+      meta_strict_purchase_mode: true,
+      meta_debug_mode: false,
+      gtm_enabled: false,
+      gtm_id: "",
+      ga4_enabled: false,
+      ga4_id: "",
+      google_debug_mode: false,
+      tiktok_enabled: false,
+      tiktok_pixel_id: "",
+      tiktok_debug_mode: false
+    }
   } as StoreInfo,
   trust_features: [
     { id: "tf-1", icon: "ShieldCheck", title: "১০০% প্রিমিয়াম কোয়ালিটি", desc: "সকল প্রোডাক্ট উন্নত মানের প্রিমিয়াম আমদানিকৃত কাঠ ও এক্রিলিক দিয়ে তৈরি।" },

@@ -16,6 +16,17 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    if (query.trim().length > 1) {
+      const delayDebounceFn = setTimeout(() => {
+        import("@/lib/tracking").then(({ trackSearch }) => {
+          trackSearch(query);
+        });
+      }, 1000);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [query]);
+
+  useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 150);
       document.body.style.overflow = "hidden";

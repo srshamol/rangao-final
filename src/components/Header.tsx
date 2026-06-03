@@ -95,6 +95,17 @@ const Header = () => {
     if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
 
+  useEffect(() => {
+    if (searchQuery.trim().length > 1) {
+      const delayDebounceFn = setTimeout(() => {
+        import("@/lib/tracking").then(({ trackSearch }) => {
+          trackSearch(searchQuery);
+        });
+      }, 1000); // Debounce to avoid flooding tracking events
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [searchQuery]);
+
   const getCatCount = (slug: string) => products.filter(p => p.category === slug).length;
 
   const searchResults = useMemo(() => {

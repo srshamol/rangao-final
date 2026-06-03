@@ -48,8 +48,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch order
-    const { data: order, error: orderErr } = await supabase
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
+
+    // Fetch order using admin client
+    const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .select("*")
       .eq("id", order_id)
@@ -64,7 +70,7 @@ Deno.serve(async (req) => {
 
     // Check if CAPI Purchase was already sent for this order to prevent duplicate fires
     if (event_name === "Purchase") {
-      const { data: existingSent } = await supabase
+      const { data: existingSent } = await supabaseAdmin
         .from("order_history")
         .select("id")
         .eq("order_id", order_id)
@@ -87,23 +93,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch order items
-    const { data: items } = await supabase
+    // Fetch order items using admin client
+    const { data: items } = await supabaseAdmin
       .from("order_items")
       .select("*")
       .eq("order_id", order_id);
 
-    // Fetch FB settings from store_settings
-    const { data: fbRow } = await supabase
+    // Fetch FB settings from store_settings using admin client
+    const { data: fbRow } = await supabaseAdmin
       .from("store_settings")
       .select("value")
-      .eq("key", "facebook_pixel")
+      .eq("key", "tracking_settings")
       .single();
 
     const fbSettings = fbRow?.value as any;
-    if (!fbSettings?.pixel_id || !fbSettings?.access_token || !fbSettings?.enabled) {
+    if (!fbSettings?.meta_pixel_id || !fbSettings?.meta_access_token || !fbSettings?.meta_capi_enabled || !fbSettings?.global_enabled) {
       return new Response(
-        JSON.stringify({ error: "Facebook Pixel not configured or disabled" }),
+        JSON.stringify({ error: "Facebook Conversions API not configured or disabled" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -145,16 +151,18 @@ Deno.serve(async (req) => {
 
     const payload: Record<string, any> = {
       data: [eventData],
-      access_token: fbSettings.access_token,
+      access_token: fbSettings.meta_access_token,
     };
 
-    if (fbSettings.test_event_code) {
-      payload.test_event_code = fbSettings.test_event_code;
+    if (fbSettings.meta_test_event_code) {
+      payload.test_event_code = fbSettings.meta_test_event_code;
     }
+
+    const apiVersion = fbSettings.meta_api_version || "v21.0";
 
     // Send to Facebook
     const fbResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${fbSettings.pixel_id}/events`,
+      `https://graph.facebook.com/${apiVersion}/${fbSettings.meta_pixel_id}/events`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { type Product } from "@/data/products";
-import { trackAddToCart } from "@/lib/fbpixel";
+import { trackAddToCart } from "@/lib/tracking";
 
 export interface CartItem {
   product: Product;

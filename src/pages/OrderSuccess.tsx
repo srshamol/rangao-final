@@ -2,7 +2,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { trackPurchase } from "@/lib/fbpixel";
+import { trackPurchase } from "@/lib/tracking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle, Home, ShoppingBag, MapPin, Phone, User, CreditCard, Truck, Package, Clock, Search } from "lucide-react";
@@ -177,11 +177,11 @@ const OrderSuccess = () => {
           const { data } = await supabase
             .from("store_settings" as any)
             .select("value")
-            .eq("key", "facebook_pixel")
+            .eq("key", "public_tracking_settings")
             .maybeSingle();
 
           const config = data?.value as any;
-          const isStrict = config?.strict_purchase_mode !== false;
+          const isStrict = config?.meta_strict_purchase_mode !== false;
 
           if (isStrict) {
             const trackedOrdersStr = localStorage.getItem("fb_tracked_orders") || "[]";
@@ -201,9 +201,17 @@ const OrderSuccess = () => {
             localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
           }
 
+          // Map items properly
+          const mappedItems = order.items.map((i) => ({
+            id: i.name,
+            name: i.name,
+            price: i.unitPrice,
+            quantity: i.quantity
+          }));
+
           trackPurchase(
             order.orderNumber,
-            order.items.map((i) => ({ id: i.name })),
+            mappedItems,
             order.total
           );
 
@@ -217,9 +225,16 @@ const OrderSuccess = () => {
           }
         } catch (e) {
           console.error("Error checking strict purchase mode:", e);
+          const mappedItems = order.items.map((i) => ({
+            id: i.name,
+            name: i.name,
+            price: i.unitPrice,
+            quantity: i.quantity
+          }));
+
           trackPurchase(
             order.orderNumber,
-            order.items.map((i) => ({ id: i.name })),
+            mappedItems,
             order.total
           );
 

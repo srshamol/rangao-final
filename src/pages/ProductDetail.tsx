@@ -121,6 +121,19 @@ const ProductDetail = () => {
   }, [id]);
 
   useEffect(() => {
+    if (product) {
+      import("@/lib/tracking").then(({ trackViewContent }) => {
+        trackViewContent({
+          id: product.id,
+          name: product.name,
+          category: product.category || "Uncategorized",
+          price: product.price
+        });
+      });
+    }
+  }, [product]);
+
+  useEffect(() => {
     if (!lightboxOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLightboxOpen(false);
