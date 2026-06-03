@@ -40,6 +40,7 @@ export default function ProductForm() {
     stock_quantity: 0,
     low_stock_alert: 5,
     description: "",
+    short_description: "",
     status: "active" as string,
     featured: false,
     tags: [] as string[],
@@ -82,6 +83,7 @@ export default function ProductForm() {
         stock_quantity: existing.stock_quantity,
         low_stock_alert: existing.low_stock_alert || 5,
         description: existing.description || "",
+        short_description: existing.short_description || "",
         status: existing.status || "active",
         featured: existing.featured || false,
         tags: existing.tags || [],
@@ -504,6 +506,16 @@ export default function ProductForm() {
           <CardTitle className="text-lg">📄 প্রোডাক্টের বিবরণ</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">সংক্ষিপ্ত বিবরণ</label>
+            <Textarea
+              value={form.short_description}
+              onChange={(e) => setForm((f) => ({ ...f, short_description: e.target.value }))}
+              rows={3}
+              placeholder="প্রোডাক্টের সংক্ষিপ্ত বিবরণ লিখুন..."
+              className="mt-1"
+            />
+          </div>
           <div>
             <label className="text-sm font-medium">পূর্ণাঙ্গ বিবরণ</label>
             <Textarea

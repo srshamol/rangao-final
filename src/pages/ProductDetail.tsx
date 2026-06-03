@@ -46,7 +46,7 @@ const ProductDetail = () => {
     return {
       id: dbProduct.id,
       name: dbProduct.name,
-      shortDescription: dbProduct.description?.slice(0, 120) || "প্রিমিয়াম কোয়ালিটির ইসলামিক ও হোম ডেকোর প্রোডাক্ট।",
+      shortDescription: dbProduct.short_description || dbProduct.description?.slice(0, 120) || "প্রিমিয়াম কোয়ালিটির ইসলামিক ও হোম ডেকোর প্রোডাক্ট।",
       fullDescription: dbProduct.description || "",
       price: dbProduct.sale_price ?? dbProduct.regular_price,
       originalPrice: dbProduct.sale_price ? dbProduct.regular_price : undefined,

@@ -460,6 +460,7 @@ export type Database = {
           regular_price: number
           review_count: number | null
           sale_price: number | null
+          short_description: string | null
           sku: string | null
           specifications: Json | null
           status: Database["public"]["Enums"]["product_status"] | null
@@ -482,6 +483,7 @@ export type Database = {
           regular_price?: number
           review_count?: number | null
           sale_price?: number | null
+          short_description?: string | null
           sku?: string | null
           specifications?: Json | null
           status?: Database["public"]["Enums"]["product_status"] | null
@@ -504,6 +506,7 @@ export type Database = {
           regular_price?: number
           review_count?: number | null
           sale_price?: number | null
+          short_description?: string | null
           sku?: string | null
           specifications?: Json | null
           status?: Database["public"]["Enums"]["product_status"] | null
