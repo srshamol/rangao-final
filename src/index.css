@@ -224,36 +224,60 @@ body:has([role="dialog"]) .mobile-sticky-cta {
   body {
     background-color: white !important;
     color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  /* Hide all dashboard/admin UI */
-  body * {
-    visibility: hidden;
+  
+  /* Hide all dashboard/admin UI and non-printable elements */
+  aside,
+  header,
+  nav,
+  button,
+  .no-print,
+  .print\:hidden,
+  [role="dialog"],
+  [role="tablist"],
+  .tabs-list {
+    display: none !important;
+    visibility: hidden !important;
   }
+
+  /* Reset outer container grids/flexes/scrolls to ensure print output displays */
+  body, html, #root, main, div, section, article {
+    display: block !important;
+    overflow: visible !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   /* Only show print container */
   #printable-area, #printable-area * {
-    visibility: visible;
+    visibility: visible !important;
+    display: block !important;
   }
+
   #printable-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    min-height: 100%;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
     background-color: white !important;
     color: black !important;
     padding: 0 !important;
     margin: 0 !important;
-    font-size: 12px;
-    line-height: 1.5;
   }
-  /* Keep print look elegant */
-  .no-print {
-    display: none !important;
-  }
-  @page {
-    size: auto;
-    margin: 15mm 10mm 15mm 10mm;
+  
+  /* Table row print optimization */
+  tr {
+    page-break-inside: avoid;
   }
 }
+
 
 

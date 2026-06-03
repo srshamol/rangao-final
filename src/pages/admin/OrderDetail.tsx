@@ -184,76 +184,80 @@ export default function OrderDetail() {
 
   return (
     <div className="space-y-4 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/orders")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">অর্ডার: {order.order_number}</h1>
-            <p className="text-xs text-muted-foreground">
-              {new Date(order.created_at).toLocaleString("bn-BD")}
-            </p>
+      <div className="print:hidden space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/orders")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">অর্ডার: {order.order_number}</h1>
+              <p className="text-xs text-muted-foreground">
+                {new Date(order.created_at).toLocaleString("bn-BD")}
+              </p>
+            </div>
           </div>
+          <Badge className={`text-sm px-3 py-1 ${statusColors[order.order_status] || ""}`} variant="outline">
+            {statusLabels[order.order_status] || order.order_status}
+          </Badge>
         </div>
-        <Badge className={`text-sm px-3 py-1 ${statusColors[order.order_status] || ""}`} variant="outline">
-          {statusLabels[order.order_status] || order.order_status}
-        </Badge>
-      </div>
 
-      {/* ===== TOP ACTION BAR ===== */}
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <div className="flex gap-2 flex-wrap items-center">
-            {canConfirm && (
-              <Button size="sm" className="gap-1.5" onClick={() => updateStatus.mutate("confirmed")}
-                disabled={updateStatus.isPending}>
-                <CheckCircle className="h-4 w-4" /> কনফার্ম
-              </Button>
-            )}
-            {canCancel && (
-              <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => updateStatus.mutate("cancelled")}
-                disabled={updateStatus.isPending}>
-                <XCircle className="h-4 w-4" /> ক্যান্সেল
-              </Button>
-            )}
-            {canSendCourier && (
-              <Button size="sm" variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50"
-                onClick={sendToSteadfast} disabled={steadfastLoading}>
-                {steadfastLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                Steadfast-এ পাঠান
-              </Button>
-            )}
-            {(s === "processing" || s === "shipped") && (
-              <Button size="sm" variant="outline" className="gap-1.5">
-                <MapPin className="h-4 w-4" /> ট্র্যাক
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <Printer className="h-4 w-4" /> প্রিন্ট
+        {/* ===== TOP ACTION BAR ===== */}
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex gap-2 flex-wrap items-center">
+              {canConfirm && (
+                <Button size="sm" className="gap-1.5" onClick={() => updateStatus.mutate("confirmed")}
+                  disabled={updateStatus.isPending}>
+                  <CheckCircle className="h-4 w-4" /> কনফার্ম
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("invoice")}>
-                  🧾 ইনভয়েস প্রিন্ট (Invoice)
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("packing_slip")}>
-                  📦 প্যাকিং স্লিপ প্রিন্ট (Packing Slip)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {canDelete && (
-              <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => setShowDelete(true)}>
-                <Trash2 className="h-4 w-4" /> ডিলিট
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              )}
+              {canCancel && (
+                <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => updateStatus.mutate("cancelled")}
+                  disabled={updateStatus.isPending}>
+                  <XCircle className="h-4 w-4" /> ক্যান্সেল
+                </Button>
+              )}
+              {canSendCourier && (
+                <Button size="sm" variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50"
+                  onClick={sendToSteadfast} disabled={steadfastLoading}>
+                  {steadfastLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  Steadfast-এ পাঠান
+                </Button>
+              )}
+              {(s === "processing" || s === "shipped") && (
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <MapPin className="h-4 w-4" /> ট্র্যাক
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <Printer className="h-4 w-4" /> প্রিন্ট
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("invoice")}>
+                    🧾 ইনভয়েস প্রিন্ট (A5 Invoice)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("packing_slip")}>
+                    📦 প্যাকিং স্লিপ প্রিন্ট (Packing Slip)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => triggerPrint("thermal_sticker")}>
+                    🏷️ থার্মাল স্টিকার প্রিন্ট (Thermal Sticker)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {canDelete && (
+                <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setShowDelete(true)}>
+                  <Trash2 className="h-4 w-4" /> ডিলিট
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
@@ -305,62 +309,101 @@ export default function OrderDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      </div>
+
       {/* ================= PRINT ZONE (Only visible during print) ================= */}
       {printType && (
-        <div id="printable-area" className="p-6 font-sans bg-white text-black">
+        <div id="printable-area" className="p-4 font-sans bg-white text-black">
+          {printType === "invoice" && (
+            <style dangerouslySetInnerHTML={{__html: `
+              @page {
+                size: A5 portrait !important;
+                margin: 5mm !important;
+              }
+              body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            `}} />
+          )}
+          {printType === "packing_slip" && (
+            <style dangerouslySetInnerHTML={{__html: `
+              @page {
+                size: A4 portrait !important;
+                margin: 10mm !important;
+              }
+            `}} />
+          )}
+          {printType === "thermal_sticker" && (
+            <style dangerouslySetInnerHTML={{__html: `
+              @page {
+                size: 80mm 80mm !important;
+                margin: 2mm !important;
+              }
+              body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              /* Thermal sticker adjustments */
+              #printable-area {
+                padding: 4px !important;
+              }
+            `}} />
+          )}
+
           {printType === "invoice" ? (
-            <div className="space-y-6">
+            <div className="space-y-4 text-[11px] leading-tight">
               {/* Header */}
-              <div className="flex justify-between items-start border-b pb-4">
+              <div className="flex justify-between items-start border-b pb-2">
                 <div>
                   {settings?.storeInfo?.logo_url ? (
                     <img
                       src={settings.storeInfo.logo_url}
                       alt={settings.storeInfo.name || "Rangao"}
-                      className="h-10 object-contain mb-2"
+                      className="h-8 object-contain mb-1"
                     />
                   ) : (
-                    <h2 className="text-xl font-bold tracking-tight text-gray-900">
+                    <h2 className="text-base font-bold tracking-tight text-gray-900">
                       {settings?.storeInfo?.name || "Rangao - রাঙাও"}
                     </h2>
                   )}
                   {settings?.storeInfo?.tagline && (
-                    <p className="text-xs text-gray-500 italic mb-1">{settings.storeInfo.tagline}</p>
+                    <p className="text-[9px] text-gray-500 italic mb-0.5">{settings.storeInfo.tagline}</p>
                   )}
-                  <p className="text-[10px] text-gray-600">
+                  <p className="text-[9px] text-gray-600">
                     {settings?.storeInfo?.address || "ঢাকা, বাংলাদেশ"}
                   </p>
-                  <p className="text-[10px] text-gray-600">
+                  <p className="text-[9px] text-gray-600">
                     ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.com.bd"}
                   </p>
                 </div>
                 <div className="text-right">
-                  <h1 className="text-2xl font-black text-gray-900 tracking-wider">INVOICE</h1>
-                  <p className="text-xs font-bold text-gray-800 mt-1">অর্ডার নম্বর: {order.order_number}</p>
-                  <p className="text-[10px] text-gray-600">
+                  <h1 className="text-lg font-black text-gray-900 tracking-wider">INVOICE</h1>
+                  <p className="text-[10px] font-bold text-gray-800 mt-0.5">অর্ডার নম্বর: {order.order_number}</p>
+                  <p className="text-[9px] text-gray-600">
                     তারিখ: {new Date(order.created_at).toLocaleDateString("bn-BD")}
                   </p>
                 </div>
               </div>
 
               {/* Details (Bill/Ship to + Payment Info) */}
-              <div className="grid grid-cols-2 gap-6 text-xs">
-                <div className="border rounded-lg p-3 bg-gray-50/50">
-                  <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">ডেলিভারি ঠিকানা (Shipping Address)</h3>
+              <div className="grid grid-cols-2 gap-4 text-[10px]">
+                <div className="border rounded p-2 bg-gray-50/50">
+                  <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">ডেলিভারি ঠিকানা (Shipping Address)</h3>
                   <p className="font-bold text-gray-900">{order.customer_name}</p>
                   <p className="font-medium text-gray-800 mt-0.5">ফোন: {order.customer_phone}</p>
-                  <p className="text-gray-700 mt-1">{(address as any)?.address || (address as any)?.city || "—"}</p>
+                  <p className="text-gray-700 mt-0.5">{(address as any)?.address || (address as any)?.city || "—"}</p>
                   {order.notes && (
-                    <div className="mt-2 text-[10px] border-t pt-1 text-gray-600 italic">
+                    <div className="mt-1.5 text-[9px] border-t pt-0.5 text-gray-600 italic">
                       নোট: {order.notes}
                     </div>
                   )}
                 </div>
 
-                <div className="border rounded-lg p-3 bg-gray-50/50 flex flex-col justify-between">
+                <div className="border rounded p-2 bg-gray-50/50 flex flex-col justify-between">
                   <div>
-                    <h3 className="font-bold text-gray-900 border-b pb-1 mb-1.5">পেমেন্ট ও অর্ডার বিবরণ</h3>
-                    <div className="grid grid-cols-2 gap-y-1 text-[11px] text-gray-700">
+                    <h3 className="font-bold text-gray-900 border-b pb-0.5 mb-1">পেমেন্ট ও অর্ডার বিবরণ</h3>
+                    <div className="grid grid-cols-2 gap-y-0.5 text-[9px] text-gray-700">
                       <span className="font-medium">পেমেন্ট মেথড:</span>
                       <span className="font-semibold text-right">{order.payment_method}</span>
                       
@@ -372,7 +415,7 @@ export default function OrderDetail() {
                     </div>
                   </div>
                   {(address as any)?.tracking_number && (
-                    <div className="mt-2 text-[10px] border-t pt-1 text-gray-600">
+                    <div className="mt-1 text-[9px] border-t pt-0.5 text-gray-600">
                       কুরিয়ার: <span className="font-semibold">{(address as any).courier_company}</span> | ট্র্যাকিং: <span className="font-semibold font-mono">{(address as any).tracking_number}</span>
                     </div>
                   )}
@@ -380,27 +423,27 @@ export default function OrderDetail() {
               </div>
 
               {/* Items Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border rounded overflow-hidden">
+                <table className="w-full text-left text-[10px]">
                   <thead>
                     <tr className="bg-gray-100 border-b font-bold text-gray-900">
-                      <th className="px-4 py-2 w-10">ক্রমিক</th>
-                      <th className="px-4 py-2">আইটেম বিবরণ</th>
-                      <th className="px-4 py-2 text-right">ইউনিট মূল্য</th>
-                      <th className="px-4 py-2 text-center w-16">পরিমাণ</th>
-                      <th className="px-4 py-2 text-right w-24">মোট</th>
+                      <th className="px-3 py-1.5 w-10">ক্রমিক</th>
+                      <th className="px-3 py-1.5">আইটেম বিবরণ</th>
+                      <th className="px-3 py-1.5 text-right">ইউনিট মূল্য</th>
+                      <th className="px-3 py-1.5 text-center w-12">পরিমাণ</th>
+                      <th className="px-3 py-1.5 text-right w-20">মোট</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-gray-800">
                     {items && items.map((item: any, i: number) => (
                       <tr key={item.id} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-2.5 text-center">{i + 1}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-3 py-1.5 text-center">{i + 1}</td>
+                        <td className="px-3 py-1.5">
                           <p className="font-semibold text-gray-900">{item.product_name}</p>
                         </td>
-                        <td className="px-4 py-2.5 text-right">৳{Number(item.unit_price).toLocaleString()}</td>
-                        <td className="px-4 py-2.5 text-center">{item.quantity}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold">৳{Number(item.total_price).toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right">৳{Number(item.unit_price).toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-center">{item.quantity}</td>
+                        <td className="px-3 py-1.5 text-right font-semibold">৳{Number(item.total_price).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -409,7 +452,7 @@ export default function OrderDetail() {
 
               {/* Pricing breakdown */}
               <div className="flex justify-end">
-                <div className="w-64 border rounded-lg p-3 bg-gray-50/50 space-y-1.5 text-xs text-gray-800">
+                <div className="w-48 border rounded p-2 bg-gray-50/50 space-y-1 text-[10px] text-gray-800">
                   <div className="flex justify-between">
                     <span>সাবটোটাল:</span>
                     <span>৳{Number(order.subtotal || 0).toLocaleString()}</span>
@@ -424,7 +467,7 @@ export default function OrderDetail() {
                       <span>-৳{Number(order.discount_amount).toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-gray-900">
+                  <div className="flex justify-between border-t pt-1 font-bold text-xs text-gray-900">
                     <span>সর্বমোট:</span>
                     <span>৳{Number(order.total_amount || 0).toLocaleString()}</span>
                   </div>
@@ -432,15 +475,72 @@ export default function OrderDetail() {
               </div>
 
               {/* Divider & Footer signature */}
-              <div className="pt-8 flex justify-between items-end text-xs text-gray-600">
+              <div className="pt-4 flex justify-between items-end text-[9px] text-gray-600">
                 <div>
                   <p className="font-semibold text-gray-800">আমাদের থেকে কেনাকাটা করার জন্য ধন্যবাদ!</p>
-                  <p className="text-[10px] mt-0.5 text-gray-500">কোনো জিজ্ঞাসা থাকলে যোগাযোগ করুন: {settings?.storeInfo?.phone}</p>
+                  <p className="text-[8px] mt-0.5 text-gray-500">যোগাযোগ করুন: {settings?.storeInfo?.phone}</p>
                 </div>
-                <div className="text-center w-36 border-t pt-1.5">
+                <div className="text-center w-28 border-t pt-1">
                   <p className="font-semibold text-gray-900">কর্তৃপক্ষের স্বাক্ষর</p>
                 </div>
               </div>
+            </div>
+          ) : printType === "thermal_sticker" ? (
+            <div className="text-[10px] text-black bg-white p-1 select-none font-sans leading-normal">
+              {/* Header */}
+              <div className="text-center border-b border-dashed border-gray-400 pb-1 mb-1">
+                <h2 className="text-xs font-black tracking-tight">
+                  {settings?.storeInfo?.name || "Rangao - রাঙাও"}
+                </h2>
+                <p className="text-[8px] text-gray-700">মোবাইল: {settings?.storeInfo?.phone || "01812-345678"}</p>
+              </div>
+
+              {/* Order Info */}
+              <div className="flex justify-between items-center text-[9px] font-bold border-b border-dashed border-gray-400 pb-1 mb-1">
+                <span>অর্ডার: #{order.order_number}</span>
+                <span>{new Date(order.created_at).toLocaleDateString("bn-BD")}</span>
+              </div>
+
+              {/* Customer Shipping Details */}
+              <div className="space-y-0.5 border-b border-dashed border-gray-400 pb-1 mb-1">
+                <p className="text-[10px] font-black text-black">গ্রহীতা: {order.customer_name}</p>
+                <p className="text-[11px] font-black text-black">মোবাইল: {order.customer_phone}</p>
+                <p className="text-[9px] text-gray-800 leading-tight">ঠিকানা: {(address as any)?.address || (address as any)?.city || "—"}</p>
+              </div>
+
+              {/* Items Summary */}
+              <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
+                <p className="text-[8px] font-bold mb-0.5">আইটেম সমূহ:</p>
+                <ul className="list-none space-y-0.5 pl-0 m-0">
+                  {items && items.map((item: any, i: number) => (
+                    <li key={item.id} className="text-[9px] leading-tight flex justify-between">
+                      <span className="truncate max-w-[85%]">{i + 1}. {item.product_name}</span>
+                      <span className="font-bold shrink-0 ml-1">x{item.quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* COD / Payment Summary */}
+              <div className="flex justify-between items-center bg-gray-100 p-1 rounded font-bold text-[9px]">
+                <span>পেমেন্ট: {order.payment_method === "cod" ? "COD (ক্যাশ অন)" : "প্রিপেইড"}</span>
+                <span className="text-[10px]">৳{Number(order.total_amount).toLocaleString()}</span>
+              </div>
+
+              {/* Notes */}
+              {order.notes && (
+                <div className="text-[8px] text-gray-700 italic mt-1 leading-tight border-t border-dotted pt-1">
+                  নোট: {order.notes}
+                </div>
+              )}
+
+              {/* Courier if available */}
+              {(address as any)?.courier_company && (
+                <div className="text-[7px] text-center text-gray-600 pt-1 font-bold">
+                  কুরিয়ার: {(address as any).courier_company}
+                  {(address as any).tracking_number && ` | ট্র্যাকিং: ${(address as any).tracking_number}`}
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
@@ -540,4 +640,5 @@ export default function OrderDetail() {
     </div>
   );
 }
+
 
