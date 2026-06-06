@@ -212,6 +212,31 @@ const ProductDetail = () => {
   const [liked, setLiked] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(0);
+  const [lightboxZoomed, setLightboxZoomed] = useState(false);
+  
+  const touchStartRef = useRef<number>(0);
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
+  
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStartRef.current - touchEnd;
+    
+    // Swipe left (next image)
+    if (diff > 50) {
+      setLightboxImage((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+    }
+    // Swipe right (prev image)
+    else if (diff < -50) {
+      setLightboxImage((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+    }
+  };
+
+  useEffect(() => {
+    setLightboxZoomed(false);
+  }, [lightboxImage, lightboxOpen]);
 
   const [newReviewName, setNewReviewName] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
@@ -1022,26 +1047,6 @@ const ProductDetail = () => {
                       className="group flex w-56 shrink-0 flex-col overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm transition-all hover:border-accent/20 hover:shadow-premium-lg md:w-64"
                       style={{ scrollSnapAlign: "start" }}
                     >
-                      <div className="relative aspect-square overflow-hidden bg-secondary">
-                        <OptimizedImage src={rp.images[0]} alt={rp.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" sizes="(max-width: 640px) 150px, 250px" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-foreground/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                      </div>
-                      <div className="flex flex-1 flex-col p-4">
-                        <h3 className="font-display text-sm font-bold text-card-foreground line-clamp-1">{rp.name}</h3>
-                        <div className="mt-1 flex items-baseline gap-2">
-                          <p className="font-display text-lg font-extrabold text-foreground">{formatPrice(rp.price)}</p>
-                          {rp.originalPrice && (
-                            <p className="text-xs text-muted-foreground line-through">{formatPrice(rp.originalPrice)}</p>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-accent text-accent" />
-                          <span className="text-xs font-medium text-foreground">{rp.rating}</span>
-                        </div>
-                        <Button size="sm" className="mt-3 w-full rounded-xl bg-primary text-xs font-semibold text-primary-foreground hover:bg-primary/90">
-                          ডিটেলস দেখুন
-                        </Button>
-                      </div>
                     </Link>
                   </motion.div>
                 ))}
@@ -1084,32 +1089,61 @@ const ProductDetail = () => {
       <div className="hidden lg:block">
         <FloatingWhatsApp />
       </div>
+      
       <AnimatePresence>
         {lightboxOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-[1000] flex flex-col items-center justify-between bg-black/95 py-6 px-4 backdrop-blur-md select-none"
             onClick={() => setLightboxOpen(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
-            {/* Close button */}
-            <button
-              onClick={() => setLightboxOpen(false)}
-              className="absolute right-6 top-6 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+            {/* Top Bar */}
+            <div 
+              className="w-full flex items-center justify-between max-w-5xl px-4 z-50 shrink-0" 
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="h-6 w-6" />
-            </button>
+              <div className="flex flex-col text-left">
+                <span className="text-white font-bold text-sm md:text-base line-clamp-1">{product.name}</span>
+                <span className="text-white/50 text-xs font-medium mt-0.5">
+                  {lightboxImage + 1} / {product.images.length}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Zoom Button */}
+                <button
+                  onClick={() => setLightboxZoomed(!lightboxZoomed)}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 ${
+                    lightboxZoomed ? "bg-accent text-accent-foreground" : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={lightboxZoomed ? "জুম আউট" : "জুম ইন"}
+                >
+                  <ZoomIn className="h-5 w-5" />
+                </button>
+                {/* Close Button */}
+                <button
+                  onClick={() => setLightboxOpen(false)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105 active:scale-95"
+                  title="বন্ধ করুন"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
 
             {/* Navigation buttons */}
-            {product.images.length > 1 && (
+            {product.images.length > 1 && !lightboxZoomed && (
               <>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setLightboxImage((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
                   }}
-                  className="absolute left-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+                  className="absolute left-6 top-1/2 z-50 hidden md:flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </button>
@@ -1118,46 +1152,69 @@ const ProductDetail = () => {
                     e.stopPropagation();
                     setLightboxImage((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
                   }}
-                  className="absolute right-6 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
+                  className="absolute right-6 top-1/2 z-50 hidden md:flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 hover:scale-105"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </button>
               </>
             )}
 
-            {/* Image display */}
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative max-h-[75vh] max-w-full overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <OptimizedImage
-                src={product.images[lightboxImage]}
-                alt={`${product.name} full view`}
-                loading="eager"
-                sizes="90vw"
-                className="max-h-[75vh] max-w-full rounded-2xl object-contain shadow-2xl"
-              />
-            </motion.div>
+            {/* Image Container with Drag support when Zoomed */}
+            <div className="flex-1 w-full max-w-4xl flex items-center justify-center relative my-4 overflow-hidden">
+              <motion.div
+                key={lightboxImage}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ 
+                  scale: lightboxZoomed ? 2 : 1, 
+                  opacity: 1,
+                  x: 0,
+                  y: 0
+                }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", damping: 28, stiffness: 220 }}
+                drag={lightboxZoomed}
+                dragConstraints={{ left: -400, right: 400, top: -300, bottom: 300 }}
+                dragElastic={0.15}
+                className="relative max-h-[65vh] max-w-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Double click to toggle zoom
+                  if (e.detail === 2) {
+                    setLightboxZoomed(!lightboxZoomed);
+                  }
+                }}
+              >
+                <OptimizedImage
+                  src={product.images[lightboxImage]}
+                  alt={`${product.name} full view`}
+                  loading="eager"
+                  sizes="90vw"
+                  className="max-h-[65vh] max-w-full rounded-2xl object-contain shadow-2xl pointer-events-none"
+                />
+              </motion.div>
+            </div>
 
             {/* Thumbnail selector */}
-            {product.images.length > 1 && (
-              <div className="mt-8 flex gap-3 overflow-x-auto p-2" onClick={(e) => e.stopPropagation()}>
+            {product.images.length > 1 && !lightboxZoomed ? (
+              <div 
+                className="w-full max-w-xl flex gap-2.5 overflow-x-auto justify-center p-2 shrink-0 scrollbar-hide" 
+                onClick={(e) => e.stopPropagation()}
+              >
                 {product.images.map((img, i) => (
                   <button
                     key={i}
                     onClick={() => setLightboxImage(i)}
-                    className={`relative aspect-square h-14 overflow-hidden rounded-xl border-2 transition-all duration-300 md:h-16 ${
+                    className={`relative aspect-square h-12 md:h-14 overflow-hidden rounded-xl border-2 transition-all duration-300 ${
                       lightboxImage === i ? "border-accent ring-2 ring-accent/30 scale-105" : "border-transparent opacity-40 hover:opacity-100"
                     }`}
                   >
-                    <OptimizedImage src={img} alt={`thumbnail ${i + 1}`} loading="lazy" sizes="100px" className="h-full w-full object-cover" />
+                    <OptimizedImage src={img} alt={`thumbnail ${i + 1}`} loading="lazy" sizes="80px" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
+            ) : (
+              // Spacer to maintain flex layout height when thumbnails are hidden
+              <div className="h-14 shrink-0" />
             )}
           </motion.div>
         )}
