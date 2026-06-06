@@ -49,6 +49,9 @@ const Index = () => {
     if (isMobile && config.mobile === false) return null;
     if (!isMobile && config.desktop === false) return null;
 
+    // Prevent empty markup wrappers if offer banner is disabled
+    if (sectionId === "offer_banner" && !offerBanner?.enabled) return null;
+
     let sectionContent = null;
     switch (sectionId) {
       case "hero":

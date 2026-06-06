@@ -214,9 +214,16 @@ export default function HomepageManager() {
 
   const toggleSection = useCallback((id: string, field: "enabled" | "desktop" | "mobile") => {
     setSectionOrder((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, config: { ...s.config, [field]: !s.config[field] } } : s
-      )
+      prev.map((s) => {
+        if (s.id === id) {
+          const nextVal = !s.config[field];
+          if (id === "offer_banner" && field === "enabled") {
+            setOfferBanner((o: any) => ({ ...o, enabled: nextVal }));
+          }
+          return { ...s, config: { ...s.config, [field]: nextVal } };
+        }
+        return s;
+      })
     );
   }, []);
 
@@ -1112,10 +1119,13 @@ export default function HomepageManager() {
                   <Megaphone className="h-4 w-4 text-accent" />
                   অফার ব্যানার কনফিগারেশন
                 </span>
-                <Switch
-                  checked={offerBanner.enabled}
-                  onCheckedChange={(v) => setOfferBanner((o: any) => ({ ...o, enabled: v }))}
-                />
+                 <Switch
+                   checked={offerBanner.enabled}
+                   onCheckedChange={(v) => {
+                     setOfferBanner((o: any) => ({ ...o, enabled: v }));
+                     updateSectionConfig("offer_banner", { enabled: v });
+                   }}
+                 />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
