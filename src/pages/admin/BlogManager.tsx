@@ -241,7 +241,7 @@ export default function BlogManager() {
                   </div>
                   <div>
                     <label className="text-xs font-medium">কাস্টম ক্যানোনিকাল URL</label>
-                    <Input value={seoForm.canonical_url} onChange={e => setSeoForm(prev => ({ ...prev, canonical_url: e.target.value }))} placeholder="যেমন: https://rangao.com.bd/blog/decor-tips" className="h-8 text-xs mt-1" />
+                    <Input value={seoForm.canonical_url} onChange={e => setSeoForm(prev => ({ ...prev, canonical_url: e.target.value }))} placeholder="যেমন: https://www.rangao.bd/blog/decor-tips" className="h-8 text-xs mt-1" />
                   </div>
                 </div>
                 <div>

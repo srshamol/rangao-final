@@ -19,7 +19,7 @@ CREATE POLICY "Anyone can read store settings"
 
 -- Seed default settings
 INSERT INTO public.store_settings (key, value) VALUES
-  ('store_info', '{"name": "GadgetGram", "phone": "", "email": "", "address": "", "logo_url": ""}'::jsonb),
+  ('store_info', '{"name": "Rangao", "phone": "", "email": "", "address": "", "logo_url": ""}'::jsonb),
   ('delivery_charges', '{"dhaka_inside": 70, "dhaka_outside": 130, "free_delivery_min": 0}'::jsonb),
   ('payment_methods', '{"cod": true, "bkash": false, "nagad": false, "bkash_number": "", "nagad_number": ""}'::jsonb),
   ('courier_settings', '{"default_courier": "steadfast", "auto_sync_hours": 6}'::jsonb);

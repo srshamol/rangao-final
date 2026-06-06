@@ -207,7 +207,7 @@ export default function AdminCategories() {
                   <Input 
                     value={form.image_url} 
                     onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))} 
-                    placeholder="https://example.com/image.jpg"
+                    placeholder="https://www.rangao.bd/category.jpg"
                     className="flex-1"
                   />
                   <div className="relative">

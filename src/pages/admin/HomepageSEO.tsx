@@ -139,7 +139,7 @@ export default function AdminHomepageSEO() {
             </CardHeader>
             <CardContent>
               <div className="rounded-xl bg-white p-5 shadow-sm border font-sans dark:bg-zinc-950 dark:border-zinc-800">
-                <p className="text-xs text-green-700 dark:text-green-400 mb-1">https://rangao.com.bd</p>
+                <p className="text-xs text-green-700 dark:text-green-400 mb-1">https://www.rangao.bd</p>
                 <p className="text-lg font-medium text-blue-700 dark:text-blue-400 leading-tight hover:underline cursor-pointer line-clamp-1">
                   {form.meta_title || "পেজ টাইটেল"}
                 </p>
@@ -167,7 +167,7 @@ export default function AdminHomepageSEO() {
                   </div>
                 )}
                 <div className="p-4 border-t dark:border-zinc-800">
-                  <p className="text-xs uppercase text-muted-foreground">rangao.com.bd</p>
+                  <p className="text-xs uppercase text-muted-foreground">rangao.bd</p>
                   <p className="font-semibold text-sm mt-1 line-clamp-1">{form.meta_title || "পেজ টাইটেল"}</p>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{form.meta_description}</p>
                 </div>

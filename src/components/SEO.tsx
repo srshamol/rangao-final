@@ -32,7 +32,7 @@ export default function SEO({
   const siteName = seo?.site_title || store?.name || "Rangao - রাঙাও";
   const defaultDesc = seo?.site_description || store?.tagline || "প্রিমিয়াম ইসলামিক ও ওয়াল ডেকোর স্টোর।";
   
-  const baseDomain = store?.website_url || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
+  const baseDomain = store?.website_url || (typeof window !== "undefined" ? window.location.origin : "https://www.rangao.bd");
   const currentUrl = canonical || `${baseDomain}${pathname}`;
 
   // Formulate the Page Title using format

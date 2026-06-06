@@ -39,7 +39,7 @@ const Footer = () => {
   const store = settings?.storeInfo;
   const phone = store?.phone || contact?.phone || "+8801XXXXXXXXX";
   const secondaryPhone = store?.secondary_phone;
-  const email = store?.email || contact?.email || "info@rangao.com.bd";
+  const email = store?.email || contact?.email || "info@rangao.bd";
   
   // Format address beautifully
   const address = store?.address_line1 

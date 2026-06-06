@@ -279,7 +279,7 @@ export default function ProductForm() {
               <Input
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="যেমন: Samsung S24 Ultra 5G"
+                placeholder="যেমন: সূরা ইখলাস উডেন ক্যালিগ্রাফি"
                 className="mt-1"
               />
             </div>
@@ -288,7 +288,7 @@ export default function ProductForm() {
               <Input
                 value={form.sku}
                 onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                placeholder="SS24-256-BLK"
+                placeholder="যেমন: RG-DEC-001"
                 className="mt-1 font-mono"
               />
               <p className="text-xs text-muted-foreground mt-1">ইউনিক আইডি, ইনভেন্টরি ট্র্যাকিংয়ের জন্য</p>
@@ -298,7 +298,7 @@ export default function ProductForm() {
               <Input
                 value={form.brand}
                 onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
-                placeholder="Samsung"
+                placeholder="যেমন: রাঙাও"
                 className="mt-1"
               />
             </div>
@@ -594,12 +594,12 @@ export default function ProductForm() {
           {specs.map((s, i) => (
             <div key={i} className="flex gap-2">
               <Input
-                placeholder="লেবেল (যেমন: RAM)"
+                placeholder="লেবেল (যেমন: উপাদান)"
                 value={s.label}
                 onChange={(e) => { const n = [...specs]; n[i].label = e.target.value; setSpecs(n); }}
               />
               <Input
-                placeholder="মান (যেমন: 12GB)"
+                placeholder="মান (যেমন: সেগুন কাঠ)"
                 value={s.value}
                 onChange={(e) => { const n = [...specs]; n[i].value = e.target.value; setSpecs(n); }}
               />
@@ -636,7 +636,7 @@ export default function ProductForm() {
               <Input
                 value={seoForm.canonical_url}
                 onChange={(e) => setSeoForm((prev) => ({ ...prev, canonical_url: e.target.value }))}
-                placeholder="যেমন: https://rangao.com.bd/product/wooden-calligraphy"
+                placeholder="যেমন: https://www.rangao.bd/product/wooden-calligraphy"
                 className="mt-1"
               />
             </div>

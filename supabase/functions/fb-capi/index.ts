@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
           event_name: event_name,
           event_time: Math.floor(Date.now() / 1000),
           event_id: order.order_number,
-          event_source_url: Deno.env.get("SITE_URL") || "https://gadgetgram-sparkle.lovable.app",
+          event_source_url: Deno.env.get("SITE_URL") || "https://www.rangao.bd",
           user_data: userData,
           custom_data: {
             value: Number(order.total_amount),

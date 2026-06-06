@@ -2,8 +2,8 @@
 -- Seed hero_banner, contact_info, homepage_sections into store_settings
 INSERT INTO public.store_settings (key, value) VALUES
 ('hero_banner', '{
-  "title": "প্রিমিয়াম গ্যাজেট কালেকশন",
-  "subtitle": "বাংলাদেশের সবচেয়ে বিশ্বস্ত গ্যাজেট স্টোর",
+  "title": "প্রিমিয়াম ইসলামিক ও হোম ডেকোর কালেকশন",
+  "subtitle": "বাংলাদেশের সবচেয়ে বিশ্বস্ত ইসলামিক ডেকোর স্টোর",
   "cta_text": "শপিং শুরু করুন",
   "cta_link": "#products",
   "banner_image_url": "",
@@ -14,7 +14,7 @@ INSERT INTO public.store_settings (key, value) VALUES
 ('contact_info', '{
   "phone": "+8801XXXXXXXXX",
   "whatsapp": "8801XXXXXXXXX",
-  "email": "info@gadgetgram.com",
+  "email": "info@rangao.bd",
   "address": "ঢাকা, বাংলাদেশ",
   "facebook_url": "",
   "instagram_url": ""

@@ -1006,11 +1006,11 @@ export default function AdminSettings() {
                   </div>
                   <div className="space-y-2">
                     <Label>বিকল্প ইমেইল (Secondary)</Label>
-                    <Input value={storeInfo.secondary_email || ""} onChange={e => setStoreInfo(p => ({ ...p, secondary_email: e.target.value }))} placeholder="support@rangao.com.bd" />
+                    <Input value={storeInfo.secondary_email || ""} onChange={e => setStoreInfo(p => ({ ...p, secondary_email: e.target.value }))} placeholder="support@rangao.bd" />
                   </div>
                   <div className="space-y-2">
                     <Label>ওয়েবসাইট URL</Label>
-                    <Input value={storeInfo.website_url || ""} onChange={e => setStoreInfo(p => ({ ...p, website_url: e.target.value }))} placeholder="https://rangao.com.bd" />
+                    <Input value={storeInfo.website_url || ""} onChange={e => setStoreInfo(p => ({ ...p, website_url: e.target.value }))} placeholder="https://www.rangao.bd" />
                   </div>
                 </div>
               </div>

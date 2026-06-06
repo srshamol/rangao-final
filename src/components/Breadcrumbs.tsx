@@ -15,7 +15,7 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
   const { data: settings } = useStoreSettings();
   // Generate BreadcrumbList Structured Schema.org data
   const storeUrl = settings?.storeInfo?.website_url;
-  const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
+  const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://www.rangao.bd");
   
   const schemaList = {
     "@context": "https://schema.org",

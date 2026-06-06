@@ -207,7 +207,7 @@ async function main() {
   const contact_info = {
     phone: "01812-345678",
     whatsapp: "8801812345678",
-    email: "hello@rangao.com.bd",
+    email: "hello@rangao.bd",
     address: "ঢাকা, বাংলাদেশ",
     facebook_url: "https://facebook.com/rangao",
     instagram_url: "https://instagram.com/rangao"

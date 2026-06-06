@@ -14,7 +14,7 @@ export default async function handler(req: any, res: any) {
       .maybeSingle();
     
     const storeVal = (storeInfoData as any)?.value || {};
-    const siteDomain = storeVal.website_url || "https://rangao.com.bd";
+    const siteDomain = storeVal.website_url || "https://www.rangao.bd";
     const domain = siteDomain.endsWith("/") ? siteDomain.slice(0, -1) : siteDomain;
 
     // 2. Fetch SEO Settings

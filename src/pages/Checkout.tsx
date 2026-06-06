@@ -292,7 +292,7 @@ const Checkout = () => {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1.5 block text-sm font-medium text-muted-foreground">ইমেইল</label>
-                      <Input name="email" type="email" value={form.email} onChange={handleChange} placeholder="email@example.com" className="h-11 rounded-xl" />
+                      <Input name="email" type="email" value={form.email} onChange={handleChange} placeholder="name@gmail.com" className="h-11 rounded-xl" />
                     </div>
                   </div>
                 </motion.div>

@@ -333,7 +333,7 @@ export default function OrderDetail() {
                 {settings?.storeInfo?.address || "ঢাকা, বাংলাদেশ"}
               </p>
               <p className="text-[9px] text-gray-600">
-                ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.com.bd"}
+                ফোন: {settings?.storeInfo?.phone || "01812-345678"} | ইমেইল: {settings?.storeInfo?.email || "hello@rangao.bd"}
               </p>
             </div>
             <div className="text-right">

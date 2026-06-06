@@ -153,7 +153,7 @@ const BlogPost = () => {
   const articleSchema = useMemo(() => {
     if (!displayPost) return null;
     const storeUrl = settings?.storeInfo?.website_url;
-    const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
+    const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://www.rangao.bd");
     return {
       "@context": "https://schema.org",
       "@type": "Article",

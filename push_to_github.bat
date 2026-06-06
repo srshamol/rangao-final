@@ -1,6 +1,6 @@
 @echo off
 echo ===================================================
-echo   Pushing GadgetGram to GitHub
+echo   Pushing Rangao to GitHub
 echo   Target: https://github.com/srshamol/rangao-final.git
 echo ===================================================
 echo.

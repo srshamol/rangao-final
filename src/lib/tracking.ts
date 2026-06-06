@@ -1,4 +1,4 @@
-// Unified Tracking System for GadgetGram
+// Unified Tracking System for Rangao
 // Coordinates Meta Pixel, GTM, GA4, TikTok Pixel, and Google Tag Manager DataLayer
 
 declare global {

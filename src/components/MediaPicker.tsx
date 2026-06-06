@@ -286,7 +286,7 @@ export default function MediaPicker({
                 <Input 
                   value={externalUrl} 
                   onChange={e => setExternalUrl(e.target.value)} 
-                  placeholder="https://cdn.example.com/assets/banner.webp" 
+                  placeholder="https://www.rangao.bd/assets/banner.webp" 
                   className="rounded-xl text-xs"
                 />
               </div>

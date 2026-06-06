@@ -149,7 +149,7 @@ export default function AdminLogin() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@example.com"
+                    placeholder="admin@rangao.bd"
                     className="h-11 pl-11 pr-4 rounded-xl bg-background border-border/70 text-foreground placeholder:text-muted-foreground/45 focus:border-[#0F3D2E]/40 focus:ring-1 focus:ring-[#0F3D2E]/20 transition-all text-sm"
                     required
                   />

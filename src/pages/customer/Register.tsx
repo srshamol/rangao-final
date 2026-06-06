@@ -81,7 +81,7 @@ export default function CustomerRegister() {
                 <label className="text-sm font-medium">ইমেইল</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" className="rounded-xl pl-10" />
+                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@gmail.com" className="rounded-xl pl-10" />
                 </div>
               </div>
               <div className="space-y-1.5">

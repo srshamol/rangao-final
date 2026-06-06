@@ -78,7 +78,7 @@ const Header = () => {
   const contact = settings?.contactInfo;
   const PHONE_NUMBER = contact?.phone || "+8801812-345678";
   const whatsappNum = contact?.whatsapp || "8801812345678";
-  const contactEmail = contact?.email || "hello@rangao.com.bd";
+  const contactEmail = contact?.email || "hello@rangao.bd";
 
   const getWhatsAppLink = (name?: string) => {
     const msg = name ? `হ্যালো, আমি ${name} সম্পর্কে জানতে চাই।` : "হ্যালো, আমি Rangao থেকে একটি প্রোডাক্ট সম্পর্কে জানতে চাই।";
