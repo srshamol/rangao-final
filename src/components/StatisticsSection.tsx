@@ -11,29 +11,34 @@ const toBengaliDigits = (numStr: string) => {
 const CountUp = ({ target, duration = 2000, useBengali = true }: { target: number; duration?: number; useBengali?: boolean }) => {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
-  const animated = useRef(false);
 
   useEffect(() => {
+    let active = true;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !animated.current) {
-          animated.current = true;
+        if (entry.isIntersecting) {
           const start = Date.now();
           const tick = () => {
+            if (!active) return;
             const elapsed = Date.now() - start;
             const progress = Math.min(elapsed / duration, 1);
             // Ease out cubic
             const eased = 1 - Math.pow(1 - progress, 3);
             setCount(Math.round(eased * target));
-            if (progress < 1) requestAnimationFrame(tick);
+            if (progress < 1) {
+              requestAnimationFrame(tick);
+            }
           };
           requestAnimationFrame(tick);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.1 }
     );
     if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
   }, [target, duration]);
 
   const formatted = count.toLocaleString("en");
