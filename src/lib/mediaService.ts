@@ -1,6 +1,15 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { processImage, TARGET_WIDTHS } from "@/utils/imagePipeline";
 
+// Helper function to generate standard UUID v4
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16)
+  );
+};
 
 export interface MediaItem {
   id: string;
@@ -23,6 +32,10 @@ export interface MediaItem {
 const REQUIRED_BUCKETS = ["images", "videos", "documents", "uploads"];
 
 class MediaService {
+  private get client() {
+    const isAdminPath = typeof window !== "undefined" && window.location.pathname.includes("/admin");
+    return isAdminPath ? supabaseAdmin : supabase;
+  }
   /**
    * Automatically initializes all required public storage buckets if they do not exist
    */
@@ -33,7 +46,7 @@ class MediaService {
     // Attempt list first, but if it fails (due to RLS/policies), swallow it and proceed to direct creation
     let existingBuckets: string[] = [];
     try {
-      const { data: buckets } = await supabase.storage.listBuckets();
+      const { data: buckets } = await this.client.storage.listBuckets();
       if (buckets) {
         existingBuckets = buckets.map(b => b.id);
       }
@@ -48,7 +61,7 @@ class MediaService {
           continue;
         }
 
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+        const { error: createError } = await this.client.storage.createBucket(bucketName, {
           public: true,
           allowedMimeTypes: bucketName === "images" 
             ? ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/gif", "image/avif"]
@@ -155,10 +168,10 @@ class MediaService {
         
         // Upload Original as backup
         const originalPath = `original/${path}`;
-        const originalResult = await supabase.storage.from(bucket).upload(originalPath, file);
+        const originalResult = await this.client.storage.from(bucket).upload(originalPath, file);
         if (originalResult.error) throw originalResult.error;
         
-        const { data: originalUrlData } = supabase.storage.from(bucket).getPublicUrl(originalPath);
+        const { data: originalUrlData } = this.client.storage.from(bucket).getPublicUrl(originalPath);
         fileUrl = originalUrlData.publicUrl;
         
         const webpUrls: { [key: string]: string } = {};
@@ -172,10 +185,10 @@ class MediaService {
           if (webpBlob) {
             const webpPath = `webp/${w}w/${uniqueId}_${cleanBaseName}.webp`;
             uploadPromises.push(
-              supabase.storage.from(bucket).upload(webpPath, webpBlob, { contentType: "image/webp" })
+              this.client.storage.from(bucket).upload(webpPath, webpBlob, { contentType: "image/webp" })
                 .then(res => {
                   if (res.error) throw res.error;
-                  const { data } = supabase.storage.from(bucket).getPublicUrl(webpPath);
+                  const { data } = this.client.storage.from(bucket).getPublicUrl(webpPath);
                   webpUrls[`${w}w`] = data.publicUrl;
                 })
             );
@@ -185,10 +198,10 @@ class MediaService {
           if (avifBlob) {
             const avifPath = `avif/${w}w/${uniqueId}_${cleanBaseName}.avif`;
             uploadPromises.push(
-              supabase.storage.from(bucket).upload(avifPath, avifBlob, { contentType: "image/avif" })
+              this.client.storage.from(bucket).upload(avifPath, avifBlob, { contentType: "image/avif" })
                 .then(res => {
                   if (res.error) throw res.error;
-                  const { data } = supabase.storage.from(bucket).getPublicUrl(avifPath);
+                  const { data } = this.client.storage.from(bucket).getPublicUrl(avifPath);
                   avifUrls[`${w}w`] = data.publicUrl;
                 })
             );
@@ -228,13 +241,13 @@ class MediaService {
     if (!isConvertibleImage || uploadError) {
       uploadError = null;
       try {
-        const result = await supabase.storage.from(bucket).upload(path, file);
+        const result = await this.client.storage.from(bucket).upload(path, file);
         uploadError = result.error;
         
         if (uploadError && bucket !== "uploads") {
           const msg = uploadError.message || "";
           if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("bucket")) {
-            const fallbackResult = await supabase.storage.from("uploads").upload(path, file);
+            const fallbackResult = await this.client.storage.from("uploads").upload(path, file);
             uploadError = fallbackResult.error;
             actualBucket = "uploads";
           }
@@ -257,14 +270,14 @@ class MediaService {
           throw new Error(`Upload and Base64 conversion failed: ${uploadError.message || uploadError}`);
         }
       } else {
-        const { data: urlData } = supabase.storage.from(actualBucket).getPublicUrl(path);
+        const { data: urlData } = this.client.storage.from(actualBucket).getPublicUrl(path);
         fileUrl = urlData.publicUrl;
       }
     }
 
     // 5. Save to Media Library
     const newItem: MediaItem = {
-      id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: generateUUID(),
       name: file.name,
       url: fileUrl,
       file_path: isFallbackBase64 ? undefined : (isConvertibleImage ? `original/${path}` : path),
@@ -302,7 +315,7 @@ class MediaService {
     if (!url || !url.trim()) throw new Error("URL cannot be empty");
     
     const newItem: MediaItem = {
-      id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: generateUUID(),
       name: name || url.split("/").pop() || "External Asset",
       url: url,
       bucket_name: "uploads",
@@ -329,7 +342,7 @@ class MediaService {
   async fetchItems(): Promise<MediaItem[]> {
     try {
       // 1. Try fetching from media_library table first
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from("media_library" as any)
         .select("*")
         .order("created_at", { ascending: false });
@@ -353,7 +366,7 @@ class MediaService {
     }
 
     // 2. Fallback: load from store_settings JSON array
-    const { data } = await supabase
+    const { data } = await this.client
       .from("store_settings" as any)
       .select("value")
       .eq("key", "media_library_items")
@@ -368,12 +381,12 @@ class MediaService {
   async delete(item: MediaItem): Promise<void> {
     // 1. Remove from Storage Bucket if it was uploaded
     if (item.source === "upload" && item.file_path) {
-      await supabase.storage.from(item.bucket_name).remove([item.file_path]);
+      await this.client.storage.from(item.bucket_name).remove([item.file_path]);
     }
 
     // 2. Try removing from media_library table
     try {
-      const { error } = await supabase
+      const { error } = await this.client
         .from("media_library" as any)
         .delete()
         .eq("id", item.id);
@@ -382,7 +395,7 @@ class MediaService {
     } catch (e) {}
 
     // 3. Fallback: filter and save back to store_settings
-    const { data } = await supabase
+    const { data } = await this.client
       .from("store_settings" as any)
       .select("value")
       .eq("key", "media_library_items")
@@ -391,7 +404,7 @@ class MediaService {
     const current: MediaItem[] = (data?.value as MediaItem[]) || [];
     const updated = current.filter(x => x.id !== item.id);
     
-    await supabase.from("store_settings" as any).upsert({
+    await this.client.from("store_settings" as any).upsert({
       key: "media_library_items",
       value: updated,
       updated_at: new Date().toISOString()
@@ -417,7 +430,7 @@ class MediaService {
         created_at: item.uploaded_at
       };
 
-      const { error } = await supabase
+      const { error } = await this.client
         .from("media_library" as any)
         .insert(payload as any);
 
@@ -425,7 +438,7 @@ class MediaService {
     } catch (e) {}
 
     // 2. Fallback: fetch JSON list from store_settings, append and upsert
-    const { data } = await supabase
+    const { data } = await this.client
       .from("store_settings" as any)
       .select("value")
       .eq("key", "media_library_items")
@@ -436,7 +449,7 @@ class MediaService {
     const filtered = current.filter(x => x.id !== item.id);
     const updated = [item, ...filtered];
 
-    await supabase.from("store_settings" as any).upsert({
+    await this.client.from("store_settings" as any).upsert({
       key: "media_library_items",
       value: updated,
       updated_at: new Date().toISOString()

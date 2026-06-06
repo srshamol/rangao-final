@@ -22,6 +22,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import OptimizedImage from "@/components/OptimizedImage";
 import SEO from "@/components/SEO";
+const FaqItem = ({ question, answer }: { question: string; answer: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/30 bg-card transition-all hover:border-accent/20 hover:shadow-sm">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-center justify-between p-5 text-left font-bengali text-sm font-bold text-foreground"
+      >
+        <span>❓ {question}</span>
+        <motion.span
+          animate={{ rotate: isOpen ? 90 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-muted-foreground shrink-0 ml-2"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            <div className="border-t border-border/20 p-5 pt-3 font-bengali text-xs leading-relaxed text-muted-foreground">
+              {answer}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 
 const ProductDetail = () => {
@@ -659,15 +693,18 @@ const ProductDetail = () => {
         <section className="border-t bg-gradient-to-b from-secondary/30 to-background py-12 md:py-16">
           <div className="container max-w-4xl">
             <Tabs defaultValue="description" className="w-full">
-              <TabsList className="mb-8 grid w-full grid-cols-3 rounded-2xl border border-border/30 bg-secondary/50 p-1.5 backdrop-blur-sm">
-                <TabsTrigger value="description" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <TabsList className="mb-8 grid w-full grid-cols-4 rounded-2xl border border-border/30 bg-secondary/50 p-1.5 backdrop-blur-sm">
+                <TabsTrigger value="description" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
                   বিবরণ
                 </TabsTrigger>
-                <TabsTrigger value="specs" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <TabsTrigger value="specs" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
                   বিশেষত্ব
                 </TabsTrigger>
-                <TabsTrigger value="reviews" className="rounded-xl font-bengali text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <TabsTrigger value="reviews" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
                   রিভিউ
+                </TabsTrigger>
+                <TabsTrigger value="faq" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
+                  প্রশ্নোত্তর
                 </TabsTrigger>
               </TabsList>
 
@@ -683,39 +720,22 @@ const ProductDetail = () => {
                     {product.fullDescription}
                   </p>
                 </motion.div>
-
-                {(seoData as any)?.faqs && (seoData as any).faqs.length > 0 && (
-                  <div className="space-y-4 pt-6 border-t">
-                    <h3 className="font-display text-lg font-bold text-foreground">সচরাচর জিজ্ঞাসিত প্রশ্নাবলী (FAQ)</h3>
-                    <div className="grid gap-3">
-                      {(seoData as any).faqs.map((faq: any, i: number) => (
-                        <div key={i} className="rounded-xl border bg-card p-5">
-                          <h4 className="font-bold text-foreground font-bengali text-sm">❓ {faq.question}</h4>
-                          <p className="mt-2 text-xs text-muted-foreground font-bengali leading-relaxed">{faq.answer}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {product.features.length > 0 && (
-                  <div className="space-y-4 pt-4">
-                    <h3 className="font-display text-xl font-bold text-foreground">মূল বৈশিষ্ট্যসমূহ</h3>
-                    <div className="space-y-3">
+                  <div className="space-y-3 pt-4">
+                    <h3 className="font-display text-base font-bold text-foreground">ট্যাগ</h3>
+                    <div className="flex flex-wrap gap-2">
                       {product.features.map((feature, i) => (
-                        <motion.div
+                        <motion.span
                           key={i}
-                          initial={{ opacity: 0, x: -20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          whileInView={{ opacity: 1, scale: 1 }}
                           viewport={{ once: true }}
-                          transition={{ delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                          className="group flex gap-4 rounded-2xl border border-border/30 bg-card p-5 transition-all hover:border-accent/20 hover:shadow-md"
+                          transition={{ delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-accent/30 hover:bg-secondary hover:text-foreground"
                         >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent/5 transition-colors group-hover:from-accent/30 group-hover:to-accent/10">
-                            <Check className="h-4 w-4 text-accent" />
-                          </div>
-                          <p className="font-bengali text-sm leading-relaxed text-muted-foreground">{feature}</p>
-                        </motion.div>
+                          <Check className="h-3.5 w-3.5 text-accent" />
+                          {feature}
+                        </motion.span>
                       ))}
                     </div>
                   </div>
@@ -896,6 +916,49 @@ const ProductDetail = () => {
                         {submittingReview ? "রিভিউ জমা হচ্ছে..." : "রিভিউ জমা দিন"}
                       </Button>
                     </form>
+                  </div>
+                </motion.div>
+              </TabsContent>
+
+              {/* FAQ Tab */}
+              <TabsContent value="faq">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="space-y-6"
+                >
+                  <div className="border-b pb-4">
+                    <h3 className="font-display text-xl font-bold text-foreground">সচরাচর জিজ্ঞাসিত প্রশ্ন ও উত্তর</h3>
+                    <p className="font-bengali text-sm text-muted-foreground mt-1">পণ্য অর্ডার, ডেলিভারি এবং অন্যান্য সাধারণ তথ্যাবলী</p>
+                  </div>
+                  <div className="grid gap-3.5">
+                    {(() => {
+                      const customFaqs = (seoData as any)?.faqs || [];
+                      const generalFaqs = [
+                        {
+                          question: "অর্ডার করার কতদিনের মধ্যে ডেলিভারি পাবো?",
+                          answer: "ঢাকা সিটির ভেতরে সাধারণত ২৪ থেকে ৪৮ ঘণ্টার মধ্যে এবং ঢাকা সিটির বাইরে ৩ থেকে ৫ কার্যদিবসের মধ্যে ডেলিভারি করা হয়।"
+                        },
+                        {
+                          question: "ডেলিভারি চার্জ কত?",
+                          answer: "ঢাকা সিটির ভেতরে ডেলিভারি চার্জ ৬০ টাকা এবং ঢাকা সিটির বাইরে ১২০ টাকা।"
+                        },
+                        {
+                          question: "আমি কি ক্যাশ অন ডেলিভারি (Cash on Delivery) পাবো?",
+                          answer: "হ্যাঁ, আমরা সারা বাংলাদেশে ক্যাশ অন ডেলিভারি সুবিধা প্রদান করি। প্রোডাক্ট হাতে পেয়ে চেক করে পেমেন্ট করতে পারবেন।"
+                        },
+                        {
+                          question: "প্রোডাক্টে কোনো সমস্যা থাকলে রিটার্ন পলিসি কি?",
+                          answer: "ডেলিভারি নেওয়ার সময় কোনো সমস্যা বা ডিফেক্ট থাকলে সাথে সাথে ডেলিভারি ম্যানের সামনে আমাদের জানান। আমরা রিটার্ন বা এক্সচেঞ্জ করে দেব।"
+                        }
+                      ];
+                      
+                      const allFaqs = [...customFaqs, ...generalFaqs];
+                      return allFaqs.map((faq: any, i: number) => (
+                        <FaqItem key={i} question={faq.question} answer={faq.answer} />
+                      ));
+                    })()}
                   </div>
                 </motion.div>
               </TabsContent>
