@@ -18,24 +18,34 @@ const toBanglaDigits = (num: number | string) => {
 const AnimatedCounter = ({ target }: {target: string;}) => {
   const [display, setDisplay] = useState("০");
   const ref = useRef<HTMLSpanElement>(null);
-  const hasAnimated = useRef(false);
 
   useEffect(() => {
+    let active = true;
+    let interval: any;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !hasAnimated.current) {
-        hasAnimated.current = true;
+      if (entry.isIntersecting) {
         const steps = 14;
         let step = 0;
         const digits = "০১২৩৪৫৬৭৮৯";
-        const interval = setInterval(() => {
+        if (interval) clearInterval(interval);
+        interval = setInterval(() => {
+          if (!active) return;
           step++;
-          if (step >= steps) {setDisplay(target);clearInterval(interval);} else
-          setDisplay(target.split("").map((c) => digits.includes(c) ? digits[Math.floor(Math.random() * 10)] : c).join(""));
+          if (step >= steps) {
+            setDisplay(target);
+            clearInterval(interval);
+          } else {
+            setDisplay(target.split("").map((c) => digits.includes(c) ? digits[Math.floor(Math.random() * 10)] : c).join(""));
+          }
         }, 45);
       }
-    }, { threshold: 0.5 });
+    }, { threshold: 0.1 });
     if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    return () => {
+      active = false;
+      if (interval) clearInterval(interval);
+      observer.disconnect();
+    };
   }, [target]);
 
   return <span ref={ref}>{display}</span>;
