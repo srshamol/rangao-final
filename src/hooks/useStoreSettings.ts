@@ -463,8 +463,8 @@ export function useStoreSettings() {
         seoSettings: { ...defaults.seo_settings, ...settings.seo_settings } as SEOSettings,
       };
     },
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    gcTime: 1000 * 60 * 10,
   });
 }
 

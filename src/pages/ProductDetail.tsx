@@ -17,7 +17,7 @@ import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import CodOrderModal from "@/components/CodOrderModal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import OptimizedImage from "@/components/OptimizedImage";
@@ -62,6 +62,7 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: settings } = useStoreSettings();
+  const queryClient = useQueryClient();
 
   // Query product details dynamically from Supabase
   const { data: dbProduct, isLoading } = useQuery({
@@ -75,7 +76,34 @@ const ProductDetail = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!id
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    gcTime: 1000 * 60 * 10, // 10 minutes cache
+    initialData: () => {
+      // Find the product in the homepage products cache or shop-products cache
+      const cachedQueries = queryClient.getQueriesData<any[]>({
+        queryKey: ["homepage-products"]
+      });
+      for (const [_, data] of cachedQueries) {
+        if (Array.isArray(data)) {
+          const found = data.find((p: any) => p.id === id);
+          if (found) return found;
+        }
+      }
+      const shopProducts = queryClient.getQueryData<any>(["shop-products"]);
+      if (shopProducts?.pages) {
+        for (const page of shopProducts.pages) {
+          if (page?.data) {
+            const found = page.data.find((p: any) => p.id === id);
+            if (found) return found;
+          }
+        }
+      } else if (Array.isArray(shopProducts)) {
+        const found = shopProducts.find((p: any) => p.id === id);
+        if (found) return found;
+      }
+      return undefined;
+    }
   });
 
   // Query reviews dynamically from Supabase testimonials table

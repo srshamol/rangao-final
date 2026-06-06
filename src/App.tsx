@@ -62,10 +62,10 @@ const BlogManager = lazy(() => import("./pages/admin/BlogManager"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 0,
-      gcTime: 0,
+      staleTime: 1000 * 30, // 30 seconds
+      gcTime: 1000 * 60 * 5, // 5 minutes
       refetchOnMount: true,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // disable aggressive refetching on window focus
     },
   },
 });
