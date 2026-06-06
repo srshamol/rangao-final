@@ -250,9 +250,38 @@ const OrderSuccess = () => {
     }
   }, [order]);
 
-  // Estimate delivery: 3-5 days for Dhaka, 5-7 days outside
-  const isDhaka = order?.shippingAddress?.division === "ঢাকা";
-  const deliveryEstimate = isDhaka ? "৩-৫ কার্যদিবস" : "৫-৭ কার্যদিবস";
+  const [deliveryTimes, setDeliveryTimes] = useState<{ inside: string; outside: string }>({
+    inside: "৩-৫ কার্যদিবস",
+    outside: "৫-৭ কার্যদিবস"
+  });
+
+  useEffect(() => {
+    const fetchDeliverySettings = async () => {
+      try {
+        const { data } = await supabase
+          .from("store_settings" as any)
+          .select("value")
+          .eq("key", "delivery_charges")
+          .maybeSingle();
+
+        if (data?.value) {
+          const val = data.value as any;
+          setDeliveryTimes({
+            inside: val.delivery_time_inside || "৩-৫ কার্যদিবস",
+            outside: val.delivery_time_outside || "৫-৭ কার্যদিবস"
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching delivery times:", err);
+      }
+    };
+    fetchDeliverySettings();
+  }, []);
+
+  // Estimate delivery: dynamic values from settings with fallback
+  const isDhaka = order?.shippingAddress?.division === "ঢাকা সিটির ভিতরে" || 
+                  order?.shippingAddress?.division === "ঢাকা";
+  const deliveryEstimate = isDhaka ? deliveryTimes.inside : deliveryTimes.outside;
 
   return (
     <div className="min-h-screen bg-background">

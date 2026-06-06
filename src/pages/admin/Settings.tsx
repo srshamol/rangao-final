@@ -26,6 +26,8 @@ interface DeliveryCharges {
   dhaka_inside: number;
   dhaka_outside: number;
   free_delivery_min: number;
+  delivery_time_inside?: string;
+  delivery_time_outside?: string;
 }
 
 interface PaymentMethods {
@@ -94,7 +96,13 @@ export default function AdminSettings() {
     social_links: []
   });
 
-  const [delivery, setDelivery] = useState<DeliveryCharges>({ dhaka_inside: 70, dhaka_outside: 130, free_delivery_min: 0 });
+  const [delivery, setDelivery] = useState<DeliveryCharges>({ 
+    dhaka_inside: 70, 
+    dhaka_outside: 130, 
+    free_delivery_min: 0,
+    delivery_time_inside: "৩-৫ কার্যদিবস",
+    delivery_time_outside: "৫-৭ কার্যদিবস"
+  });
   const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "" });
   
   const [courier, setCourier] = useState<CourierSettings>({ 
@@ -154,6 +162,58 @@ export default function AdminSettings() {
   const [newPlatform, setNewPlatform] = useState("facebook");
   const [newUrl, setNewUrl] = useState("");
 
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!oldPassword.trim()) {
+      toast({ title: "❌ ভুল ইনপুট", description: "বর্তমান পাসওয়ার্ড দিতে হবে।", variant: "destructive" });
+      return;
+    }
+    if (!newPassword.trim()) {
+      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড খালি হতে পারবে না।", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড দুটি মেলেনি।", variant: "destructive" });
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      // 1. Verify old password by attempting sign-in with current user's email
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user?.email || "",
+        password: oldPassword.trim()
+      });
+
+      if (verifyError) {
+        throw new Error("আপনার বর্তমান পাসওয়ার্ডটি সঠিক নয়।");
+      }
+
+      // 2. Perform the update to new password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword.trim(),
+      });
+      if (error) throw error;
+      
+      toast({ title: "✅ সফল", description: "আপনার পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে।" });
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      toast({ title: "❌ আপডেট ব্যর্থ", description: e.message, variant: "destructive" });
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [activePickerField, setActivePickerField] = useState<"logo_url" | "mobile_logo_url" | "white_logo_url" | "favicon_url" | null>(null);
   const primaryLogoInputRef = useRef<HTMLInputElement>(null);
@@ -208,7 +268,14 @@ export default function AdminSettings() {
               social_links: row.value.social_links || []
             }));
           }
-          if (row.key === "delivery_charges") setDelivery(row.value);
+          if (row.key === "delivery_charges") {
+            setDelivery(prev => ({
+              ...prev,
+              ...row.value,
+              delivery_time_inside: row.value.delivery_time_inside || "৩-৫ কার্যদিবস",
+              delivery_time_outside: row.value.delivery_time_outside || "৫-৭ কার্যদিবস"
+            }));
+          }
           if (row.key === "payment_methods") setPayment(row.value);
           if (row.key === "courier_settings") {
             setCourier({
@@ -500,6 +567,7 @@ export default function AdminSettings() {
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
           <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 ট্র্যাকিং ও অ্যানালিটিক্স</TabsTrigger>
           <TabsTrigger value="images" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🖼️ ইমেজ অপ্টিমাইজেশন</TabsTrigger>
+          <TabsTrigger value="security" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔑 সিকিউরিটি</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Logo & Favicon Management */}
@@ -1003,7 +1071,19 @@ export default function AdminSettings() {
                     <p className="text-[10px] text-muted-foreground">০ = ফ্রি ডেলিভারি অফ থাকবে</p>
                   </div>
                 </div>
-                <Button size="sm" className="gap-1.5 rounded-xl" onClick={() => saveSetting("delivery_charges", delivery)} disabled={saving === "delivery_charges"}>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div className="space-y-2">
+                    <Label>আনুমানিক ডেলিভারি সময় (ঢাকার ভিতরে)</Label>
+                    <Input value={delivery.delivery_time_inside || ""} onChange={e => setDelivery(p => ({ ...p, delivery_time_inside: e.target.value }))} placeholder="যেমন: ২-৩ কার্যদিবস" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>আনুমানিক ডেলিভারি সময় (ঢাকার বাইরে)</Label>
+                    <Input value={delivery.delivery_time_outside || ""} onChange={e => setDelivery(p => ({ ...p, delivery_time_outside: e.target.value }))} placeholder="যেমন: ৩-৫ কার্যদিবস" />
+                  </div>
+                </div>
+
+                <Button size="sm" className="gap-1.5 rounded-xl mt-3" onClick={() => saveSetting("delivery_charges", delivery)} disabled={saving === "delivery_charges"}>
                   {saving === "delivery_charges" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} শিপিং সেভ করুন
                 </Button>
               </div>
@@ -1606,6 +1686,57 @@ export default function AdminSettings() {
         {/* Tab 7: Image Optimization & Database Migration Wizard */}
         <TabsContent value="images" className="space-y-6 outline-none">
           <ImageMigrationPanel toast={toast} />
+        </TabsContent>
+
+        {/* Tab 8: Security & Credentials */}
+        <TabsContent value="security" className="space-y-6 outline-none">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-primary">🔒 অ্যাডমিন পাসওয়ার্ড পরিবর্তন</CardTitle>
+              <CardDescription>আপনার অ্যাকাউন্ট লগইন পাসওয়ার্ড পরিবর্তন করুন</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>বর্তমান পাসওয়ার্ড</Label>
+                <Input 
+                  type="password" 
+                  value={oldPassword} 
+                  onChange={e => setOldPassword(e.target.value)} 
+                  placeholder="আপনার বর্তমান অ্যাকাউন্ট পাসওয়ার্ডটি দিন" 
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>নতুন পাসওয়ার্ড</Label>
+                <Input 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)} 
+                  placeholder="কমপক্ষে ৬ ডিজিটের নতুন পাসওয়ার্ড দিন" 
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>পাসওয়ার্ড নিশ্চিত করুন</Label>
+                <Input 
+                  type="password" 
+                  value={confirmPassword} 
+                  onChange={e => setConfirmPassword(e.target.value)} 
+                  placeholder="নতুন পাসওয়ার্ডটি আবার দিন" 
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="pt-2">
+                <Button 
+                  className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                  onClick={handleChangePassword} 
+                  disabled={updatingPassword}
+                >
+                  {updatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} পাসওয়ার্ড আপডেট করুন
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
       </Tabs>

@@ -292,14 +292,20 @@ export default function AdminOrders() {
   const exportCSV = () => {
     const orders = data?.orders;
     if (!orders?.length) return;
-    const header = "অর্ডার,কাস্টমার,ফোন,টোটাল,স্ট্যাটাস,তারিখ\n";
-    const rows = orders.map((o: any) =>
-      `${o.order_number},${o.customer_name},${o.customer_phone},${o.total_amount},${o.order_status},${new Date(o.created_at).toLocaleDateString("bn-BD")}`
-    ).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
+    const header = "\uFEFFঅর্ডার,কাস্টমার,ফোন,টোটাল,স্ট্যাটাস,তারিখ\n";
+    const rows = orders.map((o: any) => {
+      const name = (o.customer_name || "").replace(/"/g, '""');
+      const phone = (o.customer_phone || "").replace(/"/g, '""');
+      const status = statusLabels[o.order_status] || o.order_status;
+      const date = new Date(o.created_at).toLocaleDateString("bn-BD");
+      return `"${o.order_number}","${name}","${phone}","${o.total_amount}","${status}","${date}"`;
+    }).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "orders.csv"; a.click();
+    a.href = url;
+    a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -378,7 +384,8 @@ export default function AdminOrders() {
   });
 
   const totalPages = Math.ceil((data?.total || 0) / pageSize);
-  const inReviewOrders = data?.orders.filter((o: any) => o.order_status === "in_review") || [];
+  const selectableStatuses = ["pending", "confirmed", "in_review"];
+  const selectableOrders = data?.orders.filter((o: any) => selectableStatuses.includes(o.order_status)) || [];
   const selectedOrders = data?.orders.filter((o: any) => selectedIds.has(o.id)) || [];
   const selectedTotal = selectedOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0);
 
@@ -463,10 +470,10 @@ export default function AdminOrders() {
                     <TableRow>
                       <TableHead className="w-8">
                         <Checkbox
-                          checked={inReviewOrders.length > 0 && inReviewOrders.every((o: any) => selectedIds.has(o.id))}
+                          checked={selectableOrders.length > 0 && selectableOrders.every((o: any) => selectedIds.has(o.id))}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              setSelectedIds(new Set(inReviewOrders.map((o: any) => o.id)));
+                              setSelectedIds(new Set(selectableOrders.map((o: any) => o.id)));
                             } else {
                               setSelectedIds(new Set());
                             }
@@ -490,7 +497,7 @@ export default function AdminOrders() {
                         <Fragment key={order.id}>
                           <TableRow>
                             <TableCell className="pr-0">
-                              {order.order_status === "in_review" ? (
+                              {selectableStatuses.includes(order.order_status) ? (
                                 <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} />
                               ) : <div className="w-4" />}
                             </TableCell>

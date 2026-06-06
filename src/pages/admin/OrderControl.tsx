@@ -63,13 +63,15 @@ export default function OrderControl() {
     },
   });
 
-  // Save settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (newSettings: any) => {
       const { error } = await supabase
-        .from("store_settings")
-        .update({ value: newSettings } as any)
-        .eq("key", "order_control");
+        .from("store_settings" as any)
+        .upsert({
+          key: "order_control",
+          value: newSettings,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "key" });
       if (error) throw error;
     },
     onSuccess: () => {
