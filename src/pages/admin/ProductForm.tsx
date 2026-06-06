@@ -225,8 +225,14 @@ export default function ProductForm() {
   });
 
   const addTag = () => {
-    if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
-      setForm((f) => ({ ...f, tags: [...f.tags, tagInput.trim()] }));
+    if (tagInput.trim()) {
+      const newTags = tagInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t && !form.tags.includes(t));
+      if (newTags.length > 0) {
+        setForm((f) => ({ ...f, tags: [...f.tags, ...newTags] }));
+      }
       setTagInput("");
     }
   };
@@ -517,9 +523,20 @@ export default function ProductForm() {
             <div className="flex gap-2 mt-1">
               <Input
                 value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.endsWith(",")) {
+                    const tagToAdd = val.slice(0, -1).trim();
+                    if (tagToAdd && !form.tags.includes(tagToAdd)) {
+                      setForm((f) => ({ ...f, tags: [...f.tags, tagToAdd] }));
+                    }
+                    setTagInput("");
+                  } else {
+                    setTagInput(val);
+                  }
+                }}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                placeholder="ট্যাগ লিখে Enter চাপুন"
+                placeholder="ট্যাগ লিখে কমা (,) বা Enter চাপুন"
               />
               <Button variant="outline" onClick={addTag}>যোগ</Button>
             </div>
