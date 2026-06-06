@@ -106,9 +106,17 @@ export default function SEO({
     canonicalLink.setAttribute("href", currentUrl);
 
     // 7. Inject Structured Data (JSON-LD Schemas)
-    // Clear out any old elements
+    // Clear out any old elements safely
     const oldScripts = document.querySelectorAll("script[data-seo-schema]");
-    oldScripts.forEach((s) => s.parentNode?.removeChild(s));
+    oldScripts.forEach((s) => {
+      if (s.parentNode && s.parentNode.contains(s)) {
+        try {
+          s.parentNode.removeChild(s);
+        } catch (e) {
+          console.warn("Failed to remove old schema script", e);
+        }
+      }
+    });
 
     // Combine default Website / Org schema + custom schemas
     const schemasToInject: Record<string, any>[] = [];
