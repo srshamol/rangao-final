@@ -394,9 +394,35 @@ const defaults = {
   } as SEOSettings,
 };
 
+const defaultStoreSettingsData = {
+  heroBanner: {
+    ...defaults.hero_banner,
+    title: defaults.hero_banner.slides[0].title,
+    subtitle: defaults.hero_banner.slides[0].subtitle,
+    badge_text: defaults.hero_banner.slides[0].badge_text,
+    cta_text: defaults.hero_banner.slides[0].cta_primary_text,
+    cta_link: defaults.hero_banner.slides[0].cta_primary_url,
+    banner_image_url: defaults.hero_banner.slides[0].banner_image_url,
+    banner_video_url: "",
+  } as HeroBanner,
+  contactInfo: defaults.contact_info,
+  homepageSections: defaults.homepage_sections,
+  storeInfo: defaults.store_info,
+  trustFeatures: defaults.trust_features,
+  offerBanner: defaults.offer_banner,
+  newsletter: defaults.newsletter,
+  homepageSEO: defaults.homepage_seo,
+  statistics: defaults.statistics,
+  homepageGallery: defaults.homepage_gallery,
+  sectionOrder: DEFAULT_SECTION_ORDER,
+  announcementBar: defaults.announcement_bar,
+  seoSettings: defaults.seo_settings,
+};
+
 export function useStoreSettings() {
   return useQuery({
     queryKey: ["store-settings-all"],
+    placeholderData: defaultStoreSettingsData,
     queryFn: async () => {
       const { data } = await supabase
         .from("store_settings" as any)

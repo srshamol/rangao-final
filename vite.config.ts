@@ -13,6 +13,29 @@ const htmlPlugin = () => {
   };
 };
 
+// Custom plugin to preload build CSS assets for faster rendering and FCP/LCP improvements
+const cssPreloadPlugin = () => {
+  return {
+    name: "css-preload",
+    transformIndexHtml: {
+      order: "post",
+      handler(html: string) {
+        const linkRegex = /<link rel="stylesheet" href="([^"]+\.css)"[^>]*>/g;
+        let match;
+        const preloads = [];
+        while ((match = linkRegex.exec(html)) !== null) {
+          const href = match[1];
+          preloads.push(`<link rel="preload" href="${href}" as="style">`);
+        }
+        if (preloads.length > 0) {
+          return html.replace("</head>", `${preloads.join("\n")}\n</head>`);
+        }
+        return html;
+      },
+    },
+  };
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -25,6 +48,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     htmlPlugin(),
+    cssPreloadPlugin(),
     mode === "development" && componentTagger()
   ].filter(Boolean),
   resolve: {

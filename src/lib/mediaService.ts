@@ -180,7 +180,7 @@ class MediaService {
         
         // Upload Original as backup
         const originalPath = `original/${path}`;
-        const originalResult = await this.client.storage.from(bucket).upload(originalPath, activeFile);
+        const originalResult = await this.client.storage.from(bucket).upload(originalPath, activeFile, { cacheControl: "31536000" });
         if (originalResult.error) throw originalResult.error;
         
         const { data: originalUrlData } = this.client.storage.from(bucket).getPublicUrl(originalPath);
@@ -197,7 +197,7 @@ class MediaService {
           if (webpBlob) {
             const webpPath = `webp/${w}w/${uniqueId}_${cleanBaseName}.webp`;
             uploadPromises.push(
-              this.client.storage.from(bucket).upload(webpPath, webpBlob, { contentType: "image/webp" })
+              this.client.storage.from(bucket).upload(webpPath, webpBlob, { contentType: "image/webp", cacheControl: "31536000" })
                 .then(res => {
                   if (res.error) throw res.error;
                   const { data } = this.client.storage.from(bucket).getPublicUrl(webpPath);
@@ -210,7 +210,7 @@ class MediaService {
           if (avifBlob) {
             const avifPath = `avif/${w}w/${uniqueId}_${cleanBaseName}.avif`;
             uploadPromises.push(
-              this.client.storage.from(bucket).upload(avifPath, avifBlob, { contentType: "image/avif" })
+              this.client.storage.from(bucket).upload(avifPath, avifBlob, { contentType: "image/avif", cacheControl: "31536000" })
                 .then(res => {
                   if (res.error) throw res.error;
                   const { data } = this.client.storage.from(bucket).getPublicUrl(avifPath);
@@ -253,13 +253,13 @@ class MediaService {
     if (!isConvertibleImage || uploadError) {
       uploadError = null;
       try {
-        const result = await this.client.storage.from(bucket).upload(path, activeFile);
+        const result = await this.client.storage.from(bucket).upload(path, activeFile, { cacheControl: "31536000" });
         uploadError = result.error;
         
         if (uploadError && bucket !== "uploads") {
           const msg = uploadError.message || "";
           if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("bucket")) {
-            const fallbackResult = await this.client.storage.from("uploads").upload(path, activeFile);
+            const fallbackResult = await this.client.storage.from("uploads").upload(path, activeFile, { cacheControl: "31536000" });
             uploadError = fallbackResult.error;
             actualBucket = "uploads";
           }
