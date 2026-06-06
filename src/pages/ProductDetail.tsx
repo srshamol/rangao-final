@@ -212,7 +212,8 @@ const ProductDetail = () => {
 
   const productSchema = useMemo(() => {
     if (!product) return null;
-    const baseDomain = typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd";
+    const storeUrl = settings?.storeInfo?.website_url;
+    const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
     return {
       "@context": "https://schema.org",
       "@type": "Product",

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 export interface BreadcrumbItem {
   label: string;
@@ -11,8 +12,10 @@ interface BreadcrumbsProps {
 }
 
 export default function Breadcrumbs({ items }: BreadcrumbsProps) {
+  const { data: settings } = useStoreSettings();
   // Generate BreadcrumbList Structured Schema.org data
-  const baseDomain = typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd";
+  const storeUrl = settings?.storeInfo?.website_url;
+  const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
   
   const schemaList = {
     "@context": "https://schema.org",

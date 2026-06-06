@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useEffect } from "react";
 import SEO from "@/components/SEO";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 // Utility to generate slug
 function generateSlug(text: string): string {
@@ -24,6 +25,7 @@ function generateSlug(text: string): string {
 const BlogPost = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { data: settings } = useStoreSettings();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -148,10 +150,10 @@ const BlogPost = () => {
       }));
   }, [allActivePosts, displayPost]);
 
-  // Article structured data schema
   const articleSchema = useMemo(() => {
     if (!displayPost) return null;
-    const baseDomain = typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd";
+    const storeUrl = settings?.storeInfo?.website_url;
+    const baseDomain = storeUrl || (typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd");
     return {
       "@context": "https://schema.org",
       "@type": "Article",
