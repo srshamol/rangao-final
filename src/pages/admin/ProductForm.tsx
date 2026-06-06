@@ -89,11 +89,15 @@ export default function ProductForm() {
     },
   });
 
-  const { data: existing } = useQuery({
+  const { data: existing, isLoading: isProductLoading, error: productError } = useQuery({
     queryKey: ["admin-product", id],
     queryFn: async () => {
       if (!isEdit) return null;
-      const { data } = await supabase.from("products").select("*").eq("id", id).single();
+      const { data, error } = await supabase.from("products").select("*").eq("id", id).single();
+      if (error) {
+        console.error("Error fetching product:", error);
+        throw error;
+      }
       return data;
     },
     enabled: isEdit,
@@ -242,6 +246,25 @@ export default function ProductForm() {
     : 0;
 
   const savingsAmount = form.sale_price ? form.regular_price - form.sale_price : 0;
+
+  if (isEdit && isProductLoading) {
+    return (
+      <div className="h-64 flex flex-col items-center justify-center gap-2">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground font-bengali">প্রোডাক্ট তথ্য লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  if (isEdit && productError) {
+    return (
+      <div className="h-64 flex flex-col items-center justify-center gap-2 text-destructive">
+        <p className="font-semibold">ত্রুটি: প্রোডাক্ট তথ্য লোড করতে ব্যর্থ হয়েছে</p>
+        <p className="text-xs text-muted-foreground">{(productError as Error)?.message || "অনাকাঙ্ক্ষিত ত্রুটি"}</p>
+        <Button onClick={() => navigate("/admin/products")} className="mt-2">প্রোডাক্ট তালিকায় ফিরে যান</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl pb-8">
