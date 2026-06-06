@@ -135,7 +135,6 @@ const Index = () => {
         break;
 
       case "offer_banner":
-        if (!offerBanner?.enabled) return null;
         sectionContent = <OfferBanner config={offerBanner} />;
         break;
 
