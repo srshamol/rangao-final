@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,19 @@ export default function AdminHomepageSEO() {
   const qc = useQueryClient();
   const { data: settings } = useStoreSettings();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(settings?.homepageSEO || {
+  const [form, setForm] = useState({
     meta_title: "Rangao – রাঙাও | প্রিমিয়াম ইসলামিক ও হোম ডেকোর",
     meta_description: "রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি, ওয়াল আর্ট ও হোম ডেকোর স্টোর।",
     meta_keywords: "ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি",
     og_image: "",
   });
+
+  // Sync form state when store settings are loaded asynchronously
+  useEffect(() => {
+    if (settings?.homepageSEO) {
+      setForm(settings.homepageSEO);
+    }
+  }, [settings]);
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 

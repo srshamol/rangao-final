@@ -40,6 +40,26 @@ export default function AdminCategories() {
     is_active: true,
     parent_id: null,
   });
+  const [seoForm, setSeoForm] = useState({
+    title: "",
+    description: "",
+    text: "",
+  });
+  const [allSeoData, setAllSeoData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const loadCategorySEO = async () => {
+      const { data } = await supabase
+        .from("store_settings" as any)
+        .select("value")
+        .eq("key", "category_seo_data")
+        .maybeSingle();
+      if (data?.value) {
+        setAllSeoData(data.value as Record<string, any>);
+      }
+    };
+    loadCategorySEO();
+  }, []);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +89,6 @@ export default function AdminCategories() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Ensure we convert empty strings to null for parent_id
       const payload = {
         ...form,
         parent_id: form.parent_id || null,
@@ -82,6 +101,22 @@ export default function AdminCategories() {
         const { error } = await supabase.from("categories").insert(payload);
         if (error) throw error;
       }
+
+      const nextSeoData = {
+        ...allSeoData,
+        [form.slug]: {
+          title: seoForm.title,
+          description: seoForm.description,
+          text: seoForm.text
+        }
+      };
+      setAllSeoData(nextSeoData);
+      await supabase
+        .from("store_settings" as any)
+        .upsert({
+          key: "category_seo_data",
+          value: nextSeoData
+        }, { onConflict: "key" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-categories"] });
@@ -105,6 +140,7 @@ export default function AdminCategories() {
 
   const resetForm = () => {
     setForm({ name: "", slug: "", image_url: "", sort_order: 0, is_active: true, parent_id: null });
+    setSeoForm({ title: "", description: "", text: "" });
     setEditId(null);
   };
 
@@ -118,6 +154,8 @@ export default function AdminCategories() {
       is_active: cat.is_active !== false,
       parent_id: cat.parent_id || null,
     });
+    const seo = allSeoData[cat.slug] || { title: "", description: "", text: "" };
+    setSeoForm(seo);
     setOpen(true);
   };
 
@@ -194,6 +232,24 @@ export default function AdminCategories() {
                 <label className="text-sm font-medium">সর্ট অর্ডার</label>
                 <Input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))} />
               </div>
+              <div className="border p-3 rounded-lg space-y-2.5 bg-secondary/15">
+                <h4 className="text-xs font-bold text-primary">🔍 ক্যাটাগরি SEO মেটা ও বর্ণনা</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-medium">কাস্টম টাইটেল</label>
+                    <Input value={seoForm.title} onChange={e => setSeoForm(prev => ({ ...prev, title: e.target.value }))} placeholder="যেমন: ক্যালিগ্রাফি ওয়াল ক্যানভাস" className="h-8 text-xs mt-0.5" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium">মেটা ডেসক্রিপশন</label>
+                    <Input value={seoForm.description} onChange={e => setSeoForm(prev => ({ ...prev, description: e.target.value }))} placeholder="গুগল সার্চে দেখানোর ডেসক্রিপশন..." className="h-8 text-xs mt-0.5" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium">ক্যাটাগরি SEO ডেসক্রিপশন টেক্সট (পেজে দেখাবে)</label>
+                  <Textarea value={seoForm.text} onChange={e => setSeoForm(prev => ({ ...prev, text: e.target.value }))} placeholder="ক্যাটাগরি পেজে দেখানোর জন্য বিস্তারিত বর্ণনা..." rows={2} className="text-xs mt-0.5" />
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">সক্রিয়</label>
                 <Switch checked={form.is_active} onCheckedChange={(v) => setForm((f) => ({ ...f, is_active: v }))} />

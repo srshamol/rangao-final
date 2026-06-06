@@ -52,6 +52,35 @@ export default function ProductForm() {
   const [dragOver, setDragOver] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
+  const [seoForm, setSeoForm] = useState({
+    title: "",
+    description: "",
+    canonical_url: "",
+  });
+  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>([{ question: "", answer: "" }]);
+
+  // Load SEO & FAQ settings
+  useEffect(() => {
+    const loadProductSEO = async () => {
+      if (!isEdit || !id) return;
+      const { data } = await supabase
+        .from("store_settings" as any)
+        .select("value")
+        .eq("key", `product_seo_${id}`)
+        .maybeSingle();
+      if (data?.value) {
+        const val = data.value as any;
+        setSeoForm({
+          title: val.seo_title || "",
+          description: val.seo_description || "",
+          canonical_url: val.canonical_url || "",
+        });
+        setFaqs(val.faqs && val.faqs.length > 0 ? val.faqs : [{ question: "", answer: "" }]);
+      }
+    };
+    loadProductSEO();
+  }, [isEdit, id]);
+
   const { data: categories } = useQuery({
     queryKey: ["categories-list"],
     queryFn: async () => {
@@ -154,9 +183,35 @@ export default function ProductForm() {
       if (isEdit) {
         const { error } = await supabase.from("products").update(payload as any).eq("id", id);
         if (error) throw error;
+
+        await supabase
+          .from("store_settings" as any)
+          .upsert({
+            key: `product_seo_${id}`,
+            value: {
+              seo_title: seoForm.title,
+              seo_description: seoForm.description,
+              canonical_url: seoForm.canonical_url,
+              faqs: faqs.filter(f => f.question && f.answer)
+            }
+          }, { onConflict: "key" });
       } else {
-        const { error } = await supabase.from("products").insert(payload as any);
+        const { data, error } = await supabase.from("products").insert(payload as any).select("id").single();
         if (error) throw error;
+
+        if (data?.id) {
+          await supabase
+            .from("store_settings" as any)
+            .upsert({
+              key: `product_seo_${data.id}`,
+              value: {
+                seo_title: seoForm.title,
+                seo_description: seoForm.description,
+                canonical_url: seoForm.canonical_url,
+                faqs: faqs.filter(f => f.question && f.answer)
+              }
+            }, { onConflict: "key" });
+        }
       }
     },
     onSuccess: () => {
@@ -556,6 +611,95 @@ export default function ProductForm() {
           <Button variant="outline" size="sm" onClick={() => setSpecs([...specs, { label: "", value: "" }])}>
             <Plus className="mr-1 h-4 w-4" /> স্পেক যোগ করুন
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* SEO & FAQ Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">🔍 সার্চ ইঞ্জিন অপ্টিমাইজেশন (SEO) ও FAQ</CardTitle>
+          <CardDescription>এই প্রোডাক্ট পেইজের কাস্টম SEO মেটা ট্যাগ এবং FAQ প্রশ্ন-উত্তর সেট করুন</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">কাস্টম SEO টাইটেল</label>
+              <Input
+                value={seoForm.title}
+                onChange={(e) => setSeoForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="যেমন: সেরা উডেন ক্যালিগ্রাফি ফ্রেম"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">কাস্টম ক্যানোনিকাল URL</label>
+              <Input
+                value={seoForm.canonical_url}
+                onChange={(e) => setSeoForm((prev) => ({ ...prev, canonical_url: e.target.value }))}
+                placeholder="যেমন: https://rangao.com.bd/product/wooden-calligraphy"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium">কাস্টম SEO ডেসক্রিপশন</label>
+            <Textarea
+              value={seoForm.description}
+              onChange={(e) => setSeoForm((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="প্রোডাক্টের আকর্ষণীয় ডেসক্রিপশন লিখুন যা গুগলে দেখাবে..."
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+
+          <Separator className="my-4" />
+          
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-foreground">প্রোডাক্ট FAQ সেকশন</h3>
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="space-y-2 p-3 rounded-lg border bg-secondary/10 relative">
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-1 right-1 h-6 w-6 text-destructive"
+                  onClick={() => setFaqs(faqs.filter((_, i) => i !== idx))}
+                >
+                  <X className="h-4.5 w-4.5" />
+                </Button>
+                <div>
+                  <label className="text-xs font-semibold">প্রশ্ন {idx + 1}</label>
+                  <Input
+                    value={faq.question}
+                    onChange={(e) => {
+                      const nextFaqs = [...faqs];
+                      nextFaqs[idx].question = e.target.value;
+                      setFaqs(nextFaqs);
+                    }}
+                    placeholder="যেমন: প্রোডাক্টের উপাদান কি?"
+                    className="mt-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold">উত্তর {idx + 1}</label>
+                  <Textarea
+                    value={faq.answer}
+                    onChange={(e) => {
+                      const nextFaqs = [...faqs];
+                      nextFaqs[idx].answer = e.target.value;
+                      setFaqs(nextFaqs);
+                    }}
+                    placeholder="যেমন: এটি প্রিমিয়াম কোয়ালিটির কাঠ দিয়ে তৈরি।"
+                    className="mt-1 text-xs"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => setFaqs([...faqs, { question: "", answer: "" }])}>
+              <Plus className="mr-1 h-4 w-4" /> FAQ যোগ করুন
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

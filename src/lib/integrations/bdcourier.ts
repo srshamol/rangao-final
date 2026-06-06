@@ -114,10 +114,6 @@ export async function bdcourierRequest(endpoint: string, options: { method?: str
   }
 
   try {
-    console.log("VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
-    console.log("Function:", functionName);
-    console.log("Payload:", payload);
-    
     const { data, error } = await supabase.functions.invoke(functionName, {
       body: payload,
     });
@@ -132,7 +128,6 @@ export async function bdcourierRequest(endpoint: string, options: { method?: str
       throw new Error(data.error || data.message || "BDCourier API Error");
     }
 
-    console.log("Invoke Response:", { data });
     return data;
   } catch (error: any) {
     console.warn(`Supabase Edge Function '${functionName}' invocation failed or CORS blocked. Activating resilient local mock fallback.`, error);

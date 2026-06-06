@@ -211,6 +211,16 @@ export interface AnnouncementBarConfig {
   link_url?: string;
 }
 
+export interface SEOSettings {
+  site_title: string;
+  site_description: string;
+  title_format: string;
+  default_keywords: string;
+  robots_index: boolean;
+  robots_follow: boolean;
+  google_search_console_id: string;
+}
+
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
   { id: "hero", label: "হিরো ব্যানার", config: { enabled: true, desktop: true, mobile: true } },
   { id: "categories", label: "ক্যাটাগরি সেকশন", config: { enabled: true, desktop: true, mobile: true, category_mode: "auto", count: 8, desktop_cols: 4, tablet_cols: 3, mobile_cols: 2, show_image: true, show_count: true, title: "আমাদের কাস্টম ক্যাটাগরি কালেকশন", subtitle: "আপনার ঘরের দেয়াল রাঙিয়ে তুলুন" } },
@@ -373,6 +383,15 @@ const defaults = {
     link_url: "",
   } as AnnouncementBarConfig,
   homepage_section_order: DEFAULT_SECTION_ORDER,
+  seo_settings: {
+    site_title: "Rangao – রাঙাও",
+    site_description: "রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি, ওয়াল আর্ট ও হোম ডেকোর স্টোর।",
+    title_format: "{title} | {siteName}",
+    default_keywords: "ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি",
+    robots_index: true,
+    robots_follow: true,
+    google_search_console_id: "",
+  } as SEOSettings,
 };
 
 export function useStoreSettings() {
@@ -441,6 +460,7 @@ export function useStoreSettings() {
         homepageGallery: (settings.homepage_gallery || defaults.homepage_gallery) as GalleryItem[],
         sectionOrder,
         announcementBar: { ...defaults.announcement_bar, ...settings.announcement_bar } as AnnouncementBarConfig,
+        seoSettings: { ...defaults.seo_settings, ...settings.seo_settings } as SEOSettings,
       };
     },
     staleTime: 0,
@@ -448,5 +468,5 @@ export function useStoreSettings() {
   });
 }
 
-export type { HomepageSectionOrder };
+export type { HomepageSectionOrder, SEOSettings };
 export { DEFAULT_SECTION_ORDER };

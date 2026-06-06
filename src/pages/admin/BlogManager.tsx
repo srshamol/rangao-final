@@ -46,6 +46,11 @@ export default function BlogManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<BlogForm>(emptyForm);
   const [uploading, setUploading] = useState(false);
+  const [seoForm, setSeoForm] = useState({
+    title: "",
+    description: "",
+    canonical_url: "",
+  });
 
   const { data: blogPosts, isLoading } = useQuery({
     queryKey: ["admin-blog-posts"],
@@ -60,12 +65,27 @@ export default function BlogManager() {
 
   const save = useMutation({
     mutationFn: async () => {
+      let postId = editId;
       if (editId) {
         const { error } = await supabase.from("blog_posts").update(form).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("blog_posts").insert(form);
+        const { data, error } = await supabase.from("blog_posts").insert(form).select("id").single();
         if (error) throw error;
+        postId = data?.id || null;
+      }
+
+      if (postId) {
+        await supabase
+          .from("store_settings" as any)
+          .upsert({
+            key: `blog_seo_${postId}`,
+            value: {
+              seo_title: seoForm.title,
+              seo_description: seoForm.description,
+              canonical_url: seoForm.canonical_url
+            }
+          }, { onConflict: "key" });
       }
     },
     onSuccess: () => {
@@ -108,9 +128,13 @@ export default function BlogManager() {
     }
   };
 
-  const reset = () => { setForm(emptyForm); setEditId(null); };
+  const reset = () => { 
+    setForm(emptyForm); 
+    setEditId(null); 
+    setSeoForm({ title: "", description: "", canonical_url: "" });
+  };
 
-  const openEdit = (p: any) => {
+  const openEdit = async (p: any) => {
     setEditId(p.id);
     setForm({
       title: p.title,
@@ -122,6 +146,22 @@ export default function BlogManager() {
       read_time: p.read_time || "৫ মিনিট",
       is_active: p.is_active,
     });
+
+    const { data } = await supabase
+      .from("store_settings" as any)
+      .select("value")
+      .eq("key", `blog_seo_${p.id}`)
+      .maybeSingle();
+    if (data?.value) {
+      const val = data.value as any;
+      setSeoForm({
+        title: val.seo_title || "",
+        description: val.seo_description || "",
+        canonical_url: val.canonical_url || "",
+      });
+    } else {
+      setSeoForm({ title: "", description: "", canonical_url: "" });
+    }
     setOpen(true);
   };
 
@@ -191,6 +231,25 @@ export default function BlogManager() {
                 <label className="text-sm font-medium">মূল বিষয়বস্তু (Markdown সমর্থিত) *</label>
                 <Textarea value={form.content} onChange={(e) => set("content", e.target.value)} placeholder="আপনার মূল আর্টিকেল বিস্তারিত লিখুন..." rows={8} />
               </div>
+
+              <div className="border p-3 rounded-lg space-y-3 bg-secondary/10">
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wide">🔍 ব্লগ পোস্ট SEO মেটা</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium">কাস্টম SEO টাইটেল</label>
+                    <Input value={seoForm.title} onChange={e => setSeoForm(prev => ({ ...prev, title: e.target.value }))} placeholder="যেমন: ৫টি ক্যালিগ্রাফি ওয়াল ডেকোর টিপস" className="h-8 text-xs mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium">কাস্টম ক্যানোনিকাল URL</label>
+                    <Input value={seoForm.canonical_url} onChange={e => setSeoForm(prev => ({ ...prev, canonical_url: e.target.value }))} placeholder="যেমন: https://rangao.com.bd/blog/decor-tips" className="h-8 text-xs mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium">কাস্টম SEO মেটা ডেসক্রিপশন</label>
+                  <Textarea value={seoForm.description} onChange={e => setSeoForm(prev => ({ ...prev, description: e.target.value }))} placeholder="গুগল সার্চে দেখানোর জন্য আকর্ষণীয় ডেসক্রিপশন..." rows={2} className="text-xs mt-1" />
+                </div>
+              </div>
+
               <div className="flex items-center gap-2 pt-2">
                 <Switch checked={form.is_active} onCheckedChange={(v) => set("is_active", v)} />
                 <label className="text-sm font-medium">সক্রিয় (Active)</label>

@@ -18,7 +18,7 @@ import {
   MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud 
 } from "lucide-react";
 import { mediaService } from "@/lib/mediaService";
-import type { StoreInfo, ContactInfo, SocialLinkItem } from "@/hooks/useStoreSettings";
+import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings } from "@/hooks/useStoreSettings";
 import MediaPicker from "@/components/MediaPicker";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
 
@@ -136,6 +136,16 @@ export default function AdminSettings() {
     tiktok_pixel_id: "",
     tiktok_access_token: "",
     tiktok_debug_mode: false
+  });
+
+  const [seoSettings, setSeoSettings] = useState<SEOSettings>({
+    site_title: "Rangao – রাঙাও",
+    site_description: "রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি, ওয়াল আর্ট ও হোম ডেকোর স্টোর।",
+    title_format: "{title} | {siteName}",
+    default_keywords: "ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি",
+    robots_index: true,
+    robots_follow: true,
+    google_search_console_id: "",
   });
 
   const [localLogs, setLocalLogs] = useState<string[]>([
@@ -295,6 +305,12 @@ export default function AdminSettings() {
               ...row.value
             }));
             setDbTracking(row.value);
+          }
+          if (row.key === "seo_settings") {
+            setSeoSettings(prev => ({
+              ...prev,
+              ...row.value
+            }));
           }
         });
       }
@@ -567,6 +583,7 @@ export default function AdminSettings() {
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
           <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 ট্র্যাকিং ও অ্যানালিটিক্স</TabsTrigger>
           <TabsTrigger value="images" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🖼️ ইমেজ অপ্টিমাইজেশন</TabsTrigger>
+          <TabsTrigger value="seo" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔍 SEO সেটিংস</TabsTrigger>
           <TabsTrigger value="security" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔑 সিকিউরিটি</TabsTrigger>
         </TabsList>
 
@@ -1771,6 +1788,109 @@ export default function AdminSettings() {
                     disabled={updatingPassword}
                   >
                     {updatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} পাসওয়ার্ড আপডেট করুন
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 9: SEO settings */}
+        <TabsContent value="seo" className="space-y-6 outline-none">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-primary">🔍 গ্লোবাল সার্চ ইঞ্জিন অপ্টিমাইজেশন (SEO)</CardTitle>
+              <CardDescription>আপনার ওয়েবসাইটের গুগল র‍্যাংকিং, মেটা টাইটেল, ডেসক্রিপশন এবং ইন্ডেক্সিং সেটিংস পরিচালনা করুন।</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await saveSetting("seo_settings", seoSettings);
+                }} 
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>ওয়েবসাইট টাইটেল (Site Title)</Label>
+                    <Input 
+                      value={seoSettings.site_title || ""} 
+                      onChange={e => setSeoSettings((p: any) => ({ ...p, site_title: e.target.value }))} 
+                      placeholder="যেমন: Rangao – রাঙাও" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>টাইটেল ফরম্যাট (Title Format)</Label>
+                    <Input 
+                      value={seoSettings.title_format || ""} 
+                      onChange={e => setSeoSettings((p: any) => ({ ...p, title_format: e.target.value }))} 
+                      placeholder="যেমন: {title} | {siteName}" 
+                    />
+                    <p className="text-[10px] text-muted-foreground">প্রতিটি পেজের টাইটেল এবং স্টোর নামের লেআউট ডিজাইন করুন।</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ডিফল্ট মেটা ডেসক্রিপশন (Default Description)</Label>
+                  <Input 
+                    value={seoSettings.site_description || ""} 
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, site_description: e.target.value }))} 
+                    placeholder="রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি ওয়াল আর্ট ও হোম ডেকোর স্টোর।" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ডিফল্ট কীওয়ার্ডস (Default Keywords)</Label>
+                  <Input 
+                    value={seoSettings.default_keywords || ""} 
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, default_keywords: e.target.value }))} 
+                    placeholder="ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>গুগল সার্চ কনসোল ভেরিফিকেশন আইডি (Google Search Console ID)</Label>
+                  <Input 
+                    value={seoSettings.google_search_console_id || ""} 
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, google_search_console_id: e.target.value }))} 
+                    placeholder="যেমন: google-site-verification=abc123xyz" 
+                  />
+                  <p className="text-[10px] text-muted-foreground">গুগল সার্চ কনসোলে ওয়েবসাইট ভেরিফাই করতে এই কী-টি ব্যবহার করুন।</p>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="space-y-0.5">
+                      <Label className="font-bold text-xs">Search Index (ইন্ডেক্স করুন)</Label>
+                      <p className="text-[9px] text-muted-foreground">সার্চ ইঞ্জিনে ওয়েবসাইট দৃশ্যমান করতে এটি সচল রাখুন</p>
+                    </div>
+                    <Switch 
+                      checked={seoSettings.robots_index} 
+                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_index: v }))} 
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="space-y-0.5">
+                      <Label className="font-bold text-xs">Follow Links (লিংক অনুকরণ করুন)</Label>
+                      <p className="text-[9px] text-muted-foreground">বটদের লিংক অনুসরণ করার অনুমতি দিন</p>
+                    </div>
+                    <Switch 
+                      checked={seoSettings.robots_follow} 
+                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_follow: v }))} 
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button 
+                    type="submit"
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    disabled={saving === "seo_settings"}
+                  >
+                    {saving === "seo_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} SEO সেটিংস সেভ করুন
                   </Button>
                 </div>
               </form>

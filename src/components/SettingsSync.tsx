@@ -52,24 +52,33 @@ export default function SettingsSync() {
     }
 
     // 2. Dynamic Title & SEO Synchronization
-    const storeName = settings.storeInfo?.name;
+    const seo = settings.homepageSEO;
+    const storeName = settings.storeInfo?.name || "Rangao";
     const storeTagline = settings.storeInfo?.tagline;
 
-    if (storeName) {
-      const pageTitle = storeTagline ? `${storeName} — ${storeTagline}` : storeName;
-      document.title = pageTitle;
-      
-      // Update og:title
-      let ogTitle = document.querySelector("meta[property='og:title']") as HTMLMetaElement;
-      if (!ogTitle) {
-        ogTitle = document.createElement("meta");
-        ogTitle.setAttribute("property", "og:title");
-        document.head.appendChild(ogTitle);
-      }
-      ogTitle.content = pageTitle;
+    const finalTitle = seo?.meta_title || (storeTagline ? `${storeName} — ${storeTagline}` : storeName);
+    document.title = finalTitle;
+    
+    // Update og:title
+    let ogTitle = document.querySelector("meta[property='og:title']") as HTMLMetaElement;
+    if (!ogTitle) {
+      ogTitle = document.createElement("meta");
+      ogTitle.setAttribute("property", "og:title");
+      document.head.appendChild(ogTitle);
     }
+    ogTitle.content = finalTitle;
 
-    if (storeTagline) {
+    // Update twitter:title
+    let twTitle = document.querySelector("meta[name='twitter:title']") as HTMLMetaElement;
+    if (!twTitle) {
+      twTitle = document.createElement("meta");
+      twTitle.name = "twitter:title";
+      document.head.appendChild(twTitle);
+    }
+    twTitle.content = finalTitle;
+
+    const finalDesc = seo?.meta_description || storeTagline;
+    if (finalDesc) {
       // Update Meta description
       let metaDesc = document.querySelector("meta[name='description']") as HTMLMetaElement;
       if (!metaDesc) {
@@ -77,7 +86,7 @@ export default function SettingsSync() {
         metaDesc.name = "description";
         document.head.appendChild(metaDesc);
       }
-      metaDesc.content = storeTagline;
+      metaDesc.content = finalDesc;
 
       // Update og:description
       let ogDesc = document.querySelector("meta[property='og:description']") as HTMLMetaElement;
@@ -86,11 +95,19 @@ export default function SettingsSync() {
         ogDesc.setAttribute("property", "og:description");
         document.head.appendChild(ogDesc);
       }
-      ogDesc.content = storeTagline;
+      ogDesc.content = finalDesc;
+
+      // Update twitter:description
+      let twDesc = document.querySelector("meta[name='twitter:description']") as HTMLMetaElement;
+      if (!twDesc) {
+        twDesc = document.createElement("meta");
+        twDesc.name = "twitter:description";
+        document.head.appendChild(twDesc);
+      }
+      twDesc.content = finalDesc;
     }
 
     // Update OG Image (using home SEO config if available)
-    const seo = settings.homepageSEO;
     if (seo && seo.og_image) {
       let ogImg = document.querySelector("meta[property='og:image']") as HTMLMetaElement;
       if (!ogImg) {

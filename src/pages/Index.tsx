@@ -20,8 +20,8 @@ import FooterPromo from "@/components/FooterPromo";
 import DecorGallery from "@/components/DecorGallery";
 import { useEffect } from "react";
 import AppLoader from "@/components/AppLoader";
-import { useStoreSettings } from "@/hooks/useStoreSettings";
-import { DEFAULT_SECTION_ORDER } from "@/hooks/useStoreSettings";
+import SEO from "@/components/SEO";
+import { useStoreSettings, DEFAULT_SECTION_ORDER } from "@/hooks/useStoreSettings";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -242,6 +242,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <SEO 
+        title={settings?.homepageSEO?.meta_title} 
+        description={settings?.homepageSEO?.meta_description}
+        keywords={settings?.homepageSEO?.meta_keywords}
+        image={settings?.homepageSEO?.og_image}
+      />
       <main>
         {sectionOrder.map((section) =>
           renderSection(section.id, section.config)

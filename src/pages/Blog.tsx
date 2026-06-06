@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { Clock, ArrowRight, BookOpen, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import SEO from "@/components/SEO";
+import Breadcrumbs from "@/components/Breadcrumbs";
 
 const Blog = () => {
   const { data: posts, isLoading } = useQuery({
@@ -41,6 +43,8 @@ const Blog = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <SEO title="ব্লগ ও টিপস" description="লাইফস্টাইল ও ইসলামিক হোম ডেকোরেশন সম্পর্কিত বিভিন্ন টিপস, গাইড এবং দরকারি তথ্য ব্লগ আর্টিকেল।" />
+      <Breadcrumbs items={[{ label: "ব্লগ ও টিপস" }]} />
       <main className="py-8 md:py-12">
         <div className="container">
           <div className="mb-10 text-center">

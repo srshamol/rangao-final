@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import OptimizedImage from "@/components/OptimizedImage";
+import SEO from "@/components/SEO";
 
 
 const ProductDetail = () => {
@@ -199,6 +200,67 @@ const ProductDetail = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
+  const { data: seoData } = useQuery({
+    queryKey: ["product-seo-details", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${id}`).maybeSingle();
+      return data?.value || null;
+    },
+    enabled: !!id
+  });
+
+  const productSchema = useMemo(() => {
+    if (!product) return null;
+    const baseDomain = typeof window !== "undefined" ? window.location.origin : "https://rangao.com.bd";
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": product.name,
+      "image": product.images,
+      "description": product.shortDescription,
+      "sku": product.sku || product.id,
+      "brand": {
+        "@type": "Brand",
+        "name": product.brand || "Rangao"
+      },
+      "offers": {
+        "@type": "Offer",
+        "url": `${baseDomain}/product/${product.id}`,
+        "priceCurrency": "BDT",
+        "price": product.price,
+        "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        "priceValidUntil": "2027-12-31"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": product.rating,
+        "reviewCount": product.reviewCount || 1
+      }
+    };
+  }, [product]);
+
+  const faqSchema = useMemo(() => {
+    const faqs = (seoData as any)?.faqs;
+    if (!faqs || faqs.length === 0) return null;
+    return {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map((f: any) => ({
+        "@type": "Question",
+        "name": f.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": f.answer
+        }
+      }))
+    };
+  }, [seoData]);
+
+  const combinedSchemas = useMemo(() => {
+    return [productSchema, faqSchema].filter(Boolean) as any[];
+  }, [productSchema, faqSchema]);
+
   useEffect(() => {
     if (product) {
       import("@/lib/tracking").then(({ trackViewContent }) => {
@@ -269,6 +331,14 @@ const ProductDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <SEO 
+        title={(seoData as any)?.seo_title || product.name} 
+        description={(seoData as any)?.seo_description || product.shortDescription}
+        canonical={(seoData as any)?.canonical_url}
+        image={product.images[0]}
+        type="product"
+        schema={combinedSchemas}
+      />
 
       <main>
         {/* Breadcrumb */}
@@ -612,6 +682,20 @@ const ProductDetail = () => {
                     {product.fullDescription}
                   </p>
                 </motion.div>
+
+                {(seoData as any)?.faqs && (seoData as any).faqs.length > 0 && (
+                  <div className="space-y-4 pt-6 border-t">
+                    <h3 className="font-display text-lg font-bold text-foreground">সচরাচর জিজ্ঞাসিত প্রশ্নাবলী (FAQ)</h3>
+                    <div className="grid gap-3">
+                      {(seoData as any).faqs.map((faq: any, i: number) => (
+                        <div key={i} className="rounded-xl border bg-card p-5">
+                          <h4 className="font-bold text-foreground font-bengali text-sm">❓ {faq.question}</h4>
+                          <p className="mt-2 text-xs text-muted-foreground font-bengali leading-relaxed">{faq.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {product.features.length > 0 && (
                   <div className="space-y-4 pt-4">

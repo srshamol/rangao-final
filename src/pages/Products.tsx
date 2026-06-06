@@ -12,6 +12,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { SlidersHorizontal, Grid3X3, List, Star, X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useParams, useSearchParams } from "react-router-dom";
+import SEO from "@/components/SEO";
+import Breadcrumbs from "@/components/Breadcrumbs";
 
 type SortOption = "default" | "price-asc" | "price-desc" | "rating" | "name";
 type ViewMode = "grid" | "list";
@@ -214,22 +216,44 @@ const Products = () => {
     </div>
   );
 
+  const { data: seoData = {} } = useQuery({
+    queryKey: ["category-seo-data"],
+    queryFn: async () => {
+      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", "category_seo_data").maybeSingle();
+      return data?.value || {};
+    }
+  });
+
   const activeCategoryData = useMemo(() => {
     if (!activeCategory) return null;
     return categories.find(c => c.slug === activeCategory);
   }, [activeCategory, categories]);
 
-  const pageTitle = activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট";
+  const catSeo = activeCategory ? (seoData as any)[activeCategory] : null;
+  const pageTitle = catSeo?.title || (activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট");
+  const seoDescription = catSeo?.description || (activeCategoryData ? `${activeCategoryData.name} কালেকশন দেখুন রাঙাও স্টোরে।` : "রাঙাও স্টোরের সমস্ত প্রিমিয়াম ক্যাটাগরি এবং প্রোডাক্ট কালেকশন।");
+  const seoText = catSeo?.text || "";
 
   const isPageLoading = categoriesLoading || productsLoading;
+
+  const breadcrumbItems = activeCategoryData 
+    ? [{ label: "প্রোডাক্টস", url: "/products" }, { label: activeCategoryData.name }]
+    : [{ label: "সমস্ত প্রোডাক্ট" }];
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <SEO title={pageTitle} description={seoDescription} />
+      <Breadcrumbs items={breadcrumbItems} />
       <main className="py-8 md:py-12">
         <div className="container">
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{pageTitle}</h1>
+            <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট"}</h1>
+            {seoText && (
+              <p className="mt-2 text-sm text-foreground/80 leading-relaxed font-bengali max-w-3xl border-l-2 border-accent pl-3.5">
+                {seoText}
+              </p>
+            )}
             <p className="mt-2 font-bengali text-sm text-muted-foreground">
               {isPageLoading ? "লোড হচ্ছে..." : `${filteredProducts.length}টি প্রোডাক্ট পাওয়া গেছে`}
             </p>
