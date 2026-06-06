@@ -150,3 +150,60 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
     avifSizes
   };
 }
+
+/**
+ * Compresses an image file to a maximum width/height and quality, returning a compressed Blob.
+ */
+export async function compressImage(
+  file: File,
+  maxWidth = 1200,
+  quality = 0.8
+): Promise<Blob> {
+  // Do not process non-convertible files
+  if (file.type === "image/svg+xml" || !file.type.startsWith("image/")) {
+    return file;
+  }
+  
+  try {
+    const img = await loadImage(file);
+    const originalWidth = img.naturalWidth || img.width;
+    const originalHeight = img.naturalHeight || img.height;
+    
+    // Scale down if it exceeds maxWidth
+    let finalWidth = originalWidth;
+    let finalHeight = originalHeight;
+    
+    if (originalWidth > maxWidth) {
+      finalWidth = maxWidth;
+      const scaleFactor = maxWidth / originalWidth;
+      finalHeight = Math.round(originalHeight * scaleFactor);
+    }
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = finalWidth;
+    canvas.height = finalHeight;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
+    
+    return new Promise((resolve) => {
+      // Convert to webp if supported, otherwise jpeg
+      const targetMime = file.type === "image/png" || file.type === "image/webp" ? "image/webp" : "image/jpeg";
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob || file);
+        },
+        targetMime,
+        quality
+      );
+    });
+  } catch (e) {
+    console.error("Compression failed, using original file", e);
+    return file;
+  }
+}
+

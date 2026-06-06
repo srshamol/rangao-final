@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
-import { processImage, TARGET_WIDTHS } from "@/utils/imagePipeline";
+import { processImage, TARGET_WIDTHS, compressImage } from "@/utils/imagePipeline";
 
 // Helper function to generate standard UUID v4
 const generateUUID = (): string => {
@@ -146,9 +146,21 @@ class MediaService {
     // 3. Determine if we should perform conversion
     const isConvertibleImage = file.type.startsWith("image/") && file.type !== "image/svg+xml" && bucket === "images";
     
-    const ext = file.name.split(".").pop() || "";
-    const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-    const baseNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    // Auto compress image before upload to save space and speed up loads
+    let activeFile: File = file;
+    if (isConvertibleImage) {
+      try {
+        const compressedBlob = await compressImage(file, 1600, 0.85);
+        activeFile = new File([compressedBlob], file.name, { type: compressedBlob.type || file.type });
+        console.log(`[Compression] Compressed ${file.name} from ${(file.size / 1024).toFixed(1)}KB to ${(activeFile.size / 1024).toFixed(1)}KB`);
+      } catch (err) {
+        console.warn("Image pre-compression failed, using original file", err);
+      }
+    }
+    
+    const ext = activeFile.name.split(".").pop() || "";
+    const cleanName = activeFile.name.replace(/[^a-zA-Z0-9.]/g, "_");
+    const baseNameWithoutExt = activeFile.name.substring(0, activeFile.name.lastIndexOf('.')) || activeFile.name;
     const cleanBaseName = baseNameWithoutExt.replace(/[^a-zA-Z0-9]/g, "_");
     
     const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -164,11 +176,11 @@ class MediaService {
       const startTime = performance.now();
       try {
         // Run conversion pipeline
-        const pipelineResult = await processImage(file);
+        const pipelineResult = await processImage(activeFile);
         
         // Upload Original as backup
         const originalPath = `original/${path}`;
-        const originalResult = await this.client.storage.from(bucket).upload(originalPath, file);
+        const originalResult = await this.client.storage.from(bucket).upload(originalPath, activeFile);
         if (originalResult.error) throw originalResult.error;
         
         const { data: originalUrlData } = this.client.storage.from(bucket).getPublicUrl(originalPath);
@@ -217,14 +229,14 @@ class MediaService {
         let totalOptimizedSize = 0;
         Object.values(pipelineResult.webpSizes).forEach(b => totalOptimizedSize += b.size);
         Object.values(pipelineResult.avifSizes).forEach(b => totalOptimizedSize += b.size);
-        const savingsPercent = Math.max(0, Math.round(((file.size - totalOptimizedSize / (TARGET_WIDTHS.length * 2)) / file.size) * 100));
+        const savingsPercent = Math.max(0, Math.round(((activeFile.size - totalOptimizedSize / (TARGET_WIDTHS.length * 2)) / activeFile.size) * 100));
         
         console.log(`[ImagePipeline] Conversion succeeded in ${conversionTime.toFixed(1)}ms. Average savings: ${savingsPercent}%`);
         
         metadata = {
           width: pipelineResult.width,
           height: pipelineResult.height,
-          originalSize: file.size,
+          originalSize: activeFile.size,
           original: fileUrl,
           webp: webpUrls,
           avif: avifUrls,
@@ -241,13 +253,13 @@ class MediaService {
     if (!isConvertibleImage || uploadError) {
       uploadError = null;
       try {
-        const result = await this.client.storage.from(bucket).upload(path, file);
+        const result = await this.client.storage.from(bucket).upload(path, activeFile);
         uploadError = result.error;
         
         if (uploadError && bucket !== "uploads") {
           const msg = uploadError.message || "";
           if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("bucket")) {
-            const fallbackResult = await this.client.storage.from("uploads").upload(path, file);
+            const fallbackResult = await this.client.storage.from("uploads").upload(path, activeFile);
             uploadError = fallbackResult.error;
             actualBucket = "uploads";
           }
@@ -261,7 +273,7 @@ class MediaService {
         try {
           fileUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(activeFile);
             reader.onload = () => resolve(reader.result as string);
             reader.onerror = error => reject(error);
           });
@@ -282,15 +294,15 @@ class MediaService {
       url: fileUrl,
       file_path: isFallbackBase64 ? undefined : (isConvertibleImage ? `original/${path}` : path),
       bucket_name: isFallbackBase64 ? "base64_fallback" : actualBucket,
-      mime_type: file.type,
-      file_size: file.size,
+      mime_type: activeFile.type,
+      file_size: activeFile.size,
       source: "upload",
       uploaded_at: new Date().toISOString()
     };
 
     if (isConvertibleImage && !uploadError) {
       newItem.metadata = metadata;
-    } else if (file.type.startsWith("image/")) {
+    } else if (activeFile.type.startsWith("image/")) {
       try {
         const dimensions = await this.getImageDimensions(fileUrl);
         newItem.metadata = {
