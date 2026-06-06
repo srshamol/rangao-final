@@ -144,7 +144,7 @@ class MediaService {
     }
 
     // 3. Determine if we should perform conversion
-    const isConvertibleImage = file.type.startsWith("image/") && file.type !== "image/svg+xml" && bucket === "images";
+    const isConvertibleImage = file.type.startsWith("image/") && file.type !== "image/svg+xml";
     
     // Auto compress image before upload to save space and speed up loads
     let activeFile: File = file;
