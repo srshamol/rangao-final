@@ -118,9 +118,12 @@ export default function SettingsSync() {
       ogImg.content = seo.og_image;
     }
 
-    // 3. Resilient Product & Category Synchronization
     const syncProductAndCategory = async () => {
       try {
+        if (!window.location.pathname.startsWith("/admin")) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
         const { data: categories } = await supabase.from("categories").select("id, name, slug");
         const { data: products } = await supabase.from("products").select("id, name, category");
         
