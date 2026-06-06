@@ -41,7 +41,7 @@ export default function AdminLogin() {
     if (error) {
       toast({
         title: "লগইন ব্যর্থ হয়েছে",
-        description: "আপনার ইমেইল অথবা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করুন।",
+        description: error.message || "আপনার ইমেইল অথবা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করুন।",
         variant: "destructive",
       });
     } else {

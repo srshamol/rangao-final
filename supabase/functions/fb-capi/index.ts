@@ -123,6 +123,10 @@ Deno.serve(async (req) => {
     let ttSuccess = false;
     let ttResult = null;
 
+    const userAgent = req.headers.get("user-agent") || "";
+    const rawIp = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
+    const clientIp = rawIp.split(",")[0].trim();
+
     // 1. Meta Conversions API (CAPI)
     if (metaCapiEnabled) {
       try {
@@ -139,6 +143,12 @@ Deno.serve(async (req) => {
           if (nameParts.length > 1) userData.ln = [await sha256(nameParts[nameParts.length - 1].toLowerCase())];
         }
         userData.country = [await sha256("bd")];
+        if (clientIp) {
+          userData.client_ip_address = clientIp;
+        }
+        if (userAgent) {
+          userData.client_user_agent = userAgent;
+        }
 
         const contentIds = (items || []).map((i: any) => i.product_id || i.product_name);
         const numItems = (items || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
@@ -228,8 +238,8 @@ Deno.serve(async (req) => {
             contents: ttContents
           },
           context: {
-            user_agent: req.headers.get("user-agent") || undefined,
-            ip: req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || undefined
+            user_agent: userAgent || undefined,
+            ip: clientIp || undefined
           }
         };
 

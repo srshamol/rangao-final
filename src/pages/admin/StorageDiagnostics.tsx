@@ -7,7 +7,7 @@ import {
   Server, ShieldAlert, CheckCircle, Database, 
   Activity, RefreshCcw, Loader2, Sparkles 
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import { mediaService } from "@/lib/mediaService";
 
 interface BucketDiagnostic {

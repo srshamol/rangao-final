@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useCustomer } from "@/context/CustomerContext";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,24 @@ export default function CustomerProfile() {
   const { profile, updateProfile } = useCustomer();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    full_name: profile?.full_name || "",
-    phone: profile?.phone || "",
-    email: profile?.email || "",
-    address: (profile?.default_address as any)?.address || "",
-    division: (profile?.default_address as any)?.division || "",
+    full_name: "",
+    phone: "",
+    email: "",
+    address: "",
+    division: "",
   });
+
+  useEffect(() => {
+    if (profile) {
+      setForm({
+        full_name: profile.full_name || "",
+        phone: profile.phone || "",
+        email: profile.email || "",
+        address: (profile.default_address as any)?.address || "",
+        division: (profile.default_address as any)?.division || "",
+      });
+    }
+  }, [profile]);
 
   const handleSave = async () => {
     if (form.phone.trim()) {

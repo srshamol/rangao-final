@@ -30,6 +30,7 @@ const CustomerDashboard = lazy(() => import("./pages/customer/Dashboard"));
 const CustomerOrders = lazy(() => import("./pages/customer/Orders"));
 const CustomerWishlist = lazy(() => import("./pages/customer/Wishlist"));
 const CustomerProfile = lazy(() => import("./pages/customer/Profile"));
+const CustomerOrderDetail = lazy(() => import("./pages/customer/OrderDetail"));
 
 // Admin Statically-Imported Layout / Wrapper (for fast transitions)
 import AdminLayout from "./components/admin/AdminLayout";
@@ -105,6 +106,7 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/account" element={<CustomerDashboard />} />
                 <Route path="/account/orders" element={<CustomerOrders />} />
+                <Route path="/account/orders/:id" element={<CustomerOrderDetail />} />
                 <Route path="/account/wishlist" element={<CustomerWishlist />} />
                 <Route path="/account/profile" element={<CustomerProfile />} />
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
 export function useAuth() {
@@ -20,7 +20,7 @@ export function useAuth() {
               .from("user_roles")
               .select("role")
               .eq("user_id", session.user.id)
-              .single();
+              .maybeSingle();
             setIsAdmin(data?.role === "admin" || data?.role === "manager");
             setLoading(false);
           }, 0);
@@ -39,7 +39,7 @@ export function useAuth() {
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
-          .single()
+          .maybeSingle()
           .then(({ data }) => {
             setIsAdmin(data?.role === "admin" || data?.role === "manager");
             setLoading(false);
@@ -53,8 +53,24 @@ export function useAuth() {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+
+    // Validate if the user has an admin or manager role
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user?.id)
+      .maybeSingle();
+
+    const isUserAdmin = roleData?.role === "admin" || roleData?.role === "manager";
+    if (!isUserAdmin) {
+      await supabase.auth.signOut();
+      return { error: new Error("আপনার অ্যাডমিন প্যানেলে প্রবেশের অনুমতি নেই।") };
+    }
+
+    setIsAdmin(true);
+    return { error: null };
   };
 
   const signOut = async () => {

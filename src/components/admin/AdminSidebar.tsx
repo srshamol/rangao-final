@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, ShoppingCart, Warehouse, Ticket, Settings,
   LogOut, FolderTree, DollarSign, Users, ChevronDown, Clock, Truck,

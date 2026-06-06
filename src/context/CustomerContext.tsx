@@ -17,7 +17,7 @@ interface CustomerContextType {
   session: Session | null;
   profile: CustomerProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<CustomerProfile>) => Promise<void>;
@@ -49,13 +49,17 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string, email?: string, fullName?: string) => {
     const { data } = await supabase
       .from("customer_profiles" as any)
       .select("*")
       .eq("user_id", userId)
-      .single();
-    if (data) setProfile(data as any);
+      .maybeSingle();
+    if (data) {
+      setProfile(data as any);
+    } else {
+      setProfile(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -64,7 +68,11 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         // Check if this is an admin user (has admin role) - don't set profile for admins
-        setTimeout(() => fetchProfile(session.user.id), 0);
+        setTimeout(() => fetchProfile(
+          session.user.id,
+          session.user.email,
+          session.user.user_metadata?.full_name
+        ), 0);
       } else {
         setProfile(null);
       }
@@ -75,7 +83,11 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(
+          session.user.id,
+          session.user.email,
+          session.user.user_metadata?.full_name
+        );
       }
       setLoading(false);
     });
@@ -83,17 +95,47 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName, phone: phone } },
     });
+    if (!error && data?.user) {
+      // Log registration activity
+      await supabase
+        .from("customer_activities" as any)
+        .insert({
+          user_id: data.user.id,
+          email,
+          phone,
+          activity_type: "registration",
+          user_agent: navigator.userAgent
+        });
+    }
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data?.user) {
+      const { data: profile } = await supabase
+        .from("customer_profiles" as any)
+        .select("phone")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+
+      // Log login activity
+      await supabase
+        .from("customer_activities" as any)
+        .insert({
+          user_id: data.user.id,
+          email: data.user.email || email,
+          phone: profile?.phone || null,
+          activity_type: "login",
+          user_agent: navigator.userAgent
+        });
+    }
     return { error };
   };
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Search, Edit, Eye, Image as ImageIcon, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 export default function AdminProducts() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(0);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const pageSize = 20;
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -142,7 +147,7 @@ export default function AdminProducts() {
               </SelectContent>
             </Select>
             {selected.length > 0 && (
-              <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(selected)}>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteIds(selected)}>
                 <Trash2 className="mr-1 h-4 w-4" /> {selected.length}টি ডিলিট
               </Button>
             )}
@@ -226,7 +231,7 @@ export default function AdminProducts() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
-                            onClick={() => deleteMutation.mutate([p.id])}
+                            onClick={() => setDeleteIds([p.id])}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -264,6 +269,28 @@ export default function AdminProducts() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteIds} onOpenChange={(v) => !v && setDeleteIds(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">প্রোডাক্ট ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই প্রোডাক্ট({deleteIds?.length}টি) ডিলিট করতে চান? ডিলিট করার পর এটি আর পুনরুদ্ধার করা সম্ভব হবে না।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl" onClick={() => {
+              if (deleteIds) {
+                deleteMutation.mutate(deleteIds);
+                setDeleteIds(null);
+              }
+            }}>
+              ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

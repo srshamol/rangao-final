@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1150,102 +1150,110 @@ export default function AdminSettings() {
               <CardTitle className="text-base flex items-center gap-2 text-primary"><Truck className="h-4.5 w-4.5 text-accent" /> কুরিয়ার ও শিপিং গেটওয়ে</CardTitle>
               <CardDescription>অর্ডার অটো-সিঙ্ক ও পার্সেল বুকিংয়ের জন্য কুরিয়ার API কনফিগার করুন</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              
-              <div className="space-y-4">
-                <h3 className="font-bold text-sm text-primary">ডিফল্ট কুরিয়ার সার্ভিস</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>প্রধান কুরিয়ার পার্টনার</Label>
-                    <Select 
-                      value={courier.default_courier} 
-                      onValueChange={v => setCourier(p => ({ ...p, default_courier: v }))}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="steadfast">Steadfast Courier (স্টেডফাস্ট কুরিয়ার)</SelectItem>
-                        <SelectItem value="pathfinder">Pathfinder (পাথফাইন্ডার)</SelectItem>
-                        <SelectItem value="redx">REDX Delivery (রেডেক্স)</SelectItem>
-                        <SelectItem value="paperfly">Paperfly (পেপারফ্লাই)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>অটো-সিঙ্ক ইন্টারভাল (ঘণ্টা)</Label>
-                    <Input 
-                      type="number" 
-                      value={courier.auto_sync_hours} 
-                      onChange={e => setCourier(p => ({ ...p, auto_sync_hours: Number(e.target.value) }))} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">🔑 Steadfast API ক্রেডেনশিয়ালস</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label>Steadfast API Key</Label>
-                    <Input 
-                      value={courier.api_key || ""} 
-                      onChange={e => setCourier(p => ({ ...p, api_key: e.target.value }))} 
-                      placeholder="যেমন: sk_xxxxxx_xxxxxxxxxxxx"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Steadfast Secret Key</Label>
-                    <Input 
-                      type="password"
-                      value={courier.secret_key || ""} 
-                      onChange={e => setCourier(p => ({ ...p, secret_key: e.target.value }))} 
-                      placeholder="••••••••••••••••••••••••"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3.5 rounded-xl border bg-card">
-                  <div>
-                    <p className="font-semibold text-sm">BD Courier ইন্টিগ্রেশন</p>
-                    <p className="text-xs text-muted-foreground">BD Courier API গেটওয়ে সচল করুন</p>
-                  </div>
-                  <Switch 
-                    checked={!!courier.bdcourier_enabled} 
-                    onCheckedChange={v => setCourier(p => ({ ...p, bdcourier_enabled: v }))} 
-                  />
-                </div>
-
-                {courier.bdcourier_enabled && (
-                  <div className="space-y-4 pl-3 border-l-2 border-accent">
+            <CardContent>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveSetting("courier_settings", courier);
+                }} 
+                className="space-y-6"
+              >
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary">ডিফল্ট কুরিয়ার সার্ভিস</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>BD Courier API Key</Label>
-                      <Input 
-                        value={courier.bdcourier_api_key || ""} 
-                        onChange={e => setCourier(p => ({ ...p, bdcourier_api_key: e.target.value }))} 
-                        placeholder="BD Courier API API Key"
-                      />
+                      <Label>প্রধান কুরিয়ার পার্টনার</Label>
+                      <Select 
+                        value={courier.default_courier} 
+                        onValueChange={v => setCourier(p => ({ ...p, default_courier: v }))}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="steadfast">Steadfast Courier (স্টেডফাস্ট কুরিয়ার)</SelectItem>
+                          <SelectItem value="pathfinder">Pathfinder (পাথফাইন্ডার)</SelectItem>
+                          <SelectItem value="redx">REDX Delivery (রেডেক্স)</SelectItem>
+                          <SelectItem value="paperfly">Paperfly (পেপারফ্লাই)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>BD Courier Base URL</Label>
+                      <Label>অটো-সিঙ্ক ইন্টারভাল (ঘণ্টা)</Label>
                       <Input 
-                        value={courier.bdcourier_base_url || "https://app.bdcourier.com/api"} 
-                        onChange={e => setCourier(p => ({ ...p, bdcourier_base_url: e.target.value }))} 
+                        type="number" 
+                        value={courier.auto_sync_hours} 
+                        onChange={e => setCourier(p => ({ ...p, auto_sync_hours: Number(e.target.value) }))} 
                       />
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="pt-2">
-                <Button className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" onClick={() => saveSetting("courier_settings", courier)} disabled={saving === "courier_settings"}>
-                  {saving === "courier_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} কুরিয়ার সেটিংস সেভ করুন
-                </Button>
-              </div>
+                <Separator />
+
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">🔑 Steadfast API ক্রেডেনশিয়ালস</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label>Steadfast API Key</Label>
+                      <Input 
+                        value={courier.api_key || ""} 
+                        onChange={e => setCourier(p => ({ ...p, api_key: e.target.value }))} 
+                        placeholder="যেমন: sk_xxxxxx_xxxxxxxxxxxx"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Steadfast Secret Key</Label>
+                      <Input 
+                        type="password"
+                        value={courier.secret_key || ""} 
+                        onChange={e => setCourier(p => ({ ...p, secret_key: e.target.value }))} 
+                        placeholder="••••••••••••••••••••••••"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border bg-card">
+                    <div>
+                      <p className="font-semibold text-sm">BD Courier ইন্টিগ্রেশন</p>
+                      <p className="text-xs text-muted-foreground">BD Courier API গেটওয়ে সচল করুন</p>
+                    </div>
+                    <Switch 
+                      checked={!!courier.bdcourier_enabled} 
+                      onCheckedChange={v => setCourier(p => ({ ...p, bdcourier_enabled: v }))} 
+                    />
+                  </div>
+
+                  {courier.bdcourier_enabled && (
+                    <div className="space-y-4 pl-3 border-l-2 border-accent">
+                      <div className="space-y-2">
+                        <Label>BD Courier API Key</Label>
+                        <Input 
+                          value={courier.bdcourier_api_key || ""} 
+                          onChange={e => setCourier(p => ({ ...p, bdcourier_api_key: e.target.value }))} 
+                          placeholder="BD Courier API API Key"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>BD Courier Base URL</Label>
+                        <Input 
+                          value={courier.bdcourier_base_url || "https://app.bdcourier.com/api"} 
+                          onChange={e => setCourier(p => ({ ...p, bdcourier_base_url: e.target.value }))} 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <Button type="submit" className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" disabled={saving === "courier_settings"}>
+                    {saving === "courier_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} কুরিয়ার সেটিংস সেভ করুন
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1254,431 +1262,441 @@ export default function AdminSettings() {
         <TabsContent value="tracking" className="space-y-6 outline-none">
           <Card className="border border-border/80 shadow-premium-lg">
             <CardHeader className="bg-gradient-to-r from-accent/5 to-transparent border-b">
-              <CardTitle className="text-lg flex items-center gap-2 text-primary font-display">🌐 ট্র্যাকিং ও অ্যানালিটিক্স ম্যানেজার (Tracking & Analytics Stack)</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary font-display">🌐 ট্র্যাকিং ও অ্যানালিটিক্স ম্যানেজার</CardTitle>
               <CardDescription>
                 আপনার ওয়েবসাইটের ইউজার অ্যাকশন ট্র্যাক করতে পিক্সেল এবং সার্ভার-সাইড ইন্টিগ্রেশনসমূহ পরিচালনা করুন।
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              
-              {/* Global Settings Segment */}
-              <div className="p-4 rounded-xl border bg-secondary/10 border-border/60 space-y-4">
-                <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">⚙️ গ্লোবাল ট্র্যাকিং কনফিগারেশন</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <div className="space-y-0.5">
-                      <Label className="font-bold text-xs">সব ট্র্যাকিং চালু করুন</Label>
-                      <p className="text-[10px] text-muted-foreground">গ্লোবাল ইভেন্ট ফায়ারিং সুইচ</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.global_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, global_enabled: v }))} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">অ্যাক্টিভ এনভায়রনমেন্ট (Environment)</Label>
-                    <select 
-                      value={tracking.environment || "production"} 
-                      onChange={e => setTracking((p: any) => ({ ...p, environment: e.target.value }))}
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:outline-none"
-                    >
-                      <option value="production">Production (লাইভ ডাটা)</option>
-                      <option value="staging">Staging (টেস্ট সার্ভার)</option>
-                      <option value="development">Development (লোকাল হোস্ট)</option>
-                    </select>
-                  </div>
-                  <div className="p-3 rounded-lg border bg-card flex flex-col justify-center">
-                    <span className="text-[10px] text-muted-foreground block">লাস্ট সিঙ্ক স্ট্যাটাস (Sync Status)</span>
-                    {(() => {
-                      if (!tracking.global_enabled) {
-                        return (
-                          <span className="font-bold text-xs text-red-500 mt-1 flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-red-500" /> ট্র্যাকিং নিষ্ক্রিয় 🔴
-                          </span>
-                        );
-                      }
-                      if (!dbTracking) {
-                        return (
-                          <span className="font-bold text-xs text-red-500 mt-1 flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> কোনো কনফিগারেশন সংরক্ষিত নেই 🔴
-                          </span>
-                        );
-                      }
-                      const isDirty = JSON.stringify(tracking) !== JSON.stringify(dbTracking);
-                      if (isDirty) {
-                        return (
-                          <span className="font-bold text-xs text-yellow-500 mt-1 flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" /> সিঙ্ক প্রয়োজন 🟡
-                          </span>
-                        );
-                      }
-                      const hasAnyConfigured = (
-                        (dbTracking.meta_pixel_enabled && isValidTrackingId('meta', dbTracking.meta_pixel_id)) ||
-                        (dbTracking.gtm_enabled && isValidTrackingId('gtm', dbTracking.gtm_id)) ||
-                        (dbTracking.ga4_enabled && isValidTrackingId('ga4', dbTracking.ga4_id)) ||
-                        (dbTracking.tiktok_enabled && isValidTrackingId('tiktok', dbTracking.tiktok_pixel_id))
-                      );
-                      if (!hasAnyConfigured) {
-                        return (
-                          <span className="font-bold text-xs text-yellow-500 mt-1 flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-yellow-500" /> সেটিংস সিঙ্কড (কোনো ট্র্যাকিং সচল নেই) 🟡
-                          </span>
-                        );
-                      }
-                      return (
-                        <span className="font-bold text-xs text-green-500 mt-1 flex items-center gap-1">
-                          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> সেটিংস সিঙ্কড ও সচল 🟢
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Nested Tabs for Platforms */}
-              <Tabs defaultValue="meta" className="w-full border rounded-xl overflow-hidden">
-                <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-none border-b">
-                  <TabsTrigger value="meta" className="text-xs py-2">Meta (Pixel & CAPI)</TabsTrigger>
-                  <TabsTrigger value="google" className="text-xs py-2">Google (GTM & GA4)</TabsTrigger>
-                  <TabsTrigger value="tiktok" className="text-xs py-2">TikTok Pixel</TabsTrigger>
-                </TabsList>
-
-                {/* Platform: Meta */}
-                <TabsContent value="meta" className="p-4 space-y-4 outline-none">
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-500/5 border-blue-500/10">
-                    <div>
-                      <p className="font-bold text-xs text-blue-600">Meta Pixel ট্র্যাকিং</p>
-                      <p className="text-[10px] text-muted-foreground">ব্রাউজার পিক্সেল কোড লোড ও ফায়ার করুন</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.meta_pixel_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_pixel_enabled: v }))} 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Meta Pixel ID</Label>
-                      <Input 
-                        value={tracking.meta_pixel_id || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, meta_pixel_id: e.target.value }))} 
-                        placeholder="যেমন: 123456789012345"
-                        className="text-xs h-9"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Graph API Version</Label>
-                      <Input 
-                        value={tracking.meta_api_version || "v21.0"} 
-                        onChange={e => setTracking((p: any) => ({ ...p, meta_api_version: e.target.value }))} 
-                        placeholder="যেমন: v21.0"
-                        className="text-xs h-9"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-500/5 border-blue-500/10">
-                    <div>
-                      <p className="font-bold text-xs text-blue-600">Meta Conversions API (CAPI) সচল করুন</p>
-                      <p className="text-[10px] text-muted-foreground">সার্ভার-সাইড ইভেন্ট ট্র্যাকিং এবং উন্নত ম্যাচ রেটিং</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.meta_capi_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_capi_enabled: v }))} 
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">Meta Conversions API Access Token</Label>
-                    <Input 
-                      type="password"
-                      value={tracking.meta_access_token || ""} 
-                      onChange={e => setTracking((p: any) => ({ ...p, meta_access_token: e.target.value }))} 
-                      placeholder="EAA..."
-                      className="text-xs h-9"
-                    />
-                    <p className="text-[9px] text-muted-foreground">এই টোকেনটি সার্ভারে গোপন রাখা হয় এবং ব্রাউজারে কখনো এক্সপোজ হয় না।</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Test Event Code (পরীক্ষামূলক ইভেন্ট কোড)</Label>
-                      <Input 
-                        value={tracking.meta_test_event_code || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, meta_test_event_code: e.target.value }))} 
-                        placeholder="যেমন: TEST12345"
-                        className="text-xs h-9"
-                      />
-                    </div>
+            <CardContent>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveTrackingSettings();
+                }} 
+                className="space-y-6 pt-6"
+              >
+                {/* Global Settings Segment */}
+                <div className="p-4 rounded-xl border bg-secondary/10 border-border/60 space-y-4">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">⚙️ গ্লোবাল ট্র্যাকিং কনফিগারেশন</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                     <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
                       <div className="space-y-0.5">
-                        <Label className="font-bold text-xs">Strict Purchase Mode</Label>
-                        <p className="text-[9px] text-muted-foreground">অর্ডার প্রতি কেবল একবার ট্র্যাকিং</p>
+                        <Label className="font-bold text-xs">সব ট্র্যাকিং চালু করুন</Label>
+                        <p className="text-[10px] text-muted-foreground">গ্লোবাল ইভেন্ট ফায়ারিং সুইচ</p>
                       </div>
                       <Switch 
-                        checked={tracking.meta_strict_purchase_mode} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_strict_purchase_mode: v }))} 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <div className="space-y-0.5">
-                      <Label className="font-bold text-xs">Meta Debug Mode</Label>
-                      <p className="text-[9px] text-muted-foreground">কনসোলে ডিটেইলড লগ প্রদর্শন</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.meta_debug_mode} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_debug_mode: v }))} 
-                    />
-                  </div>
-                </TabsContent>
-
-                {/* Platform: Google */}
-                <TabsContent value="google" className="p-4 space-y-4 outline-none">
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-red-500/5 border-red-500/10">
-                    <div>
-                      <p className="font-bold text-xs text-red-600">Google Tag Manager (GTM)</p>
-                      <p className="text-[10px] text-muted-foreground">GTM কন্টেইনার এবং ডেটালিয়ার সিঙ্ক করুন</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.gtm_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, gtm_enabled: v }))} 
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">GTM Container ID</Label>
-                    <Input 
-                      value={tracking.gtm_id || ""} 
-                      onChange={e => setTracking((p: any) => ({ ...p, gtm_id: e.target.value }))} 
-                      placeholder="যেমন: GTM-XXXXXXX"
-                      className="text-xs h-9"
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-orange-500/5 border-orange-500/10">
-                    <div>
-                      <p className="font-bold text-xs text-orange-600">Google Analytics 4 (GA4)</p>
-                      <p className="text-[10px] text-muted-foreground">GA4 মেজারমেন্ট আইডি এবং ইকমার্স ইভেন্ট</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.ga4_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, ga4_enabled: v }))} 
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">GA4 Measurement ID</Label>
-                    <Input 
-                      value={tracking.ga4_id || ""} 
-                      onChange={e => setTracking((p: any) => ({ ...p, ga4_id: e.target.value }))} 
-                      placeholder="যেমন: G-XXXXXXXXXX"
-                      className="text-xs h-9"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <div className="space-y-0.5">
-                      <Label className="font-bold text-xs">Google Debug Mode</Label>
-                      <p className="text-[9px] text-muted-foreground">GA4 রিয়েলটাইম ভিউতে ডিবাগ মড সক্রিয়</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.google_debug_mode} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, google_debug_mode: v }))} 
-                    />
-                  </div>
-                </TabsContent>
-
-                {/* Platform: TikTok */}
-                <TabsContent value="tiktok" className="p-4 space-y-4 outline-none">
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-black/5 border-black/10">
-                    <div>
-                      <p className="font-bold text-xs text-black">TikTok Pixel ট্র্যাকিং</p>
-                      <p className="text-[10px] text-muted-foreground">টিকটক ব্রাউজার পিক্সেল সচল করুন</p>
-                    </div>
-                    <Switch 
-                      checked={tracking.tiktok_enabled} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_enabled: v }))} 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs">TikTok Pixel ID</Label>
-                      <Input 
-                        value={tracking.tiktok_pixel_id || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, tiktok_pixel_id: e.target.value }))} 
-                        placeholder="যেমন: CXXXXXXXXXXXXXXXXXXX"
-                        className="text-xs h-9"
+                        checked={tracking.global_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, global_enabled: v }))} 
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">TikTok Access Token (ঐচ্ছিক)</Label>
+                      <Label className="text-xs">অ্যাক্টিভ এনভায়রনমেন্ট (Environment)</Label>
+                      <select 
+                        value={tracking.environment || "production"} 
+                        onChange={e => setTracking((p: any) => ({ ...p, environment: e.target.value }))}
+                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:outline-none"
+                      >
+                        <option value="production">Production (লাইভ ডাটা)</option>
+                        <option value="staging">Staging (টেস্ট সার্ভার)</option>
+                        <option value="development">Development (লোকাল হোস্ট)</option>
+                      </select>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-card flex flex-col justify-center">
+                      <span className="text-[10px] text-muted-foreground block">লাস্ট সিঙ্ক স্ট্যাটাস (Sync Status)</span>
+                      {(() => {
+                        if (!tracking.global_enabled) {
+                          return (
+                            <span className="font-bold text-xs text-red-500 mt-1 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-red-500" /> ট্র্যাকিং নিষ্ক্রিয় 🔴
+                            </span>
+                          );
+                        }
+                        if (!dbTracking) {
+                          return (
+                            <span className="font-bold text-xs text-red-500 mt-1 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> কোনো কনফিগারেশন সংরক্ষিত নেই 🔴
+                            </span>
+                          );
+                        }
+                        const isDirty = JSON.stringify(tracking) !== JSON.stringify(dbTracking);
+                        if (isDirty) {
+                          return (
+                            <span className="font-bold text-xs text-yellow-500 mt-1 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" /> সিঙ্ক প্রয়োজন 🟡
+                            </span>
+                          );
+                        }
+                        const hasAnyConfigured = (
+                          (dbTracking.meta_pixel_enabled && isValidTrackingId('meta', dbTracking.meta_pixel_id)) ||
+                          (dbTracking.gtm_enabled && isValidTrackingId('gtm', dbTracking.gtm_id)) ||
+                          (dbTracking.ga4_enabled && isValidTrackingId('ga4', dbTracking.ga4_id)) ||
+                          (dbTracking.tiktok_enabled && isValidTrackingId('tiktok', dbTracking.tiktok_pixel_id))
+                        );
+                        if (!hasAnyConfigured) {
+                          return (
+                            <span className="font-bold text-xs text-yellow-500 mt-1 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-yellow-500" /> সেটিংস সিঙ্কড (কোনো ট্র্যাকিং সচল নেই) 🟡
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="font-bold text-xs text-green-500 mt-1 flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> সেটিংস সিঙ্কড ও সচল 🟢
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nested Tabs for Platforms */}
+                <Tabs defaultValue="meta" className="w-full border rounded-xl overflow-hidden">
+                  <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-none border-b">
+                    <TabsTrigger value="meta" className="text-xs py-2">Meta (Pixel & CAPI)</TabsTrigger>
+                    <TabsTrigger value="google" className="text-xs py-2">Google (GTM & GA4)</TabsTrigger>
+                    <TabsTrigger value="tiktok" className="text-xs py-2">TikTok Pixel</TabsTrigger>
+                  </TabsList>
+
+                  {/* Platform: Meta */}
+                  <TabsContent value="meta" className="p-4 space-y-4 outline-none">
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-500/5 border-blue-500/10">
+                      <div>
+                        <p className="font-bold text-xs text-blue-600">Meta Pixel ট্র্যাকিং</p>
+                        <p className="text-[10px] text-muted-foreground">ব্রাউজার পিক্সেল কোড লোড ও ফায়ার করুন</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.meta_pixel_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_pixel_enabled: v }))} 
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Meta Pixel ID</Label>
+                        <Input 
+                          value={tracking.meta_pixel_id || ""} 
+                          onChange={e => setTracking((p: any) => ({ ...p, meta_pixel_id: e.target.value }))} 
+                          placeholder="যেমন: 123456789012345"
+                          className="text-xs h-9"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Graph API Version</Label>
+                        <Input 
+                          value={tracking.meta_api_version || "v21.0"} 
+                          onChange={e => setTracking((p: any) => ({ ...p, meta_api_version: e.target.value }))} 
+                          placeholder="যেমন: v21.0"
+                          className="text-xs h-9"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-500/5 border-blue-500/10">
+                      <div>
+                        <p className="font-bold text-xs text-blue-600">Meta Conversions API (CAPI) সচল করুন</p>
+                        <p className="text-[10px] text-muted-foreground">সার্ভার-সাইড ইভেন্ট ট্র্যাকিং এবং উন্নত ম্যাচ রেটিং</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.meta_capi_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_capi_enabled: v }))} 
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Meta Conversions API Access Token</Label>
                       <Input 
                         type="password"
-                        value={tracking.tiktok_access_token || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, tiktok_access_token: e.target.value }))} 
-                        placeholder="যেমন: tt_xxxx"
+                        value={tracking.meta_access_token || ""} 
+                        onChange={e => setTracking((p: any) => ({ ...p, meta_access_token: e.target.value }))} 
+                        placeholder="EAA..."
+                        className="text-xs h-9"
+                        autoComplete="off"
+                      />
+                      <p className="text-[9px] text-muted-foreground">এই টোকেনটি সার্ভারে গোপন রাখা হয় এবং ব্রাউজারে কখনো এক্সপোজ হয় না।</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Test Event Code (পরীক্ষামূলক ইভেন্ট কোড)</Label>
+                        <Input 
+                          value={tracking.meta_test_event_code || ""} 
+                          onChange={e => setTracking((p: any) => ({ ...p, meta_test_event_code: e.target.value }))} 
+                          placeholder="যেমন: TEST12345"
+                          className="text-xs h-9"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                        <div className="space-y-0.5">
+                          <Label className="font-bold text-xs">Strict Purchase Mode</Label>
+                          <p className="text-[9px] text-muted-foreground">অর্ডার প্রতি কেবল একবার ট্র্যাকিং</p>
+                        </div>
+                        <Switch 
+                          checked={tracking.meta_strict_purchase_mode} 
+                          onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_strict_purchase_mode: v }))} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="space-y-0.5">
+                        <Label className="font-bold text-xs">Meta Debug Mode</Label>
+                        <p className="text-[9px] text-muted-foreground">কনসোলে ডিটেইলড লগ প্রদর্শন</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.meta_debug_mode} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_debug_mode: v }))} 
+                      />
+                    </div>
+                  </TabsContent>
+
+                  {/* Platform: Google */}
+                  <TabsContent value="google" className="p-4 space-y-4 outline-none">
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-red-500/5 border-red-500/10">
+                      <div>
+                        <p className="font-bold text-xs text-red-600">Google Tag Manager (GTM)</p>
+                        <p className="text-[10px] text-muted-foreground">GTM কন্টেইনার এবং ডেটালিয়ার সিঙ্ক করুন</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.gtm_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, gtm_enabled: v }))} 
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">GTM Container ID</Label>
+                      <Input 
+                        value={tracking.gtm_id || ""} 
+                        onChange={e => setTracking((p: any) => ({ ...p, gtm_id: e.target.value }))} 
+                        placeholder="যেমন: GTM-XXXXXXX"
                         className="text-xs h-9"
                       />
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                    <div className="space-y-0.5">
-                      <Label className="font-bold text-xs">TikTok Debug Mode</Label>
-                      <p className="text-[9px] text-muted-foreground">কনসোলে ইভেন্ট ডিটেইলস প্রিন্ট করুন</p>
+                    <Separator />
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-orange-500/5 border-orange-500/10">
+                      <div>
+                        <p className="font-bold text-xs text-orange-600">Google Analytics 4 (GA4)</p>
+                        <p className="text-[10px] text-muted-foreground">GA4 মেজারমেন্ট আইডি এবং ইকমার্স ইভেন্ট</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.ga4_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, ga4_enabled: v }))} 
+                      />
                     </div>
-                    <Switch 
-                      checked={tracking.tiktok_debug_mode} 
-                      onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_debug_mode: v }))} 
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
 
-              {/* Event Log Console terminal */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">📊 Live Tracking Engine Status</h3>
-                
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-3 rounded-xl border bg-secondary/10 text-center">
-                    <span className="text-[10px] text-muted-foreground block">Browser Events</span>
-                    {(() => {
-                      const isActive = tracking.global_enabled && (
-                        (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) ||
-                        (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) ||
-                        (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) ||
-                        (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id))
-                      );
-                      return (
-                        <span className={`font-bold text-sm block mt-1 ${isActive ? "text-green-500" : "text-red-500"}`}>
-                          {isActive ? "Active 🟢" : "Inactive 🔴"}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <div className="p-3 rounded-xl border bg-secondary/10 text-center">
-                    <span className="text-[10px] text-muted-foreground block">Server-Side CAPI Connection</span>
-                    {(() => {
-                      const isActive = tracking.global_enabled &&
-                        tracking.meta_capi_enabled &&
-                        isValidTrackingId('meta', tracking.meta_pixel_id) &&
-                        tracking.meta_access_token?.trim();
-                      return (
-                        <span className={`font-bold text-sm block mt-1 ${isActive ? "text-blue-500" : "text-red-500"}`}>
-                          {isActive ? "Active (Vercel Node) 🟢" : "Disabled 🔴"}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <div className="p-3 rounded-xl border bg-secondary/10 text-center">
-                    <span className="text-[10px] text-muted-foreground block">Deduplication Matching</span>
-                    {(() => {
-                      const hasPixel = tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id);
-                      const hasCAPI = tracking.meta_capi_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) && tracking.meta_access_token?.trim();
-                      const isVerified = tracking.global_enabled && hasPixel && hasCAPI;
-                      
-                      return (
-                        <span className={`font-bold text-sm block mt-1 ${isVerified ? "text-green-500" : ((hasPixel || hasCAPI) ? "text-yellow-500" : "text-red-500")}`}>
-                          {isVerified 
-                            ? "Verified (100% Match) 🟢" 
-                            : ((hasPixel || hasCAPI) ? "N/A (Single-Channel) 🟡" : "Inactive 🔴")}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">GA4 Measurement ID</Label>
+                      <Input 
+                        value={tracking.ga4_id || ""} 
+                        onChange={e => setTracking((p: any) => ({ ...p, ga4_id: e.target.value }))} 
+                        placeholder="যেমন: G-XXXXXXXXXX"
+                        className="text-xs h-9"
+                      />
+                    </div>
 
-                <div className="p-4 rounded-xl border bg-black text-green-400 font-mono text-[11px] space-y-2 min-h-36 max-h-64 overflow-y-auto">
-                  <div className="text-white font-bold border-b border-green-800 pb-1.5 flex justify-between items-center">
-                    <span>📟 Live Conversions Event Log Terminal</span>
-                     <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-6 text-[10px] bg-green-950/20 text-green-400 border-green-800 hover:bg-green-800 hover:text-white"
-                      disabled={!tracking.global_enabled}
-                      onClick={() => {
-                        const activeEngines = [];
-                        if (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) activeEngines.push("Meta Pixel");
-                        if (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) activeEngines.push("GTM");
-                        if (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) activeEngines.push("GA4");
-                        if (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id)) activeEngines.push("TikTok");
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="space-y-0.5">
+                        <Label className="font-bold text-xs">Google Debug Mode</Label>
+                        <p className="text-[9px] text-muted-foreground">GA4 রিয়েলটাইম ভিউতে ডিবাগ মড সক্রিয়</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.google_debug_mode} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, google_debug_mode: v }))} 
+                      />
+                    </div>
+                  </TabsContent>
 
-                        if (activeEngines.length === 0) {
+                  {/* Platform: TikTok */}
+                  <TabsContent value="tiktok" className="p-4 space-y-4 outline-none">
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-black/5 border-black/10">
+                      <div>
+                        <p className="font-bold text-xs text-black">TikTok Pixel ট্র্যাকিং</p>
+                        <p className="text-[10px] text-muted-foreground">টিকটক ব্রাউজার পিক্সেল সচল করুন</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.tiktok_enabled} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_enabled: v }))} 
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">TikTok Pixel ID</Label>
+                        <Input 
+                          value={tracking.tiktok_pixel_id || ""} 
+                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_pixel_id: e.target.value }))} 
+                          placeholder="যেমন: CXXXXXXXXXXXXXXXXXXX"
+                          className="text-xs h-9"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">TikTok Access Token (ঐচ্ছিক)</Label>
+                        <Input 
+                          type="password"
+                          value={tracking.tiktok_access_token || ""} 
+                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_access_token: e.target.value }))} 
+                          placeholder="যেমন: tt_xxxx"
+                          className="text-xs h-9"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="space-y-0.5">
+                        <Label className="font-bold text-xs">TikTok Debug Mode</Label>
+                        <p className="text-[9px] text-muted-foreground">কনসোলে ইভেন্ট ডিটেইলস প্রিন্ট করুন</p>
+                      </div>
+                      <Switch 
+                        checked={tracking.tiktok_debug_mode} 
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_debug_mode: v }))} 
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                {/* Event Log Console terminal */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">📊 Live Tracking Engine Status</h3>
+                  
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3 rounded-xl border bg-secondary/10 text-center">
+                      <span className="text-[10px] text-muted-foreground block">Browser Events</span>
+                      {(() => {
+                        const isActive = tracking.global_enabled && (
+                          (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) ||
+                          (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) ||
+                          (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) ||
+                          (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id))
+                        );
+                        return (
+                          <span className={`font-bold text-sm block mt-1 ${isActive ? "text-green-500" : "text-red-500"}`}>
+                            {isActive ? "Active 🟢" : "Inactive 🔴"}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div className="p-3 rounded-xl border bg-secondary/10 text-center">
+                      <span className="text-[10px] text-muted-foreground block">Server-Side CAPI Connection</span>
+                      {(() => {
+                        const isActive = tracking.global_enabled &&
+                          tracking.meta_capi_enabled &&
+                          isValidTrackingId('meta', tracking.meta_pixel_id) &&
+                          tracking.meta_access_token?.trim();
+                        return (
+                          <span className={`font-bold text-sm block mt-1 ${isActive ? "text-blue-500" : "text-red-500"}`}>
+                            {isActive ? "Active (Vercel Node) 🟢" : "Disabled 🔴"}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div className="p-3 rounded-xl border bg-secondary/10 text-center">
+                      <span className="text-[10px] text-muted-foreground block">Deduplication Matching</span>
+                      {(() => {
+                        const hasPixel = tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id);
+                        const hasCAPI = tracking.meta_capi_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) && tracking.meta_access_token?.trim();
+                        const isVerified = tracking.global_enabled && hasPixel && hasCAPI;
+                        
+                        return (
+                          <span className={`font-bold text-sm block mt-1 ${isVerified ? "text-green-500" : ((hasPixel || hasCAPI) ? "text-yellow-500" : "text-red-500")}`}>
+                            {isVerified 
+                              ? "Verified (100% Match) 🟢" 
+                              : ((hasPixel || hasCAPI) ? "N/A (Single-Channel) 🟡" : "Inactive 🔴")}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border bg-black text-green-400 font-mono text-[11px] space-y-2 min-h-36 max-h-64 overflow-y-auto">
+                    <div className="text-white font-bold border-b border-green-800 pb-1.5 flex justify-between items-center">
+                      <span>📟 Live Conversions Event Log Terminal</span>
+                       <Button 
+                        type="button"
+                        size="sm" 
+                        variant="outline" 
+                        className="h-6 text-[10px] bg-green-950/20 text-green-400 border-green-800 hover:bg-green-800 hover:text-white"
+                        disabled={!tracking.global_enabled}
+                        onClick={() => {
+                          const activeEngines = [];
+                          if (tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id)) activeEngines.push("Meta Pixel");
+                          if (tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id)) activeEngines.push("GTM");
+                          if (tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id)) activeEngines.push("GA4");
+                          if (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id)) activeEngines.push("TikTok");
+
+                          if (activeEngines.length === 0) {
+                            toast({ 
+                              title: "❌ No Active Engines", 
+                              description: "কোথাও কোনো ভ্যালিড ট্র্যাকিং আইডি কনফিগার ও সচল করা নেই। অনুগ্রহ করে প্রথমে আইডি দিয়ে সেভ করুন।",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+
+                          trackLead({ value: 100, currency: "BDT" });
+                          setLocalLogs(prev => [
+                            `[${new Date().toLocaleTimeString()}] [CLIENT] Test Lead Event fired (Value: 100 BDT, Currency: BDT) on: ${activeEngines.join(", ")}`,
+                            ...prev
+                          ]);
                           toast({ 
-                            title: "❌ No Active Engines", 
-                            description: "কোথাও কোনো ভ্যালিড ট্র্যাকিং আইডি কনফিগার ও সচল করা নেই। অনুগ্রহ করে প্রথমে আইডি দিয়ে সেভ করুন।",
-                            variant: "destructive"
+                            title: "✅ Lead Test Event Dispatched", 
+                            description: `টেস্ট ইভেন্ট সফলভাবে পাঠানো হয়েছে সচল ইঞ্জিনে: ${activeEngines.join(", ")}।` 
                           });
-                          return;
-                        }
-
-                        trackLead({ value: 100, currency: "BDT" });
-                        setLocalLogs(prev => [
-                          `[${new Date().toLocaleTimeString()}] [CLIENT] Test Lead Event fired (Value: 100 BDT, Currency: BDT) on: ${activeEngines.join(", ")}`,
-                          ...prev
-                        ]);
-                        toast({ 
-                          title: "✅ Lead Test Event Dispatched", 
-                          description: `টেস্ট ইভেন্ট সফলভাবে পাঠানো হয়েছে সচল ইঞ্জিনে: ${activeEngines.join(", ")}।` 
-                        });
-                      }}
-                    >
-                      Trigger Test Event
-                    </Button>
+                        }}
+                      >
+                        Trigger Test Event
+                      </Button>
+                    </div>
+                    {tracking.global_enabled ? (
+                      <>
+                        <div className="text-gray-400 border-b border-green-950 pb-1 mb-1 font-semibold">--- Live Session Logs ---</div>
+                        <div>[SYSTEM] Unified tracking engine initialized successfully.</div>
+                        {tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) ? (
+                          <div>[SYSTEM] Meta Pixel loaded: {tracking.meta_pixel_id}</div>
+                        ) : null}
+                        {tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id) ? (
+                          <div>[SYSTEM] Google Tag Manager loaded: {tracking.gtm_id}</div>
+                        ) : null}
+                        {tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id) ? (
+                          <div>[SYSTEM] Google Analytics 4 loaded: {tracking.ga4_id}</div>
+                        ) : null}
+                        {tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id) ? (
+                          <div>[SYSTEM] TikTok Pixel loaded: {tracking.tiktok_pixel_id}</div>
+                        ) : null}
+                        {localLogs.filter(log => !log.includes("initialized successfully")).map((log, idx) => (
+                          <div key={idx} className="text-yellow-300">{log}</div>
+                        ))}
+                        
+                        <div className="text-gray-400 border-b border-green-950 pb-1 mt-3 mb-1 font-semibold">--- Real-Time Backend CAPI Database Logs ---</div>
+                        {capiLogs && capiLogs.length > 0 ? (
+                          capiLogs.map((log: any) => (
+                            <div key={log.id} className="text-blue-300">
+                              [{new Date(log.created_at).toLocaleTimeString()}] {log.details} (ID: {log.order_id?.slice(0, 8)}...)
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-gray-500 italic">No backend Conversions API events logged in database yet. Completing a real order will fire a CAPI Purchase event.</div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-red-400">[WARNING] Global tracking is disabled. Turn on toggle to begin listening.</div>
+                    )}
                   </div>
-                  {tracking.global_enabled ? (
-                    <>
-                      <div className="text-gray-400 border-b border-green-950 pb-1 mb-1 font-semibold">--- Live Session Logs ---</div>
-                      <div>[SYSTEM] Unified tracking engine initialized successfully.</div>
-                      {tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) ? (
-                        <div>[SYSTEM] Meta Pixel loaded: {tracking.meta_pixel_id}</div>
-                      ) : null}
-                      {tracking.gtm_enabled && isValidTrackingId('gtm', tracking.gtm_id) ? (
-                        <div>[SYSTEM] Google Tag Manager loaded: {tracking.gtm_id}</div>
-                      ) : null}
-                      {tracking.ga4_enabled && isValidTrackingId('ga4', tracking.ga4_id) ? (
-                        <div>[SYSTEM] Google Analytics 4 loaded: {tracking.ga4_id}</div>
-                      ) : null}
-                      {tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id) ? (
-                        <div>[SYSTEM] TikTok Pixel loaded: {tracking.tiktok_pixel_id}</div>
-                      ) : null}
-                      {localLogs.filter(log => !log.includes("initialized successfully")).map((log, idx) => (
-                        <div key={idx} className="text-yellow-300">{log}</div>
-                      ))}
-                      
-                      <div className="text-gray-400 border-b border-green-950 pb-1 mt-3 mb-1 font-semibold">--- Real-Time Backend CAPI Database Logs ---</div>
-                      {capiLogs && capiLogs.length > 0 ? (
-                        capiLogs.map((log: any) => (
-                          <div key={log.id} className="text-blue-300">
-                            [{new Date(log.created_at).toLocaleTimeString()}] {log.details} (ID: {log.order_id?.slice(0, 8)}...)
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-gray-500 italic">No backend Conversions API events logged in database yet. Completing a real order will fire a CAPI Purchase event.</div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-red-400">[WARNING] Global tracking is disabled. Turn on toggle to begin listening.</div>
-                  )}
                 </div>
-              </div>
 
-              <div className="pt-2">
-                <Button 
-                  className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
-                  onClick={saveTrackingSettings} 
-                  disabled={saving === "tracking_settings"}
-                >
-                  {saving === "tracking_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ট্র্যাকিং সেটিংস সেভ করুন
-                </Button>
-              </div>
+                <div className="pt-2">
+                  <Button 
+                    type="submit"
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    disabled={saving === "tracking_settings"}
+                  >
+                    {saving === "tracking_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ট্র্যাকিং সেটিংস সেভ করুন
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1695,46 +1713,67 @@ export default function AdminSettings() {
               <CardTitle className="text-base flex items-center gap-2 text-primary">🔒 অ্যাডমিন পাসওয়ার্ড পরিবর্তন</CardTitle>
               <CardDescription>আপনার অ্যাকাউন্ট লগইন পাসওয়ার্ড পরিবর্তন করুন</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>বর্তমান পাসওয়ার্ড</Label>
-                <Input 
-                  type="password" 
-                  value={oldPassword} 
-                  onChange={e => setOldPassword(e.target.value)} 
-                  placeholder="আপনার বর্তমান অ্যাকাউন্ট পাসওয়ার্ডটি দিন" 
-                  className="rounded-xl"
+            <CardContent>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleChangePassword();
+                }} 
+                className="space-y-4"
+              >
+                {/* Hidden username field for password managers / accessibility */}
+                <input 
+                  type="text" 
+                  name="username" 
+                  value={user?.email || ""} 
+                  readOnly 
+                  className="hidden" 
+                  autoComplete="username" 
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>নতুন পাসওয়ার্ড</Label>
-                <Input 
-                  type="password" 
-                  value={newPassword} 
-                  onChange={e => setNewPassword(e.target.value)} 
-                  placeholder="কমপক্ষে ৬ ডিজিটের নতুন পাসওয়ার্ড দিন" 
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>পাসওয়ার্ড নিশ্চিত করুন</Label>
-                <Input 
-                  type="password" 
-                  value={confirmPassword} 
-                  onChange={e => setConfirmPassword(e.target.value)} 
-                  placeholder="নতুন পাসওয়ার্ডটি আবার দিন" 
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="pt-2">
-                <Button 
-                  className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
-                  onClick={handleChangePassword} 
-                  disabled={updatingPassword}
-                >
-                  {updatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} পাসওয়ার্ড আপডেট করুন
-                </Button>
-              </div>
+
+                <div className="space-y-2">
+                  <Label>বর্তমান পাসওয়ার্ড</Label>
+                  <Input 
+                    type="password" 
+                    value={oldPassword} 
+                    onChange={e => setOldPassword(e.target.value)} 
+                    placeholder="আপনার বর্তমান অ্যাকাউন্ট পাসওয়ার্ডটি দিন" 
+                    className="rounded-xl"
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>নতুন পাসওয়ার্ড</Label>
+                  <Input 
+                    type="password" 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)} 
+                    placeholder="কমপক্ষে ৬ ডিজিটের নতুন পাসওয়ার্ড দিন" 
+                    className="rounded-xl"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>পাসওয়ার্ড নিশ্চিত করুন</Label>
+                  <Input 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)} 
+                    placeholder="নতুন পাসওয়ার্ডটি আবার দিন" 
+                    className="rounded-xl"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="pt-2">
+                  <Button 
+                    type="submit"
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    disabled={updatingPassword}
+                  >
+                    {updatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} পাসওয়ার্ড আপডেট করুন
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
