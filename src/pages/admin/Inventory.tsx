@@ -68,6 +68,21 @@ export default function AdminInventory() {
         stock_after: stockAfter,
         note: adjustNote,
       } as any);
+
+      // Low stock notification trigger
+      if (stockAfter <= (adjustProduct.low_stock_alert || 5)) {
+        try {
+          const { sendTelegramNotification } = await import("@/lib/telegram");
+          const message = `⚠️ <b>লো স্টক অ্যালার্ট!</b>\n\n` +
+            `<b>প্রোডাক্ট:</b> ${adjustProduct.name}\n` +
+            `<b>SKU:</b> ${adjustProduct.sku || "N/A"}\n` +
+            `<b>বর্তমান স্টক:</b> ${stockAfter} পিস (সীমা: ${adjustProduct.low_stock_alert || 5} পিস)`;
+          
+          sendTelegramNotification(message, { isLowStock: true });
+        } catch (tgErr) {
+          console.error("Error triggering low stock telegram notification:", tgErr);
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inventory"] });

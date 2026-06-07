@@ -1,0 +1,123 @@
+import { supabase } from "@/integrations/supabase/client";
+
+interface SendTelegramOptions {
+  isTest?: boolean;
+  isNewOrder?: boolean;
+  isStatusUpdate?: boolean;
+  isIncompleteOrder?: boolean;
+  isLowStock?: boolean;
+}
+
+export async function sendTelegramNotification(
+  message: string,
+  options: SendTelegramOptions = {}
+): Promise<{ success: boolean; error?: string }> {
+  
+  // 1. Try production path (Vercel Serverless Function)
+  try {
+    const response = await fetch("/api/telegram", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message,
+        isTest: options.isTest || false,
+        isNewOrder: options.isNewOrder || false,
+        isStatusUpdate: options.isStatusUpdate || false,
+        isIncompleteOrder: options.isIncompleteOrder || false,
+        isLowStock: options.isLowStock || false,
+      }),
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    // If Vite fallback returns index.html, throw to trigger direct dispatch fallback
+    if (contentType.includes("text/html") || !response.ok) {
+      throw new Error("Serverless relay unavailable (returned HTML/error)");
+    }
+
+    const data = await response.json();
+    return { success: true };
+  } catch (err) {
+    console.warn("[Telegram] Serverless relay failed or is unavailable locally. Falling back to direct client-side dispatch...", err);
+    
+    // 2. Local Fallback: Fetch settings and dispatch directly from client browser
+    try {
+      const { data: row, error: dbError } = await supabase
+        .from("store_settings" as any)
+        .select("value")
+        .eq("key", "telegram_settings")
+        .maybeSingle();
+
+      if (dbError) throw dbError;
+      if (!row || !row.value) {
+        return { success: false, error: "Telegram settings not configured in database." };
+      }
+
+      const settings = row.value;
+      const { 
+        bot_token, 
+        chat_id, 
+        enabled, 
+        notify_new_order, 
+        notify_status_change,
+        notify_incomplete_order,
+        notify_low_stock
+      } = settings;
+
+      if (!options.isTest && !enabled) {
+        console.log("[Telegram] Notifications are disabled in settings.");
+        return { success: true };
+      }
+
+      if (options.isNewOrder && !notify_new_order && !options.isTest) {
+        console.log("[Telegram] New order notifications are disabled.");
+        return { success: true };
+      }
+
+      if (options.isStatusUpdate && !notify_status_change && !options.isTest) {
+        console.log("[Telegram] Status update notifications are disabled.");
+        return { success: true };
+      }
+
+      if (options.isIncompleteOrder && !notify_incomplete_order && !options.isTest) {
+        console.log("[Telegram] Incomplete order notifications are disabled.");
+        return { success: true };
+      }
+
+      if (options.isLowStock && !notify_low_stock && !options.isTest) {
+        console.log("[Telegram] Low stock notifications are disabled.");
+        return { success: true };
+      }
+
+      if (!bot_token || !chat_id) {
+        return { success: false, error: "Bot token or Chat ID is missing in settings." };
+      }
+
+      const telegramUrl = `https://api.telegram.org/bot${bot_token}/sendMessage`;
+      const response = await fetch(telegramUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chat_id,
+          text: message,
+          parse_mode: "HTML",
+          disable_web_page_preview: true,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        return { success: false, error: result.description || "Failed to send message via Telegram Bot API." };
+      }
+
+      console.log("[Telegram] Direct client-side message sent successfully!");
+      return { success: true };
+    } catch (fallbackErr: any) {
+      console.error("[Telegram] Local fallback dispatch failed:", fallbackErr);
+      return { success: false, error: fallbackErr.message || "Failed client-side Telegram dispatch" };
+    }
+  }
+}

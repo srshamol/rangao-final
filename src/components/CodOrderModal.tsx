@@ -197,6 +197,39 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
       });
       if (itemsError) throw itemsError;
 
+      // Send Telegram notification to admin
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const itemsList = `• ${product.name} (Qty: ${localQuantity}) - ৳${subtotal}`;
+        
+        let couponInfo = "";
+        if (appliedCoupon) {
+          couponInfo = `<b>কুপন কোড:</b> ${appliedCoupon.code} (ডিসকাউন্ট: ৳${discountAmount})\n`;
+        }
+
+        let noteInfo = "";
+        if (orderNote.trim()) {
+          noteInfo = `<b>নোট:</b> ${orderNote.trim()}\n`;
+        }
+
+        const message = `🛍️ <b>নতুন অর্ডার এসেছে (COD)!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${name.trim()}\n` +
+          `<b>মোবাইল:</b> ${phone.trim()}\n` +
+          `<b>ঠিকানা:</b> ${address.trim()} (${shippingLabel})\n` +
+          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad"}\n` +
+          couponInfo +
+          noteInfo +
+          `\n<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
+          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
+          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
+          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
+
+        sendTelegramNotification(message, { isNewOrder: true });
+      } catch (tgErr) {
+        console.error("Error triggering telegram notification:", tgErr);
+      }
+
       // Update coupon usage count if used
       if (appliedCoupon) {
         await supabase

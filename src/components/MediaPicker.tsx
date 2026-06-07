@@ -34,6 +34,7 @@ export default function MediaPicker({
 
   // Upload state
   const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadStatus, setUploadStatus] = useState<"compressing" | "uploading" | "done" | "">("");
   const [dragOver, setDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,10 +70,19 @@ export default function MediaPicker({
 
   const handleUpload = async (files: FileList | File[]) => {
     if (!files.length) return;
+    const file = files[0];
     setUploading(true);
+
+    const isImage = file.type.startsWith("image/") && file.type !== "image/svg+xml";
     try {
-      const file = files[0];
+      if (isImage) {
+        setUploadStatus("compressing");
+        // Small delay so UI renders before heavy canvas work starts
+        await new Promise(r => setTimeout(r, 50));
+      }
+      setUploadStatus("uploading");
       const uploadedItem = await mediaService.upload(file, type);
+      setUploadStatus("done");
       toast({ title: "✅ আপলোড সফল হয়েছে", description: `${file.name} মিডিয়া লাইব্রেরিতে যোগ হয়েছে।` });
       
       // Select the uploaded item automatically
@@ -83,6 +93,7 @@ export default function MediaPicker({
       toast({ title: "❌ আপলোড ব্যর্থ", description: e.message, variant: "destructive" });
     } finally {
       setUploading(false);
+      setUploadStatus("");
     }
   };
 
@@ -253,11 +264,47 @@ export default function MediaPicker({
                 onChange={(e) => e.target.files && handleUpload(e.target.files)} 
               />
               
-              {uploading ? (
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                  <p className="font-semibold text-sm">সার্ভারে আপলোড হচ্ছে...</p>
-                  <p className="text-xs text-muted-foreground">ফাইল কম্প্রেস ও CDN সিঙ্ক করা হচ্ছে</p>
+            {uploading ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                    {uploadStatus === "compressing" && (
+                      <span className="absolute -top-1 -right-1 text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+                        AI
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    {uploadStatus === "compressing" ? (
+                      <>
+                        <p className="font-bold text-sm text-amber-600">ফাইল অপ্টিমাইজ হচ্ছে...</p>
+                        <p className="text-xs text-muted-foreground mt-1">WebP/AVIF-তে রূপান্তর ও সাইজ কমানো হচ্ছে</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-sm">সার্ভারে আপলোড হচ্ছে...</p>
+                        <p className="text-xs text-muted-foreground mt-1">CDN সিঙ্ক হচ্ছে, অপেক্ষা করুন</p>
+                      </>
+                    )}
+                  </div>
+                  {/* Progress steps */}
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className={`flex items-center gap-1 px-2 py-1 rounded-full border ${
+                      uploadStatus === "compressing" ? "bg-amber-50 border-amber-300 text-amber-700 font-bold" :
+                      uploadStatus === "uploading" || uploadStatus === "done" ? "bg-green-50 border-green-300 text-green-700" : "border-muted"
+                    }`}>
+                      {uploadStatus === "uploading" || uploadStatus === "done" ? "✓" : "○"} অপ্টিমাইজ
+                    </span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className={`flex items-center gap-1 px-2 py-1 rounded-full border ${
+                      uploadStatus === "uploading" ? "bg-primary/10 border-primary/40 text-primary font-bold" :
+                      uploadStatus === "done" ? "bg-green-50 border-green-300 text-green-700" : "border-muted text-muted-foreground"
+                    }`}>
+                      {uploadStatus === "done" ? "✓" : "○"} আপলোড
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">

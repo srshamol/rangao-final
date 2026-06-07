@@ -59,7 +59,27 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
             .insert(payload)
             .select("id")
             .single();
-          if (row) incompleteIdRef.current = (row as any).id;
+          if (row) {
+            incompleteIdRef.current = (row as any).id;
+            
+            // Dispatch Telegram Notification for new incomplete order
+            try {
+              const { sendTelegramNotification } = await import("@/lib/telegram");
+              const itemsList = products
+                .map((p) => `• ${p.name} (Qty: ${p.quantity || 1}) - ৳${p.price * (p.quantity || 1)}`)
+                .join("\n");
+              
+              const message = `⚠️ <b>নতুন ইনকমপ্লিট অর্ডার (কার্ট পরিত্যক্ত)!</b>\n\n` +
+                `<b>কাস্টমার:</b> ${name?.trim() || "N/A"}\n` +
+                `<b>মোবাইল:</b> ${phone?.trim() || "N/A"}\n` +
+                `<b>পেজ/সোর্স:</b> ${pageSource}\n\n` +
+                `<b>পণ্যসমূহ:</b>\n${itemsList}`;
+                
+              sendTelegramNotification(message, { isIncompleteOrder: true });
+            } catch (tgErr) {
+              console.error("Error triggering incomplete order notification:", tgErr);
+            }
+          }
         }
         savedRef.current = true;
       } catch (err) {

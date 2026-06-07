@@ -92,6 +92,29 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
       const { error: itemsErr } = await supabase.from("order_items").insert(items);
       if (itemsErr) throw itemsErr;
 
+      // Send Telegram notification to admin
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const itemsList = products
+          .map((p) => `• ${p.name} (Qty: ${p.quantity || 1}) - ৳${p.price * (p.quantity || 1)}`)
+          .join("\n");
+
+        const message = `🔄 <b>অর্ডার কনভার্ট করা হয়েছে (ইনকমপ্লিট থেকে)!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${newOrder.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${name.trim()}\n` +
+          `<b>মোবাইল:</b> ${phone.trim()}\n` +
+          `<b>ঠিকানা:</b> ${address.trim()} (${shippingLabel})\n` +
+          `<b>পেমেন্ট মেথড:</b> ক্যাশ অন ডেলিভারি\n\n` +
+          `<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
+          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
+          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
+          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
+
+        sendTelegramNotification(message, { isNewOrder: true });
+      } catch (tgErr) {
+        console.error("Error triggering telegram notification:", tgErr);
+      }
+
       // Mark incomplete as converted
       await supabase
         .from("incomplete_orders" as any)

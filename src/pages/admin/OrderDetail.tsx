@@ -27,13 +27,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const statusLabels: Record<string, string> = {
-  pending: "পেন্ডিং", confirmed: "কনফার্মড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
+  pending: "পেন্ডিং", confirmed: "কনফার্মড", hold: "হোল্ড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
   shipped: "শিপড", delivered: "ডেলিভারড", cancelled: "ক্যান্সেলড", courier_cancelled: "কুরিয়ার ক্যান্সেলড",
 };
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   confirmed: "bg-blue-100 text-blue-800",
+  hold: "bg-orange-100 text-orange-800",
   in_review: "bg-amber-100 text-amber-800",
   processing: "bg-purple-100 text-purple-800",
   shipped: "bg-indigo-100 text-indigo-800",
@@ -85,12 +86,15 @@ export default function OrderDetail() {
   });
 
   const updateStatus = useMutation({
-    mutationFn: async (status: string) => {
+    mutationFn: async ({ status, note }: { status: string; note?: string }) => {
       const { error } = await supabase.from("orders").update({ order_status: status as any }).eq("id", id);
       if (error) throw error;
+      if (note) {
+        await supabase.from("order_notes" as any).insert({ order_id: id, note, staff_name: "Admin" });
+      }
       await supabase.from("order_history").insert({
         order_id: id!, action: "status_changed",
-        details: `স্ট্যাটাস পরিবর্তন: ${statusLabels[status] || status}`, staff_name: "Admin"
+        details: `স্ট্যাটাস পরিবর্তন: ${statusLabels[status] || status}${note ? ` — ${note}` : ""}`, staff_name: "Admin"
       });
 
       // Send Facebook CAPI event for confirmed/delivered orders
@@ -104,12 +108,36 @@ export default function OrderDetail() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["admin-order", id] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
       toast({ title: "স্ট্যাটাস আপডেট হয়েছে" });
+
+      // Send Telegram notification
+      if (order) {
+        (async () => {
+          try {
+            const { sendTelegramNotification } = await import("@/lib/telegram");
+            const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
+            const newStatusBangla = statusLabels[variables.status] || variables.status;
+            const message = `🔔 <b>অর্ডারের স্ট্যাটাস পরিবর্তন!</b>\n\n` +
+              `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+              `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
+              `<b>মোবাইল:</b> ${order.customer_phone}\n` +
+              `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+              `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+
+            sendTelegramNotification(message, { isStatusUpdate: true });
+          } catch (tgErr) {
+            console.error("Error triggering telegram status update notification:", tgErr);
+          }
+        })();
+      }
     },
+    onError: (err: any) => {
+      toast({ title: "❌ স্ট্যাটাস আপডেট ব্যর্থ", description: err.message, variant: "destructive" });
+    }
   });
 
   const deleteOrder = async () => {
@@ -163,6 +191,25 @@ export default function OrderDetail() {
         order_id: order.id, action: "courier_booked",
         details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${consignment.tracking_code}`, staff_name: "Admin"
       });
+
+      // Send Telegram notification
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
+        const newStatusBangla = statusLabels["processing"] || "প্রসেসিং";
+        const message = `🚚 <b>অর্ডার কুরিয়ারে পাঠানো হয়েছে (Steadfast)!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
+          `<b>মোবাইল:</b> ${order.customer_phone}\n` +
+          `<b>ট্র্যাকিং কোড:</b> <code>${consignment.tracking_code}</code>\n` +
+          `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+          `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+
+        sendTelegramNotification(message, { isStatusUpdate: true });
+      } catch (tgErr) {
+        console.error("Error triggering telegram courier booking notification:", tgErr);
+      }
+
       toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${consignment.tracking_code}` });
       qc.invalidateQueries({ queryKey: ["admin-order", id] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -179,9 +226,9 @@ export default function OrderDetail() {
 
   const s = order.order_status;
   const address = typeof order.shipping_address === "object" ? order.shipping_address : {};
-  const canConfirm = s === "pending";
+  const canConfirm = s === "pending" || s === "hold";
   const canCancel = s !== "delivered" && s !== "cancelled" && s !== "courier_cancelled";
-  const canDelete = s === "cancelled" || s === "courier_cancelled" || s === "pending";
+  const canDelete = s === "cancelled" || s === "courier_cancelled" || s === "pending" || s === "hold";
   const canSendCourier = s === "confirmed" || s === "in_review";
 
   return (
@@ -209,13 +256,13 @@ export default function OrderDetail() {
         <CardContent className="pt-4 pb-3">
           <div className="flex gap-2 flex-wrap items-center">
             {canConfirm && (
-              <Button size="sm" className="gap-1.5" onClick={() => updateStatus.mutate("confirmed")}
+              <Button size="sm" className="gap-1.5" onClick={() => updateStatus.mutate({ status: "confirmed" })}
                 disabled={updateStatus.isPending}>
                 <CheckCircle className="h-4 w-4" /> কনফার্ম
               </Button>
             )}
             {canCancel && (
-              <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => updateStatus.mutate("cancelled")}
+              <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => updateStatus.mutate({ status: "cancelled" })}
                 disabled={updateStatus.isPending}>
                 <XCircle className="h-4 w-4" /> ক্যান্সেল
               </Button>
@@ -272,16 +319,16 @@ export default function OrderDetail() {
           <OrderOverviewTab order={order} items={items || []} />
         </TabsContent>
         <TabsContent value="confirmation">
-          <OrderConfirmationTab order={order} onStatusChange={(s) => updateStatus.mutate(s)} loading={updateStatus.isPending} />
+          <OrderConfirmationTab order={order} onStatusChange={(params) => updateStatus.mutate(params)} loading={updateStatus.isPending} />
         </TabsContent>
         <TabsContent value="courier">
-          <OrderCourierTab order={order} onStatusChange={(s) => updateStatus.mutate(s)} />
+          <OrderCourierTab order={order} onStatusChange={(s) => updateStatus.mutate({ status: s })} />
         </TabsContent>
         <TabsContent value="tracking">
           <OrderTrackingTab order={order} />
         </TabsContent>
         <TabsContent value="delivery">
-          <OrderDeliveryTab order={order} onStatusChange={(s) => updateStatus.mutate(s)} />
+          <OrderDeliveryTab order={order} onStatusChange={(s) => updateStatus.mutate({ status: s })} />
         </TabsContent>
         <TabsContent value="history">
           <OrderHistoryTab orderId={order.id} />

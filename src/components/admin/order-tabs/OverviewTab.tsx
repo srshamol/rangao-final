@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Phone, MessageCircle, Mail, Pencil, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Props { order: any; items: any[]; }
 
@@ -15,6 +15,15 @@ export default function OrderOverviewTab({ order, items }: Props) {
   const address = typeof order.shipping_address === "object" ? order.shipping_address : {};
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const { data: notes } = useQuery({
+    queryKey: ["order-notes", order.id],
+    queryFn: async () => {
+      const { data } = await supabase.from("order_notes" as any)
+        .select("*").eq("order_id", order.id).order("created_at", { ascending: false });
+      return data || [];
+    },
+  });
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     customer_name: order.customer_name,
@@ -183,6 +192,36 @@ export default function OrderOverviewTab({ order, items }: Props) {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Notes Section */}
+      {(order.notes || (notes && notes.length > 0)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {order.notes && (
+            <Card className="border-amber-200 bg-amber-50/10">
+              <CardHeader className="py-3.5"><CardTitle className="text-sm font-bold text-amber-800">✍️ কাস্টমার নোট (Customer Note)</CardTitle></CardHeader>
+              <CardContent className="text-sm text-amber-950 font-medium leading-relaxed">
+                {order.notes}
+              </CardContent>
+            </Card>
+          )}
+
+          {notes && notes.length > 0 && (
+            <Card className="border-blue-200 bg-blue-50/5">
+              <CardHeader className="py-3.5"><CardTitle className="text-sm font-bold text-blue-800">📝 স্টাফ নোটসমূহ (Staff Notes)</CardTitle></CardHeader>
+              <CardContent className="space-y-2.5 max-h-60 overflow-y-auto">
+                {notes.map((n: any) => (
+                  <div key={n.id} className="bg-background border rounded-xl p-3 text-xs shadow-sm space-y-1">
+                    <p className="font-semibold text-foreground leading-relaxed">{n.note}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {n.staff_name} • {new Date(n.created_at).toLocaleString("bn-BD")}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

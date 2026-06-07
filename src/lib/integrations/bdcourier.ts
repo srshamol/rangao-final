@@ -135,12 +135,43 @@ export async function bdcourierRequest(endpoint: string, options: { method?: str
   }
 }
 
-// BDCourier API methods
+// BDCourier API methods with localStorage cache to avoid redundant API queries
+const COURIER_CHECK_CACHE_PREFIX = "bdcourier_check_cache_";
+
 export async function checkCourier(phone: string) {
-  return bdcourierRequest("/courier-check", {
+  if (!phone) return null;
+  const cacheKey = `${COURIER_CHECK_CACHE_PREFIX}${phone}`;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Cache valid for 7 days
+      if (Date.now() - parsed.timestamp < 7 * 24 * 60 * 60 * 1000) {
+        console.log(`[BDCourier] Serving cached courier profile stats for: ${phone}`);
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.warn("[BDCourier] Failed to read from cache:", e);
+  }
+
+  const response = await bdcourierRequest("/courier-check", {
     method: "POST",
     body: { phone },
   });
+
+  if (response && response.success !== false) {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        timestamp: Date.now(),
+        data: response
+      }));
+    } catch (e) {
+      console.warn("[BDCourier] Failed to write to cache:", e);
+    }
+  }
+
+  return response;
 }
 
 export async function checkDeliveryCharge(params: {

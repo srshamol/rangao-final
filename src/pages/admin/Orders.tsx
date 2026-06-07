@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Search, Eye, Truck, Loader2, Phone, MessageCircle, CheckCircle, ShoppingCart, Clock, PackageCheck, Ban, Package,
-  ChevronDown, ChevronUp, Zap, RefreshCw, FileSearch, Download, Rocket, Pencil, Trash2, XCircle, RotateCcw, MapPin
+  ChevronDown, ChevronUp, Zap, RefreshCw, FileSearch, Download, Rocket, Pencil, Trash2, XCircle, RotateCcw, MapPin, Pause
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import OrderConfirmModal from "@/components/admin/OrderConfirmModal";
@@ -23,13 +23,14 @@ import CourierResultCards from "@/components/admin/CourierResultCards";
 import { checkCourier } from "@/lib/integrations/bdcourier";
 
 const statusLabels: Record<string, string> = {
-  pending: "পেন্ডিং", confirmed: "কনফার্মড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
+  pending: "পেন্ডিং", confirmed: "কনফার্মড", hold: "হোল্ড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
   shipped: "শিপড", delivered: "ডেলিভারড", cancelled: "ক্যান্সেলড", courier_cancelled: "কুরিয়ার ক্যান্সেলড",
 };
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   confirmed: "bg-blue-100 text-blue-800",
+  hold: "bg-orange-100 text-orange-800",
   in_review: "bg-amber-100 text-amber-800",
   processing: "bg-purple-100 text-purple-800",
   shipped: "bg-indigo-100 text-indigo-800",
@@ -41,6 +42,7 @@ const statusColors: Record<string, string> = {
 const statusDotColors: Record<string, string> = {
   pending: "bg-red-500",
   confirmed: "bg-blue-500",
+  hold: "bg-orange-600",
   in_review: "bg-amber-500",
   processing: "bg-purple-500",
   shipped: "bg-indigo-700",
@@ -53,6 +55,7 @@ const statusIcons: Record<string, React.ReactNode> = {
   all: <ShoppingCart className="h-3.5 w-3.5" />,
   pending: <Clock className="h-3.5 w-3.5" />,
   confirmed: <CheckCircle className="h-3.5 w-3.5" />,
+  hold: <Pause className="h-3.5 w-3.5" />,
   in_review: <FileSearch className="h-3.5 w-3.5" />,
   processing: <Package className="h-3.5 w-3.5" />,
   shipped: <Truck className="h-3.5 w-3.5" />,
@@ -166,6 +169,24 @@ export default function AdminOrders() {
         order_id: order.id, action: "courier_booked",
         details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${consignment.tracking_code}`, staff_name: "Admin"
       });
+
+      // Send Telegram notification
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
+        const newStatusBangla = statusLabels["processing"] || "প্রসেসিং";
+        const message = `🚚 <b>অর্ডার কুরিয়ারে পাঠানো হয়েছে (Steadfast)!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
+          `<b>মোবাইল:</b> ${order.customer_phone}\n` +
+          `<b>ট্র্যাকিং কোড:</b> <code>${consignment.tracking_code}</code>\n` +
+          `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+          `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+
+        sendTelegramNotification(message, { isStatusUpdate: true });
+      } catch (tgErr) {
+        console.error("Error triggering telegram courier booking notification:", tgErr);
+      }
 
       toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${consignment.tracking_code}` });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -343,18 +364,44 @@ export default function AdminOrders() {
         details: `স্ট্যাটাস পরিবর্তন: ${status}${note ? ` — ${note}` : ""}`, staff_name: "Admin"
       });
     },
-    onSuccess: () => {
+    onSuccess: (resData, variables) => {
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
       toast({ title: "স্ট্যাটাস আপডেট হয়েছে" });
+
+      // Send Telegram notification
+      const orderObj = data?.orders?.find((o: any) => o.id === variables.orderId);
+      if (orderObj) {
+        (async () => {
+          try {
+            const { sendTelegramNotification } = await import("@/lib/telegram");
+            const oldStatusBangla = statusLabels[orderObj.order_status] || orderObj.order_status;
+            const newStatusBangla = statusLabels[variables.status] || variables.status;
+            const message = `🔔 <b>অর্ডারের স্ট্যাটাস পরিবর্তন!</b>\n\n` +
+              `<b>অর্ডার নং:</b> #${orderObj.order_number}\n` +
+              `<b>গ্রাহকের নাম:</b> ${orderObj.customer_name}\n` +
+              `<b>মোবাইল:</b> ${orderObj.customer_phone}\n` +
+              `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+              `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+
+            sendTelegramNotification(message, { isStatusUpdate: true });
+          } catch (tgErr) {
+            console.error("Error sending status change telegram notification:", tgErr);
+          }
+        })();
+      }
+
       setConfirmOrder(null);
     },
+    onError: (err: any) => {
+      toast({ title: "❌ স্ট্যাটাস আপডেট ব্যর্থ", description: err.message, variant: "destructive" });
+    }
   });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-orders", search, statusFilter, page],
     queryFn: async () => {
-      let q = supabase.from("orders").select("*, order_items(product_name, quantity, product_id)", { count: "exact" })
+      let q = supabase.from("orders").select("*, order_items(product_name, quantity, product_id), order_notes(note, staff_name, created_at)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
       if (search) q = q.or(`order_number.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`);
@@ -429,7 +476,7 @@ export default function AdminOrders() {
           { key: "all", label: "সব", count: allOrders?.length || 0 },
           { key: "pending", label: "পেন্ডিং", count: statusCounts.pending || 0 },
           { key: "confirmed", label: "কনফার্মড", count: statusCounts.confirmed || 0 },
-          
+          { key: "hold", label: "হোল্ড", count: statusCounts.hold || 0 },
           { key: "processing", label: "প্রসেসিং", count: statusCounts.processing || 0 },
           { key: "shipped", label: "শিপড", count: statusCounts.shipped || 0 },
           { key: "delivered", label: "ডেলিভারড", count: statusCounts.delivered || 0 },
@@ -506,7 +553,25 @@ export default function AdminOrders() {
                             </TableCell>
                             <TableCell>
                               <span className="font-mono text-xs font-medium">{order.order_number}</span>
-                              <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString("bn-BD")}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(order.created_at).toLocaleDateString("bn-BD")}{" "}
+                                {new Date(order.created_at).toLocaleTimeString("bn-BD", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              </p>
+                              {order.notes && (
+                                <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200/50 rounded-lg px-2 py-0.5 mt-1 max-w-[180px] truncate" title={order.notes}>
+                                  ✍️ {order.notes}
+                                </div>
+                              )}
+                              {(() => {
+                                const latestStaffNote = order.order_notes && order.order_notes.length > 0
+                                  ? [...order.order_notes].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+                                  : null;
+                                return latestStaffNote ? (
+                                  <div className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200/50 rounded-lg px-2 py-0.5 mt-1 max-w-[180px] truncate" title={latestStaffNote.note}>
+                                    📝 {latestStaffNote.note}
+                                  </div>
+                                ) : null;
+                              })()}
                             </TableCell>
                             <TableCell className="font-medium">{order.customer_name}</TableCell>
                             <TableCell>
@@ -573,6 +638,26 @@ export default function AdminOrders() {
                               <div className="flex items-center gap-0.5 flex-wrap">
                                 {/* Status-specific primary actions */}
                                 {order.order_status === "pending" && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-primary"
+                                      onClick={() => setConfirmOrder(order)} title="কনফার্ম">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => navigate(`/admin/orders/${order.id}`)} title="এডিট">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteTarget(order)} title="ডিলিট">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {order.order_status === "hold" && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-primary"
                                       onClick={() => setConfirmOrder(order)} title="কনফার্ম">
@@ -728,13 +813,7 @@ export default function AdminOrders() {
         loading={updateStatusMutation.isPending}
         onConfirm={(note) => updateStatusMutation.mutate({ orderId: confirmOrder.id, status: "confirmed", note })}
         onCancel={(note) => updateStatusMutation.mutate({ orderId: confirmOrder.id, status: "cancelled", note })}
-        onHold={(note) => {
-          if (note) {
-            supabase.from("order_notes").insert({ order_id: confirmOrder.id, note: `অন হোল্ড: ${note}`, staff_name: "Admin" });
-          }
-          toast({ title: "অন হোল্ড নোট সেভ হয়েছে" });
-          setConfirmOrder(null);
-        }}
+        onHold={(note) => updateStatusMutation.mutate({ orderId: confirmOrder.id, status: "hold", note })}
       />
 
       {/* Delete Confirmation Dialog */}

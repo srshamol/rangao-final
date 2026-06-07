@@ -157,7 +157,7 @@ export default function CustomerLogin() {
                   ) : (
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   )}
-                  <Input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="ইমেইল অথবা মোবাইল নম্বর" className="rounded-xl pl-10" />
+                  <Input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="ইমেইল অথবা মোবাইল নম্বর" className="rounded-xl pl-10" autoComplete="username" />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -167,7 +167,7 @@ export default function CustomerLogin() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="rounded-xl pl-10" />
+                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="rounded-xl pl-10" autoComplete="current-password" />
                 </div>
               </div>
               <Button type="submit" disabled={loading} className="w-full rounded-xl py-5 font-bold">

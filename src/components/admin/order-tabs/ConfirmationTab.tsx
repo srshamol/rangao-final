@@ -8,13 +8,18 @@ import { CheckCircle, XCircle, Pause } from "lucide-react";
 
 interface Props {
   order: any;
-  onStatusChange: (status: string) => void;
+  onStatusChange: (params: { status: string; note?: string }) => void;
   loading?: boolean;
 }
 
 export default function OrderConfirmationTab({ order, onStatusChange, loading }: Props) {
   const [note, setNote] = useState("");
   const { toast } = useToast();
+
+  const handleStatusUpdate = (status: string) => {
+    onStatusChange({ status, note: note.trim() || undefined });
+    setNote("");
+  };
 
   const saveNote = async () => {
     if (!note.trim()) return;
@@ -31,13 +36,13 @@ export default function OrderConfirmationTab({ order, onStatusChange, loading }:
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-3 flex-wrap">
-            <Button className="gap-1.5" onClick={() => onStatusChange("confirmed")} disabled={loading}>
+            <Button className="gap-1.5" onClick={() => handleStatusUpdate("confirmed")} disabled={loading}>
               <CheckCircle className="h-4 w-4" /> অর্ডার কনফার্ম করুন
             </Button>
-            <Button variant="destructive" className="gap-1.5" onClick={() => onStatusChange("cancelled")} disabled={loading}>
+            <Button variant="destructive" className="gap-1.5" onClick={() => handleStatusUpdate("cancelled")} disabled={loading}>
               <XCircle className="h-4 w-4" /> ক্যান্সেল করুন
             </Button>
-            <Button variant="outline" className="gap-1.5" onClick={saveNote} disabled={loading}>
+            <Button variant="outline" className="gap-1.5" onClick={() => handleStatusUpdate("hold")} disabled={loading}>
               <Pause className="h-4 w-4" /> অন হোল্ড
             </Button>
           </div>

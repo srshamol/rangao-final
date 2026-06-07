@@ -72,16 +72,19 @@ class MediaService {
 
         if (createError) {
           const msg = createError.message || "";
-          // If the bucket already exists, or client lacks direct DDL insertion privileges (since they already ran the SQL setup in dashboard), we can safely ignore
           if (
             msg.toLowerCase().includes("already exists") || 
             msg.toLowerCase().includes("duplicate") ||
-            msg.toLowerCase().includes("conflict") ||
+            msg.toLowerCase().includes("conflict")
+          ) {
+            // Safe to ignore if bucket already exists
+          } else if (
             msg.toLowerCase().includes("row-level security") ||
             msg.toLowerCase().includes("violates") ||
-            msg.toLowerCase().includes("security policy")
+            msg.toLowerCase().includes("security policy") ||
+            msg.toLowerCase().includes("permission")
           ) {
-            // Handled or already configured via dashboard SQL
+            errors.push(`${bucketName}: permission denied (please create this public bucket manually in your Supabase Storage dashboard or run SQL)`);
           } else {
             errors.push(`${bucketName}: ${msg}`);
           }
@@ -96,19 +99,38 @@ class MediaService {
   }
 
   /**
-   * Validates a file before upload
+   * Validates a file before upload.
+   * For images: only the POST-compression size matters.
+   * Call validateFile(file, type, isCompressed=true) after compression.
    */
-  validateFile(file: File, type: "images" | "videos" | "documents" | "uploads"): { valid: boolean; error?: string } {
+  validateFile(
+    file: File,
+    type: "images" | "videos" | "documents" | "uploads",
+    isCompressed = false
+  ): { valid: boolean; error?: string } {
     const maxSizes = {
-      images: 5 * 1024 * 1024, // 5MB
-      videos: 50 * 1024 * 1024, // 50MB
+      images: 5 * 1024 * 1024,   // 5MB — applied to compressed output
+      videos: 50 * 1024 * 1024,  // 50MB
       documents: 15 * 1024 * 1024, // 15MB
-      uploads: 20 * 1024 * 1024 // 20MB
+      uploads: 20 * 1024 * 1024  // 20MB
     };
 
-    if (file.size > maxSizes[type]) {
+    // Pre-compression sanity limit: block files that are unreasonably large (>50MB for images)
+    // so the browser doesn't OOM trying to load them into canvas
+    const sanityLimits = {
+      images: 50 * 1024 * 1024,  // 50MB raw input limit
+      videos: 50 * 1024 * 1024,
+      documents: 15 * 1024 * 1024,
+      uploads: 20 * 1024 * 1024
+    };
+
+    const limit = isCompressed ? maxSizes[type] : sanityLimits[type];
+    if (file.size > limit) {
+      if (!isCompressed && type === "images") {
+        return { valid: false, error: `ফাইল অনেক বড়। সর্বোচ্চ গ্রহণযোগ্য সাইজ: 50MB (স্বয়ংক্রিয় কম্প্রেশন সত্ত্বেও)` };
+      }
       const sizeText = type === "images" ? "5MB" : type === "videos" ? "50MB" : "15MB";
-      return { valid: false, error: `ফাইল অনেক বড়। সর্বোচ্চ সাইজ: ${sizeText}` };
+      return { valid: false, error: `কম্প্রেশনের পরেও ফাইল অনেক বড়। সর্বোচ্চ সাইজ: ${sizeText}` };
     }
 
     if (type === "images" && !file.type.startsWith("image/")) {
@@ -130,10 +152,10 @@ class MediaService {
     bucket: "images" | "videos" | "documents" | "uploads" = "images",
     customPath?: string
   ): Promise<MediaItem> {
-    // 1. Validate
-    const validation = this.validateFile(file, bucket);
-    if (!validation.valid) {
-      throw new Error(validation.error);
+    // 1. Pre-validation (sanity check only — large images will be compressed first)
+    const preValidation = this.validateFile(file, bucket, false);
+    if (!preValidation.valid) {
+      throw new Error(preValidation.error);
     }
 
     // 2. Ensure Buckets Exist
@@ -143,21 +165,44 @@ class MediaService {
       console.warn("Bucket pre-checks failed, will try upload or Base64 fallback", e);
     }
 
-    // 3. Determine if we should perform conversion
+    // 3. Compress images BEFORE final validation — this is the key fix
+    // Large images (e.g. 10MB DSLR photos) get reduced to well under 5MB
     const isConvertibleImage = file.type.startsWith("image/") && file.type !== "image/svg+xml";
-    
-    // Auto compress image before upload to save space and speed up loads
     let activeFile: File = file;
+
     if (isConvertibleImage) {
       try {
-        const compressedBlob = await compressImage(file, 1600, 0.85);
+        // First pass: compress to 1600px wide at 85% quality
+        let compressedBlob = await compressImage(file, 1600, 0.85);
+
+        // If still above 4.5MB, retry with more aggressive settings
+        if (compressedBlob.size > 4.5 * 1024 * 1024) {
+          console.warn(`[Compression] First pass (${(compressedBlob.size / 1024 / 1024).toFixed(1)}MB) still too large, retrying at 1200px / 72% quality`);
+          compressedBlob = await compressImage(file, 1200, 0.72);
+        }
+
+        // If still above 4.5MB, one final attempt
+        if (compressedBlob.size > 4.5 * 1024 * 1024) {
+          console.warn(`[Compression] Second pass (${(compressedBlob.size / 1024 / 1024).toFixed(1)}MB) still large, final attempt at 1024px / 60% quality`);
+          compressedBlob = await compressImage(file, 1024, 0.60);
+        }
+
         activeFile = new File([compressedBlob], file.name, { type: compressedBlob.type || file.type });
-        console.log(`[Compression] Compressed ${file.name} from ${(file.size / 1024).toFixed(1)}KB to ${(activeFile.size / 1024).toFixed(1)}KB`);
+        console.log(
+          `[Compression] ${file.name}: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(activeFile.size / 1024 / 1024).toFixed(2)}MB ` +
+          `(${Math.round((1 - activeFile.size / file.size) * 100)}% reduction)`
+        );
       } catch (err) {
         console.warn("Image pre-compression failed, using original file", err);
       }
+
+      // 4. Post-compression validation — check the compressed file size
+      const postValidation = this.validateFile(activeFile, bucket, true);
+      if (!postValidation.valid) {
+        throw new Error(postValidation.error);
+      }
     }
-    
+
     const ext = activeFile.name.split(".").pop() || "";
     const cleanName = activeFile.name.replace(/[^a-zA-Z0-9.]/g, "_");
     const baseNameWithoutExt = activeFile.name.substring(0, activeFile.name.lastIndexOf('.')) || activeFile.name;
@@ -269,17 +314,23 @@ class MediaService {
       }
 
       if (uploadError) {
-        console.warn(`Supabase Storage upload failed, activating Base64 resilient failover. Error: ${uploadError.message || uploadError}`);
-        try {
-          fileUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(activeFile);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = error => reject(error);
-          });
-          isFallbackBase64 = true;
-        } catch (base64Err: any) {
-          throw new Error(`Upload and Base64 conversion failed: ${uploadError.message || uploadError}`);
+        // Only use Base64 fallback for images — videos/docs cannot be embedded as base64
+        if (!isConvertibleImage || bucket === "images") {
+          console.warn(`Supabase Storage upload failed, activating Base64 resilient failover. Error: ${uploadError.message || uploadError}`);
+          try {
+            fileUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(activeFile);
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = error => reject(error);
+            });
+            isFallbackBase64 = true;
+          } catch (base64Err: any) {
+            throw new Error(`Upload and Base64 conversion failed: ${uploadError.message || uploadError}`);
+          }
+        } else {
+          // For videos and other non-image media, base64 is not viable — surface the error
+          throw new Error(`ভিডিও আপলোড ব্যর্থ হয়েছে: ${uploadError.message || uploadError}`);
         }
       } else {
         const { data: urlData } = this.client.storage.from(actualBucket).getPublicUrl(path);

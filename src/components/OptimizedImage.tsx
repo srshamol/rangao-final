@@ -105,9 +105,14 @@ export default function OptimizedImage({
       const link = document.createElement("link");
       link.rel = "preload";
       link.as = "image";
-      if (sources.webp) {
+      if (sources.avif) {
+        link.setAttribute("imagesrcset", sources.avif);
+        link.setAttribute("imagesizes", sizes as string);
+        link.setAttribute("type", "image/avif");
+      } else if (sources.webp) {
         link.setAttribute("imagesrcset", sources.webp);
         link.setAttribute("imagesizes", sizes as string);
+        link.setAttribute("type", "image/webp");
       } else {
         link.href = sources.fallback;
       }

@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowRight, ArrowDown } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import heroBgFallback from "@/assets/hero-banner.jpg";
-import heroVideoFallback from "@/assets/hero-video.mp4";
+
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useAutoStatistics } from "@/hooks/useHomepageData";
 import OptimizedImage from "@/components/OptimizedImage";
@@ -188,7 +187,7 @@ const HeroBanner = () => {
       cta_primary_url: hero?.cta_link || "#products",
       cta_secondary_text: "যোগাযোগ করুন",
       cta_secondary_url: "#contact",
-      banner_image_url: hero?.banner_image_url || heroBgFallback,
+      banner_image_url: hero?.banner_image_url || "",
       banner_video_url: hero?.banner_video_url || "",
       overlay_opacity: 0.85,
       text_align: "left" as const,
@@ -196,7 +195,7 @@ const HeroBanner = () => {
   }, [slides, currentSlideIndex, hero]);
 
   const [isDesktop, setIsDesktop] = useState(false);
-  const heroBg = activeSlide.banner_image_url || heroBgFallback;
+  const heroBg = activeSlide.banner_image_url || "";
 
   useEffect(() => {
     // Only enable particle canvas on desktop — saves main-thread work on mobile (LCP device)
@@ -226,12 +225,12 @@ const HeroBanner = () => {
             loop 
             muted 
             playsInline 
-            poster={heroBg} 
+            poster={heroBg || undefined} 
             className="h-full w-full object-cover"
           >
-            <source src={activeSlide.banner_video_url} type="video/mp4" />
+            <source src={activeSlide.banner_video_url} type={activeSlide.banner_video_url.endsWith('.webm') ? 'video/webm' : activeSlide.banner_video_url.endsWith('.mov') ? 'video/quicktime' : 'video/mp4'} />
           </video>
-        ) : (
+        ) : heroBg ? (
           <OptimizedImage 
             key={heroBg}
             src={heroBg} 
@@ -242,7 +241,7 @@ const HeroBanner = () => {
             // No fade-in on LCP image — opacity transition delays Lighthouse LCP measurement
             className="h-full w-full object-cover" 
           />
-        )}
+        ) : null}
       </motion.div>
 
 

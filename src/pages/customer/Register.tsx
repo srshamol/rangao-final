@@ -67,28 +67,28 @@ export default function CustomerRegister() {
                 <label className="text-sm font-medium">আপনার নাম</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="আপনার পূর্ণ নাম" className="rounded-xl pl-10" />
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="আপনার পূর্ণ নাম" className="rounded-xl pl-10" autoComplete="name" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">ফোন নম্বর</label>
                 <div className="relative">
                   <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="rounded-xl pl-10" />
+                  <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="rounded-xl pl-10" autoComplete="tel" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">ইমেইল</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@gmail.com" className="rounded-xl pl-10" />
+                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@gmail.com" className="rounded-xl pl-10" autoComplete="email" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">পাসওয়ার্ড</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="কমপক্ষে ৬ অক্ষর" className="rounded-xl pl-10" />
+                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="কমপক্ষে ৬ অক্ষর" className="rounded-xl pl-10" autoComplete="new-password" />
                 </div>
               </div>
               <Button type="submit" disabled={loading} className="w-full rounded-xl py-5 font-bold">

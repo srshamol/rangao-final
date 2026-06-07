@@ -210,6 +210,29 @@ const Checkout = () => {
       // 3. Mark incomplete as converted
       await markConverted(order.id);
 
+      // Send Telegram notification to admin
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const itemsList = items
+          .map((i) => `• ${i.product.name} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
+          .join("\n");
+
+        const message = `🛍️ <b>নতুন অর্ডার এসেছে!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${form.name}\n` +
+          `<b>মোবাইল:</b> ${form.phone}\n` +
+          `<b>ঠিকানা:</b> ${form.address}, ${form.thana || ""}, ${form.district || ""}, ${form.division}\n` +
+          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad"}\n\n` +
+          `<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
+          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
+          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
+          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
+
+        sendTelegramNotification(message, { isNewOrder: true });
+      } catch (tgErr) {
+        console.error("Error triggering telegram notification:", tgErr);
+      }
+
       // 4. Success — pass full order data to success page
       clearCart();
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");

@@ -849,14 +849,26 @@ export default function HomepageManager() {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="text-sm font-medium">ব্যানার ভিডিও URL (MP4)</label>
+                      <label className="text-sm font-medium">ব্যানার ভিডিও URL (MP4 / WebM)</label>
                       <div className="flex gap-2 mt-1">
                         <Input 
                           value={slide.banner_video_url} 
                           onChange={(e) => updateSlide(i, { banner_video_url: e.target.value })} 
-                          placeholder="https://..." 
+                          placeholder="https://... (MP4 বা WebM লিংক)" 
                           className="flex-1"
                         />
+                        {slide.banner_video_url && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => updateSlide(i, { banner_video_url: "" })}
+                            title="ভিডিও মুছুন"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <div className="relative">
                           <Button 
                             type="button" 
@@ -865,19 +877,34 @@ export default function HomepageManager() {
                             disabled={uploadingIndex === `${i}-video`}
                           >
                             {uploadingIndex === `${i}-video` ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <><Loader2 className="h-4 w-4 animate-spin mr-1" /> আপলোড হচ্ছে...</>
                             ) : (
                               "ভিডিও আপলোড"
                             )}
                           </Button>
                           <input 
                             type="file" 
-                            accept="video/mp4,video/webm,video/ogg,video/*" 
+                            accept="video/mp4,video/webm,video/quicktime" 
                             onChange={(e) => handleSlideUpload(e, i, "video")}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
                       </div>
+                      {slide.banner_video_url && (
+                        <div className="mt-2 rounded-xl overflow-hidden border border-border/40">
+                          <video
+                            key={slide.banner_video_url}
+                            src={slide.banner_video_url}
+                            controls
+                            muted
+                            className="w-full max-h-40 object-cover bg-black"
+                          />
+                          <p className="px-3 py-1.5 text-[10px] text-muted-foreground font-mono truncate bg-muted/40">
+                            {slide.banner_video_url}
+                          </p>
+                        </div>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">ভিডিও সেট থাকলে ইমেজের বদলে ভিডিও ব্যাকগ্রাউন্ড দেখাবে।</p>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="text-sm font-medium">ওভারলে অপাসিটি: {Math.round((slide.overlay_opacity || 0.85) * 100)}%</label>
