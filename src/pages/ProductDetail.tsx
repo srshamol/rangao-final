@@ -888,10 +888,10 @@ const ProductDetail = () => {
                         whileInView={{ opacity: 1 }}
                         viewport={{ once: true }}
                         transition={{ delay: i * 0.05 }}
-                        className={`flex justify-between px-6 py-4 text-sm transition-colors hover:bg-secondary/30 ${i % 2 === 0 ? "" : "bg-secondary/10"}`}
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 text-sm transition-colors hover:bg-secondary/30 ${i % 2 === 0 ? "" : "bg-secondary/10"}`}
                       >
                         <span className="font-bengali font-medium text-muted-foreground">{spec.label}</span>
-                        <span className="font-display font-bold text-foreground">{spec.value}</span>
+                        <span className="font-display font-bold text-foreground text-left sm:text-right">{spec.value}</span>
                       </motion.div>
                     ))}
                   </div>
