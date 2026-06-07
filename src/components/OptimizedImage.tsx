@@ -92,43 +92,31 @@ export default function OptimizedImage({
     return { avif: null, webp: null, fallback: src, isOptimized: false };
   }, [src, metadata]);
 
-  // Preload priority images for LCP optimization
-  useEffect(() => {
-    let linkElement: HTMLLinkElement | null = null;
-
-    if (loading === "eager" && fetchPriority === "high" && sources.isOptimized && typeof window !== "undefined") {
-      const srcToSearch = sources.avif || sources.webp || sources.fallback;
-      const selector = srcToSearch === sources.fallback
-        ? `link[rel="preload"][href="${sources.fallback}"]`
-        : `link[rel="preload"][imagesrcset*="${srcToSearch.split(" ")[0]}"]`;
-
-      const existingPreload = document.querySelector(selector);
-      if (!existingPreload) {
-        const link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "image";
-        
-        if (sources.avif) {
-          link.setAttribute("imagesrcset", sources.avif);
-          link.setAttribute("imagesizes", sizes);
-        } else if (sources.webp) {
-          link.setAttribute("imagesrcset", sources.webp);
-          link.setAttribute("imagesizes", sizes);
-        } else {
-          link.href = sources.fallback!;
-        }
-        
-        document.head.appendChild(link);
-        linkElement = link;
+  // Inject preload hint synchronously (not in useEffect) so it fires before paint
+  // This is safe to call during render because it only adds a link tag to head once
+  if (
+    typeof window !== "undefined" &&
+    loading === "eager" &&
+    fetchPriority === "high" &&
+    sources.fallback
+  ) {
+    const existingPreload = document.querySelector(`link[rel="preload"][href="${sources.fallback}"], link[rel="preload"][imagesrcset]`);
+    if (!existingPreload) {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      if (sources.webp) {
+        link.setAttribute("imagesrcset", sources.webp);
+        link.setAttribute("imagesizes", sizes as string);
+      } else {
+        link.href = sources.fallback;
       }
+      link.setAttribute("fetchpriority", "high");
+      document.head.prepend(link); // prepend = highest priority
     }
+  }
 
-    return () => {
-      if (linkElement && linkElement.parentNode) {
-        linkElement.parentNode.removeChild(linkElement);
-      }
-    };
-  }, [loading, fetchPriority, sources, sizes]);
+
 
   // Handle visual properties to prevent layout shifts (CLS)
   const computedStyle = useMemo(() => {

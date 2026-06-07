@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, ArrowDown, MessageCircle } from "lucide-react";
+import { Sparkles, ArrowRight, ArrowDown } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import heroBgFallback from "@/assets/hero-banner.jpg";
 import heroVideoFallback from "@/assets/hero-video.mp4";
@@ -195,20 +195,17 @@ const HeroBanner = () => {
     };
   }, [slides, currentSlideIndex, hero]);
 
+  const [isDesktop, setIsDesktop] = useState(false);
   const heroBg = activeSlide.banner_image_url || heroBgFallback;
-  const [mediaReady, setMediaReady] = useState(false);
 
   useEffect(() => {
-    setMediaReady(false);
-  }, [currentSlideIndex]);
-
-  useEffect(() => {
-    if (heroBg) {
-      const img = new Image();
-      img.src = heroBg;
-      img.onload = () => setMediaReady(true);
-    }
-  }, [heroBg]);
+    // Only enable particle canvas on desktop — saves main-thread work on mobile (LCP device)
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
@@ -220,7 +217,7 @@ const HeroBanner = () => {
 
   return (
     <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden bg-background" style={{ position: "relative" }}>
-      {/* Background Media with parallax */}
+      {/* Background Media */}
       <motion.div style={{ y: videoY }} className="absolute inset-0 h-[125%] w-full -top-[5%]">
         {activeSlide.banner_video_url ? (
           <video 
@@ -230,8 +227,7 @@ const HeroBanner = () => {
             muted 
             playsInline 
             poster={heroBg} 
-            onLoadedData={() => setMediaReady(true)}
-            className={`h-full w-full object-cover transition-opacity duration-1000 ${mediaReady ? 'opacity-100' : 'opacity-0'}`}
+            className="h-full w-full object-cover"
           >
             <source src={activeSlide.banner_video_url} type="video/mp4" />
           </video>
@@ -239,22 +235,17 @@ const HeroBanner = () => {
           <OptimizedImage 
             key={heroBg}
             src={heroBg} 
-            onLoad={() => setMediaReady(true)}
             alt="Rangao premium Islamic home decor" 
             loading="eager"
             fetchPriority="high"
             sizes="100vw"
-            className="h-full w-full object-cover animate-fade-in duration-700" 
+            // No fade-in on LCP image — opacity transition delays Lighthouse LCP measurement
+            className="h-full w-full object-cover" 
           />
         )}
       </motion.div>
 
-      {/* Premium Skeleton/Placeholder */}
-      {!mediaReady && (
-        <div className="absolute inset-0 bg-[#07130f] animate-pulse z-0 flex items-center justify-center">
-          <div className="h-full w-full bg-gradient-to-tr from-[#07130f] via-[#112a20] to-[#07130f]" />
-        </div>
-      )}
+
 
       {/* Multi-layer gradient overlay */}
       <motion.div style={{ opacity: overlayOpacity }} className="absolute inset-0">
@@ -267,8 +258,8 @@ const HeroBanner = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--primary)/0.5)_100%)]" />
       </motion.div>
 
-      {/* Particle canvas */}
-      <ParticleCanvas />
+      {/* Particle canvas — desktop only to avoid mobile main-thread blocking */}
+      {isDesktop && <ParticleCanvas />}
 
       {/* Floating decorative shapes with parallax */}
       <motion.div
