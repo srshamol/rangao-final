@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
+import PageSkeleton from "@/components/PageSkeleton";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -81,11 +82,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const LoadingPlaceholder = () => (
-  <div className="flex min-h-[50vh] w-full items-center justify-center gap-3">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
+import CookieConsent from "@/components/CookieConsent";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -96,11 +93,12 @@ const App = () => (
           <Sonner />
           <SettingsSync />
           <StorageInitializer />
+          <CookieConsent />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <TrackingProvider />
             <CartSidebar />
-            <Suspense fallback={<LoadingPlaceholder />}>
+            <Suspense fallback={<PageSkeleton />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/product/:id" element={<ProductDetail />} />

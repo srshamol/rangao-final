@@ -21,6 +21,7 @@ import DecorGallery from "@/components/DecorGallery";
 import { useEffect } from "react";
 import AppLoader from "@/components/AppLoader";
 import SEO from "@/components/SEO";
+import QueryErrorBoundary from "@/components/QueryErrorBoundary";
 import { useStoreSettings, DEFAULT_SECTION_ORDER } from "@/hooks/useStoreSettings";
 
 const Index = () => {
@@ -251,9 +252,11 @@ const Index = () => {
         image={settings?.homepageSEO?.og_image}
       />
       <main>
-        {sectionOrder.map((section) =>
-          renderSection(section.id, section.config)
-        )}
+        <QueryErrorBoundary>
+          {sectionOrder.map((section) =>
+            renderSection(section.id, section.config)
+          )}
+        </QueryErrorBoundary>
       </main>
       <Footer />
       <FloatingWhatsApp />

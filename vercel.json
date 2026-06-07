@@ -1,6 +1,53 @@
+/*
+  Security Headers Explanation:
+  - Strict-Transport-Security: Enforces HTTPS for one year, including subdomains and preloading.
+  - X-Frame-Options: Set to DENY to prevent clickjacking by blocking site embedding in iframes.
+  - X-Content-Type-Options: Set to nosniff to prevent browsers from interpreting files as a different MIME type.
+  - Referrer-Policy: Protects user privacy by only sending the origin when cross-origin.
+  - Permissions-Policy: Restricts access to sensitive browser features (camera, mic, geolocation, payment).
+  - X-XSS-Protection: Set to block to stop pages from loading when an XSS attack is detected.
+  - Content-Security-Policy (CSP): Restricts resource loading to self and trusted external resources (Google Tag Manager, Facebook Pixel, Google Fonts, Supabase, Cloudflare R2).
+*/
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=()"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.r2.dev https://www.facebook.com https://www.google-analytics.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [
@@ -11,31 +58,20 @@
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/(.*)\\.(js|css)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        },
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
         {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "geolocation=(), microphone=(), camera=()"
+          "key": "Cache-Control",
+          "value": "no-store"
         }
       ]
     }
@@ -52,6 +88,12 @@
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/ping",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

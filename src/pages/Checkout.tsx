@@ -11,10 +11,12 @@ import { Trash2, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, Loade
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { trackInitiateCheckout, trackAddPaymentInfo } from "@/lib/tracking";
+import { analytics } from "@/services/analytics";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
 import { useCustomer } from "@/context/CustomerContext";
 import { checkOrderAllowed, getClientIP } from "@/lib/orderControl";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import SEO from "@/components/SEO";
 
 const divisions = [
   "ঢাকা", "চট্টগ্রাম", "রাজশাহী", "খুলনা", "বরিশাল", "সিলেট", "রংপুর", "ময়মনসিংহ",
@@ -75,10 +77,7 @@ const Checkout = () => {
 
   useEffect(() => {
     if (items.length > 0) {
-      trackInitiateCheckout(
-        items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-        total
-      );
+      analytics.beginCheckout(items, total);
     }
   }, []);
 
@@ -266,6 +265,7 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <SEO title="কার্ট ও চেকআউট" description="আপনার কার্ট রিভিউ করুন এবং নিরাপদভাবে ক্যাশ অন ডেলিভারিতে অর্ডার সম্পন্ন করুন।" noIndex={true} />
       <main className="py-8 md:py-12">
         <div className="container">
           <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">

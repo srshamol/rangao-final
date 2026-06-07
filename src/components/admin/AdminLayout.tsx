@@ -1,10 +1,12 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AdminSidebar from "./AdminSidebar";
+import SEO from "@/components/SEO";
 
 export default function AdminLayout() {
   return (
     <SidebarProvider>
+      <SEO title="অ্যাডমিন প্যানেল" description="রাঙাও অ্যাডমিন প্যানেল" noIndex={true} />
       <div className="min-h-screen flex w-full bg-secondary/50 overflow-x-hidden">
         <AdminSidebar />
         <main className="flex-1 min-w-0 overflow-auto">

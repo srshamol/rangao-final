@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Heart, Trash2, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
+import { analytics } from "@/services/analytics";
 
 export default function CustomerWishlist() {
   const { user } = useCustomer();
@@ -78,7 +79,9 @@ export default function CustomerWishlist() {
                         <p className="mt-1 font-display text-base font-extrabold">৳{Number(price).toLocaleString()}</p>
                         <div className="mt-2 flex gap-2">
                           <Button size="sm" className="rounded-lg text-xs gap-1" onClick={() => {
-                            addToCart({ id: product.id, name: product.name, price, images: product.images || [], category: (product.category || "home-decor") as any, rating: product.rating || 0, reviewCount: product.review_count || 0, shortDescription: "", fullDescription: product.description || "", features: [], categoryLabel: product.category || "", specs: [], stock: product.stock_quantity || 0, featured: false });
+                            const pData = { id: product.id, name: product.name, price, images: product.images || [], category: (product.category || "home-decor") as any, rating: product.rating || 0, reviewCount: product.review_count || 0, shortDescription: "", fullDescription: product.description || "", features: [], categoryLabel: product.category || "", specs: [], stock: product.stock_quantity || 0, featured: false };
+                            addToCart(pData);
+                            analytics.addToCart(pData, 1);
                             toast.success("কার্টে যোগ হয়েছে");
                           }}>
                             <ShoppingCart className="h-3 w-3" /> কার্টে

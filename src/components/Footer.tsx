@@ -1,4 +1,5 @@
 import { Phone, Mail, Facebook, Instagram, MapPin, ArrowUpRight, ArrowUp, Banknote, Truck, ShieldCheck, Youtube, Music, Send, PhoneCall, Globe, Users, Linkedin, Play, Twitter, ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -149,13 +150,17 @@ const Footer = () => {
                 { label: "হোম", href: "/" },
                 { label: "সমস্ত প্রোডাক্ট", href: "/products" },
                 { label: "ব্লগ/টিপস", href: "/blog" },
-                { label: "যোগাযোগ", href: "#contact" },
               ].map((item) => (
-                <a key={item.label} href={item.href} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
+                <Link key={item.label} to={item.href} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
                   {item.label}
                   <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                </a>
+                </Link>
               ))}
+              {/* Anchor link stays as <a> since it targets same-page section */}
+              <a href="#contact" className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
+                যোগাযোগ
+                <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+              </a>
             </div>
           </div>
 
@@ -170,10 +175,10 @@ const Footer = () => {
             </button>
             <div className={`space-y-3.5 md:block ${catsExpanded ? "block" : "hidden"}`}>
               {parentCategories.map((cat) => (
-                <a key={cat.id} href={`/category/${cat.slug}`} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
+                <Link key={cat.id} to={`/category/${cat.slug}`} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
                   {cat.name}
                   <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                </a>
+                </Link>
               ))}
               {parentCategories.length === 0 && (
                 <p className="text-xs text-primary-foreground/30">কোনো ক্যাটাগরি নেই</p>

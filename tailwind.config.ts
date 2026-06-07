@@ -3,6 +3,59 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  // Safelist: classes built dynamically in JS (ternary/object maps) that Tailwind's
+  // static scanner cannot detect. Without this they get purged in production builds.
+  safelist: [
+    // ── Order/payment status badge colours (used as object-map lookups) ──────────
+    "bg-yellow-100", "text-yellow-800", "bg-yellow-50",
+    "bg-blue-100",   "text-blue-800",   "bg-blue-50",
+    "bg-amber-100",  "text-amber-800",  "bg-amber-50",
+    "bg-green-100",  "text-green-800",  "bg-green-50",
+    "bg-red-100",    "text-red-800",    "bg-red-50",
+    "bg-purple-100", "text-purple-800",
+    "bg-indigo-100", "text-indigo-800",
+    "bg-slate-100",  "text-slate-800",
+    // ── Dot/badge bg colours ──────────────────────────────────────────────────────
+    "bg-green-500", "bg-red-500", "bg-yellow-500", "bg-amber-500", "bg-blue-500",
+    // ── Icon / text colours (dynamic conditional bindings) ────────────────────────
+    "text-green-500", "text-green-600", "text-green-700",
+    "text-red-500",   "text-red-600",   "text-red-700",
+    "text-blue-500",  "text-blue-600",  "text-blue-700",
+    "text-amber-500", "text-amber-600", "text-amber-700", "text-amber-800",
+    "text-yellow-500","text-yellow-700",
+    "text-emerald-600",
+    "text-purple-600",
+    "text-indigo-600",
+    "text-orange-600",
+    "text-teal-500",
+    "text-cyan-600",
+    "text-rose-600",
+    // ── Progress bar / stat card gradient pairs (passed as JS array items) ────────
+    "from-amber-500",   "to-orange-500",
+    "from-blue-500",    "to-cyan-500",
+    "from-emerald-500", "to-teal-500",
+    "from-violet-500",  "to-purple-600",
+    "from-indigo-500",  "to-blue-600",
+    "from-red-500",     "to-rose-600",
+    "from-purple-500",  "to-pink-500",
+    "from-orange-500",  "to-red-400",
+    "from-teal-500",    "to-cyan-600",
+    "from-amber-400",   "to-orange-500",
+    "from-blue-400",    "to-indigo-500",
+    "from-slate-400",   "to-slate-500",
+    "from-amber-700",   "to-amber-800",
+    // ── bg-gradient-to-br combos for stat card icon backgrounds ──────────────────
+    "bg-amber-500/10", "bg-blue-500/10", "bg-orange-500/10",
+    "bg-purple-500/10","bg-indigo-500/10","bg-red-500/10",
+    // ── Inventory log quantity change colour ──────────────────────────────────────
+    "text-green-600", "text-red-500",
+    // ── Misc semantic colours used in admin settings / diagnostics ────────────────
+    "text-yellow-500", "bg-yellow-500",
+    "border-yellow-300","text-yellow-700",
+    "border-green-300", "text-green-700",
+    "border-red-500",  "text-red-600", "bg-red-500/5", "border-red-500/10",
+    "animate-pulse",
+  ],
   prefix: "",
   theme: {
     container: {

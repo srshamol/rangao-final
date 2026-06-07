@@ -2,7 +2,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { trackPurchase } from "@/lib/tracking";
+import { analytics } from "@/services/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle, Home, ShoppingBag, MapPin, Phone, User, CreditCard, Truck, Package, Clock, Search } from "lucide-react";
@@ -167,10 +167,14 @@ const OrderSuccess = () => {
   const location = useLocation();
   const order = location.state as OrderState | null;
 
-  const purchaseTracked = useRef(false);
   useEffect(() => {
-    if (order && !purchaseTracked.current) {
-      purchaseTracked.current = true;
+    if (order) {
+      const sessionKey = `purchase_tracked_${order.orderNumber}`;
+      if (sessionStorage.getItem(sessionKey)) {
+        console.log("[Purchase Tracking] Already tracked in this session:", order.orderNumber);
+        return;
+      }
+      sessionStorage.setItem(sessionKey, "true");
 
       const checkAndTrack = async () => {
         try {
@@ -203,17 +207,16 @@ const OrderSuccess = () => {
 
           // Map items properly
           const mappedItems = order.items.map((i) => ({
-            id: i.name,
             name: i.name,
-            price: i.unitPrice,
+            unitPrice: i.unitPrice,
             quantity: i.quantity
           }));
 
-          trackPurchase(
-            order.orderNumber,
-            mappedItems,
-            order.total
-          );
+          analytics.purchase({
+            orderNumber: order.orderNumber,
+            total: order.total,
+            items: mappedItems
+          });
 
           // Trigger Conversions API (Server-side tracking) immediately on checkout completion
           if (order.id) {
@@ -226,17 +229,16 @@ const OrderSuccess = () => {
         } catch (e) {
           console.error("Error checking strict purchase mode:", e);
           const mappedItems = order.items.map((i) => ({
-            id: i.name,
             name: i.name,
-            price: i.unitPrice,
+            unitPrice: i.unitPrice,
             quantity: i.quantity
           }));
 
-          trackPurchase(
-            order.orderNumber,
-            mappedItems,
-            order.total
-          );
+          analytics.purchase({
+            orderNumber: order.orderNumber,
+            total: order.total,
+            items: mappedItems
+          });
 
           if (order.id) {
             supabase.functions.invoke("fb-capi", {

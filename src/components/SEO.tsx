@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { useMeta } from "@/hooks/useMeta";
 
 interface SEOProps {
   title?: string;
@@ -11,7 +12,16 @@ interface SEOProps {
   type?: "website" | "product" | "article" | "store";
   schema?: Record<string, any> | Record<string, any>[];
   noIndex?: boolean;
+  price?: string;
+  availability?: "in_stock" | "out_of_stock";
+  /** Pagination: URL of the previous page (rel="prev") */
+  prevUrl?: string;
+  /** Pagination: URL of the next page (rel="next") */
+  nextUrl?: string;
 }
+
+/** Canonical domain — always www, always https */
+const CANONICAL_BASE = "https://www.rangao.bd";
 
 export default function SEO({
   title,
@@ -22,6 +32,10 @@ export default function SEO({
   type = "website",
   schema,
   noIndex = false,
+  price,
+  availability = "in_stock",
+  prevUrl,
+  nextUrl,
 }: SEOProps) {
   const { pathname } = useLocation();
   const { data: settings } = useStoreSettings();
@@ -32,10 +46,25 @@ export default function SEO({
   const siteName = seo?.site_title || store?.name || "Rangao - রাঙাও";
   const defaultDesc = seo?.site_description || store?.tagline || "প্রিমিয়াম ইসলামিক ও ওয়াল ডেকোর স্টোর।";
   
-  const baseDomain = store?.website_url || (typeof window !== "undefined" ? window.location.origin : "https://www.rangao.bd");
-  const currentUrl = canonical || `${baseDomain}${pathname}`;
+  // Always use www canonical — never window.location.origin (avoids http/non-www canonicals)
+  const baseDomain = CANONICAL_BASE;
 
-  // Formulate the Page Title using format
+  // Build canonical: if explicitly provided use that, else strip query strings for product/category pages
+  const buildCanonical = () => {
+    if (canonical) {
+      // If caller provides a relative path, make it absolute with www
+      return canonical.startsWith("http") ? canonical : `${baseDomain}${canonical}`;
+    }
+    // Product pages: /product/:id — strip all query strings
+    if (pathname.startsWith("/product/") || pathname.startsWith("/products/") || pathname.startsWith("/category/")) {
+      return `${baseDomain}${pathname}`;
+    }
+    // All other pages: preserve the pathname only (no query strings)
+    return `${baseDomain}${pathname}`;
+  };
+  const currentUrl = buildCanonical();
+
+  // Formulate the Page Title
   const format = seo?.title_format || "{title} | {siteName}";
   const finalTitle = title 
     ? format.replace("{title}", title).replace("{siteName}", siteName)
@@ -43,61 +72,29 @@ export default function SEO({
 
   const finalDesc = description || defaultDesc;
   const finalKeywords = keywords || seo?.default_keywords || "ইসলামিক ডেকোর, ক্যালিগ্রাফি";
-  const finalImage = image || store?.logo_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+  
+  // Use default branded OG image if none provided
+  const finalImage = image || store?.logo_url || "/brand/rangao-og-default.jpg";
 
-  // Determine Robots indexing rule
-  let robotsContent = "index, follow";
-  if (noIndex || seo?.robots_index === false) {
-    const follow = seo?.robots_follow !== false ? "follow" : "nofollow";
-    robotsContent = `noindex, ${follow}`;
-  }
+  // Use the useMeta hook for DOM metadata modifications
+  useMeta({
+    title: finalTitle,
+    description: finalDesc,
+    image: finalImage,
+    url: currentUrl,
+    type: type === "product" ? "product" : "website",
+    noindex: noIndex || seo?.robots_index === false,
+    product: type === "product" ? {
+      price: price || "0",
+      currency: "BDT",
+      availability: availability
+    } : undefined
+  });
 
+  // Inject / update rel="canonical", rel="prev", rel="next" link tags
   useEffect(() => {
-    // 1. Update Title
-    document.title = finalTitle;
-
-    // Helper to get or create a meta tag
-    const updateOrCreateMeta = (name: string, value: string, isProperty = false) => {
-      const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
-      let meta = document.head.querySelector(selector);
-      if (!meta) {
-        meta = document.createElement("meta");
-        if (isProperty) {
-          meta.setAttribute("property", name);
-        } else {
-          meta.setAttribute("name", name);
-        }
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute("content", value);
-    };
-
-    // 2. Standard Meta Tags
-    updateOrCreateMeta("description", finalDesc);
-    updateOrCreateMeta("keywords", finalKeywords);
-    updateOrCreateMeta("robots", robotsContent);
-
-    // 3. Open Graph Tags
-    updateOrCreateMeta("og:title", finalTitle, true);
-    updateOrCreateMeta("og:description", finalDesc, true);
-    updateOrCreateMeta("og:url", currentUrl, true);
-    updateOrCreateMeta("og:image", finalImage, true);
-    updateOrCreateMeta("og:type", type === "product" ? "product" : type === "article" ? "article" : "website", true);
-    updateOrCreateMeta("og:site_name", siteName, true);
-
-    // 4. Twitter Card Tags
-    updateOrCreateMeta("twitter:card", "summary_large_image");
-    updateOrCreateMeta("twitter:title", finalTitle);
-    updateOrCreateMeta("twitter:description", finalDesc);
-    updateOrCreateMeta("twitter:image", finalImage);
-
-    // 5. Verification Tag
-    if (seo?.google_search_console_id) {
-      updateOrCreateMeta("google-site-verification", seo.google_search_console_id);
-    }
-
-    // 6. Canonical Link Tag
-    let canonicalLink = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+    // Canonical
+    let canonicalLink = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canonicalLink) {
       canonicalLink = document.createElement("link");
       canonicalLink.setAttribute("rel", "canonical");
@@ -105,8 +102,63 @@ export default function SEO({
     }
     canonicalLink.setAttribute("href", currentUrl);
 
-    // 7. Inject Structured Data (JSON-LD Schemas)
-    // Clear out any old elements safely
+    // rel="prev"
+    let prevLink = document.head.querySelector<HTMLLinkElement>('link[rel="prev"]');
+    if (prevUrl) {
+      if (!prevLink) {
+        prevLink = document.createElement("link");
+        prevLink.setAttribute("rel", "prev");
+        document.head.appendChild(prevLink);
+      }
+      prevLink.setAttribute("href", prevUrl.startsWith("http") ? prevUrl : `${baseDomain}${prevUrl}`);
+    } else if (prevLink) {
+      prevLink.remove();
+    }
+
+    // rel="next"
+    let nextLink = document.head.querySelector<HTMLLinkElement>('link[rel="next"]');
+    if (nextUrl) {
+      if (!nextLink) {
+        nextLink = document.createElement("link");
+        nextLink.setAttribute("rel", "next");
+        document.head.appendChild(nextLink);
+      }
+      nextLink.setAttribute("href", nextUrl.startsWith("http") ? nextUrl : `${baseDomain}${nextUrl}`);
+    } else if (nextLink) {
+      nextLink.remove();
+    }
+
+    return () => {
+      // Clean up prev/next on unmount
+      document.head.querySelector('link[rel="prev"]')?.remove();
+      document.head.querySelector('link[rel="next"]')?.remove();
+    };
+  }, [currentUrl, prevUrl, nextUrl, baseDomain]);
+
+
+  // Keep the JSON-LD Structured Data Injection in useEffect
+  useEffect(() => {
+    // 1. Set keywords meta tag
+    let keywordsMeta = document.head.querySelector('meta[name="keywords"]');
+    if (!keywordsMeta) {
+      keywordsMeta = document.createElement("meta");
+      keywordsMeta.setAttribute("name", "keywords");
+      document.head.appendChild(keywordsMeta);
+    }
+    keywordsMeta.setAttribute("content", finalKeywords);
+
+    // 2. Set search console verification if configured
+    if (seo?.google_search_console_id) {
+      let gVerify = document.head.querySelector('meta[name="google-site-verification"]');
+      if (!gVerify) {
+        gVerify = document.createElement("meta");
+        gVerify.setAttribute("name", "google-site-verification");
+        document.head.appendChild(gVerify);
+      }
+      gVerify.setAttribute("content", seo.google_search_console_id);
+    }
+
+    // 3. Inject Structured Data (JSON-LD Schemas)
     const oldScripts = document.querySelectorAll("script[data-seo-schema]");
     oldScripts.forEach((s) => {
       if (s.parentNode && s.parentNode.contains(s)) {
@@ -118,7 +170,6 @@ export default function SEO({
       }
     });
 
-    // Combine default Website / Org schema + custom schemas
     const schemasToInject: Record<string, any>[] = [];
 
     // Base organization schema
@@ -171,7 +222,7 @@ export default function SEO({
       document.head.appendChild(script);
     });
 
-  }, [finalTitle, finalDesc, finalKeywords, robotsContent, currentUrl, finalImage, type, schema, seo?.google_search_console_id, siteName, baseDomain, store?.logo_url, store?.phone]);
+  }, [finalKeywords, currentUrl, seo?.google_search_console_id, siteName, baseDomain, store?.logo_url, store?.phone, schema, finalImage]);
 
   return null;
 }
