@@ -49,6 +49,8 @@ import ProtectedRoute from "./components/admin/ProtectedRoute";
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/Products"));
+const AdminUsers = lazy(() => import("./pages/admin/User"));
+const AdminStaff = lazy(() => import("./pages/admin/Staff"));
 const ProductForm = lazy(() => import("./pages/admin/ProductForm"));
 const AdminCategories = lazy(() => import("./pages/admin/Categories"));
 const AdminOrders = lazy(() => import("./pages/admin/Orders"));
@@ -57,7 +59,6 @@ const AdminInventory = lazy(() => import("./pages/admin/Inventory"));
 const AdminCoupons = lazy(() => import("./pages/admin/Coupons"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const AdminFinance = lazy(() => import("./pages/admin/Finance"));
-const AdminCustomers = lazy(() => import("./pages/admin/Customers"));
 const IncompleteOrders = lazy(() => import("./pages/admin/IncompleteOrders"));
 const HomepageManager = lazy(() => import("./pages/admin/HomepageManager"));
 const OrderControl = lazy(() => import("./pages/admin/OrderControl"));
@@ -67,6 +68,7 @@ const AdminHomepageSEO = lazy(() => import("./pages/admin/HomepageSEO"));
 const MediaLibrary = lazy(() => import("./pages/admin/MediaLibrary"));
 const StorageDiagnostics = lazy(() => import("./pages/admin/StorageDiagnostics"));
 const BlogManager = lazy(() => import("./pages/admin/BlogManager"));
+const AdminProfile = lazy(() => import("./pages/admin/Profile"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -133,7 +135,8 @@ const App = () => (
                   <Route path="inventory" element={<AdminInventory />} />
                   <Route path="coupons" element={<AdminCoupons />} />
                   <Route path="finance" element={<AdminFinance />} />
-                  <Route path="customers" element={<AdminCustomers />} />
+                  <Route path="customers" element={<AdminUsers />} />
+                  <Route path="staff" element={<AdminStaff />} />
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="settings/storage-diagnostics" element={<StorageDiagnostics />} />
                   <Route path="media-library" element={<MediaLibrary />} />
@@ -144,6 +147,7 @@ const App = () => (
                   <Route path="blog" element={<BlogManager />} />
                   <Route path="incomplete-orders" element={<IncompleteOrders />} />
                   <Route path="order-control" element={<OrderControl />} />
+                  <Route path="profile" element={<AdminProfile />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

@@ -4,7 +4,7 @@ import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, ShoppingCart, Warehouse, Ticket, Settings,
   LogOut, FolderTree, DollarSign, Users, ChevronDown, Clock, Truck,
-  PackageCheck, AlertTriangle, Home, Shield, Star, Globe, BookOpen,
+  PackageCheck, AlertTriangle, Home, Shield, Star, Globe, BookOpen, User, UserCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,12 +46,14 @@ const bottomItems = [
   { title: "ব্র্যান্ডস", url: "/admin/brands", icon: Shield },
   { title: "ফাইন্যান্স", url: "/admin/finance", icon: DollarSign },
   { title: "কাস্টমার", url: "/admin/customers", icon: Users },
+  { title: "স্টাফ ও রোলস", url: "/admin/staff", icon: UserCheck },
   { title: "মিডিয়া লাইব্রেরি", url: "/admin/media-library", icon: FolderTree },
   { title: "স্টোরেজ ডায়াগনস্টিকস", url: "/admin/settings/storage-diagnostics", icon: Shield },
   { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
   { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
   { title: "অর্ডার কন্ট্রোল", url: "/admin/order-control", icon: Shield },
   { title: "সেটিংস", url: "/admin/settings", icon: Settings },
+  { title: "প্রোফাইল", url: "/admin/profile", icon: User },
 ];
 
 import { useStoreSettings } from "@/hooks/useStoreSettings";
@@ -204,9 +206,14 @@ export default function AdminSidebar() {
       </SidebarContent>
       <SidebarFooter className={`border-t border-sidebar-border ${collapsed ? "p-2" : "p-4"}`}>
         {!collapsed && (
-          <div className="rounded-xl bg-sidebar-accent/50 p-3 mb-2">
-            <p className="text-[11px] font-medium text-sidebar-foreground/50 truncate">{user?.email}</p>
-          </div>
+          <NavLink to="/admin/profile" className="block w-full mb-2">
+            <div className="rounded-xl bg-sidebar-accent/50 p-3 hover:bg-sidebar-accent transition-colors duration-200">
+              <p className="text-[11px] font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground truncate flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" />
+                {user?.email}
+              </p>
+            </div>
+          </NavLink>
         )}
         <CollapsedTooltip label="লগআউট">
           <Button variant="ghost" size="sm" className={`w-full rounded-xl text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent ${collapsed ? "justify-center px-0" : "justify-start"}`} onClick={signOut}>

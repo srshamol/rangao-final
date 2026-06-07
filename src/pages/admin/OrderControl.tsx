@@ -12,6 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Ban, Phone, Globe, Trash2, Plus, Save, Loader2, Search, Clock } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 export default function OrderControl() {
   const { toast } = useToast();
@@ -37,6 +41,7 @@ export default function OrderControl() {
 
   const [controlForm, setControlForm] = useState<any>(null);
   const activeSettings = controlForm || settings;
+  const [unblockTarget, setUnblockTarget] = useState<any>(null);
 
   // Fetch blocked entities
   const { data: blockedEntities, isLoading: loadingBlocked } = useQuery({
@@ -337,7 +342,7 @@ export default function OrderControl() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive"
-                              onClick={() => unblockMutation.mutate(b.id)}
+                              onClick={() => setUnblockTarget(b)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -435,6 +440,29 @@ export default function OrderControl() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Unblock Confirmation Dialog */}
+      <AlertDialog open={!!unblockTarget} onOpenChange={(v) => !v && setUnblockTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">আনব্লক নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই {unblockTarget?.type === "ip" ? "আইপি" : "ফোন নম্বর"} <strong>"{unblockTarget?.value}"</strong> আনব্লক করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl" onClick={() => {
+              if (unblockTarget) {
+                unblockMutation.mutate(unblockTarget.id);
+                setUnblockTarget(null);
+              }
+            }}>
+              আনব্লক করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
