@@ -137,7 +137,7 @@ const IslamicCollection = ({
           <Button
             size="lg"
             className="group rounded-full bg-accent px-8 font-bold text-accent-foreground shadow-[0_0_30px_-8px_hsl(var(--accent)/0.6)] hover:scale-105"
-            onClick={() => navigate(`/products${categorySlug ? `?category=${categorySlug}` : ""}`)}
+            onClick={() => navigate(categorySlug ? `/category/${categorySlug}` : "/products")}
           >
             সম্পূর্ণ কালেকশন দেখুন
             <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />

@@ -132,11 +132,24 @@ export interface OfferBanner {
   show_countdown: boolean;
 }
 
+export interface QuoteItemConfig {
+  id: string;
+  arabic: string;
+  bengali: string;
+  source: string;
+}
+
 export interface NewsletterConfig {
   title: string;
   subtitle: string;
   placeholder: string;
   button_text: string;
+  quote_arabic?: string;
+  quote_bengali?: string;
+  source?: string;
+  quotes_list?: QuoteItemConfig[];
+  show_only_custom?: boolean;
+  theme_style?: "dark" | "classic" | "gold";
 }
 
 export interface HomepageSEO {
@@ -234,7 +247,7 @@ const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
   { id: "statistics", label: "পরিসংখ্যান", config: { enabled: true, desktop: true, mobile: true } },
   { id: "testimonials", label: "কাস্টমার রিভিউ", config: { enabled: true, desktop: true, mobile: true } },
   { id: "brands", label: "ব্র্যান্ড লোগো / পার্টনার", config: { enabled: true, desktop: true, mobile: true } },
-  { id: "newsletter", label: "নিউজলেটার", config: { enabled: true, desktop: true, mobile: true } },
+  { id: "newsletter", label: "ইসলামিক বাণী / উক্তি (Islamic Quote)", config: { enabled: true, desktop: true, mobile: true } },
   { id: "gallery", label: "গ্যালারি / ইন্সপিরেশন", config: { enabled: true, desktop: true, mobile: true, title: "আমাদের ডেকর ইন্সপিরেশন", subtitle: "কাস্টমারদের ঘর থেকে কিছু সুন্দর মুহূর্ত" } },
   { id: "footer_promo", label: "ফুটোর প্রমোশন / CTA", config: { enabled: true, desktop: true, mobile: true, title: "রাঙাও দিয়ে আপনার ঘর সাজান", cta_text: "সব কালেকশন দেখুন", cta_url: "/products", bg_image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80" } },
 ];
@@ -356,6 +369,19 @@ const defaults = {
     subtitle: "নতুন প্রোডাক্ট ও বিশেষ অফারের আপডেট পেতে ইমেইল দিন",
     placeholder: "আপনার ইমেইল লিখুন",
     button_text: "সাবস্ক্রাইব করুন",
+    quote_arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
+    quote_bengali: "নিশ্চয়ই কষ্টের সাথেই স্বস্তি রয়েছে।",
+    source: "সূরা আশ-শারহ্ (৯৪:৬)",
+    quotes_list: [
+      {
+        id: "q-default-1",
+        arabic: "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
+        bengali: "নিশ্চয়ই কষ্টের সাথেই স্বস্তি রয়েছে।",
+        source: "সূরা আশ-শারহ্ (৯৪:৬)"
+      }
+    ],
+    show_only_custom: false,
+    theme_style: "dark",
   } as NewsletterConfig,
   homepage_seo: {
     meta_title: "Rangao – রাঙাও | প্রিমিয়াম ইসলামিক ও হোম ডেকোর",

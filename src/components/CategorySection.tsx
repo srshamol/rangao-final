@@ -145,7 +145,7 @@ const CategorySection = ({
                     if (onSelect) {
                       onSelect(isActive ? null : cat.slug);
                     } else {
-                      navigate(`/products?category=${cat.slug}`);
+                      navigate(`/category/${cat.slug}`);
                     }
                   }}
                   className={`group relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl border-2 p-5 text-center transition-all duration-400 md:p-6 min-w-[170px] sm:min-w-[220px] shrink-0 snap-start ${

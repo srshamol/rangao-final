@@ -10,7 +10,7 @@ import BestSellers from "@/components/BestSellers";
 import FlashSaleSection from "@/components/FlashSaleSection";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import Testimonials from "@/components/Testimonials";
-import NewsletterSection from "@/components/NewsletterSection";
+import IslamicQuoteSection from "@/components/IslamicQuoteSection";
 import OfferBanner from "@/components/OfferBanner";
 import BrandsSection from "@/components/BrandsSection";
 import StatisticsSection from "@/components/StatisticsSection";
@@ -49,8 +49,8 @@ const Index = () => {
     if (isMobile && config.mobile === false) return null;
     if (!isMobile && config.desktop === false) return null;
 
-    // Prevent empty markup wrappers if offer banner is disabled
-    if (sectionId === "offer_banner" && !offerBanner?.enabled) return null;
+    // Prevent empty markup wrappers if offer banner data is missing
+    if (sectionId === "offer_banner" && !offerBanner) return null;
 
     let sectionContent = null;
     switch (sectionId) {
@@ -75,8 +75,6 @@ const Index = () => {
             showDescription={config.show_description === true}
             showCTA={config.show_cta === true}
             showIcon={config.show_icon === true}
-            onSelect={setSelectedCategory}
-            selected={selectedCategory}
           />
         );
         break;
@@ -159,11 +157,13 @@ const Index = () => {
 
       case "newsletter":
         sectionContent = (
-          <NewsletterSection
-            title={newsletter?.title}
-            subtitle={newsletter?.subtitle}
-            placeholder={newsletter?.placeholder}
-            buttonText={newsletter?.button_text}
+          <IslamicQuoteSection
+            quoteArabic={newsletter?.quote_arabic}
+            quoteBengali={newsletter?.quote_bengali}
+            source={newsletter?.source}
+            quotesList={newsletter?.quotes_list}
+            showOnlyCustom={newsletter?.show_only_custom}
+            themeStyle={newsletter?.theme_style}
           />
         );
         break;

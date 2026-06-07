@@ -27,6 +27,14 @@ export default function AdminProducts() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const { data: categories } = useQuery({
+    queryKey: ["categories-list-admin"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("id, name, slug");
+      return data || [];
+    }
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products", search, statusFilter, page],
     queryFn: async () => {
@@ -198,7 +206,9 @@ export default function AdminProducts() {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">{p.category}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {categories?.find((c: any) => c.slug === p.category)?.name || p.category}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">

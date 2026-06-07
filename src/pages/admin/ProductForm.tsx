@@ -527,7 +527,7 @@ export default function ProductForm() {
                   <SelectTrigger className="mt-1"><SelectValue placeholder="ক্যাটাগরি নির্বাচন করুন" /></SelectTrigger>
                   <SelectContent>
                     {categories.map((c: any) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

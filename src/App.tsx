@@ -1,15 +1,24 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import CartSidebar from "@/components/CartSidebar";
 import TrackingProvider from "@/components/TrackingProvider";
 import SettingsSync from "@/components/SettingsSync";
 import StorageInitializer from "@/components/StorageInitializer";
+
+// Reset window scroll position on route change
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as any });
+  }, [pathname]);
+  return null;
+};
 
 // Lazy Pages
 const Index = lazy(() => import("./pages/Index"));
@@ -86,6 +95,7 @@ const App = () => (
           <SettingsSync />
           <StorageInitializer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <ScrollToTop />
             <TrackingProvider />
             <CartSidebar />
             <Suspense fallback={<LoadingPlaceholder />}>

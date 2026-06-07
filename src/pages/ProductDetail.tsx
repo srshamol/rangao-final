@@ -58,11 +58,87 @@ const FaqItem = ({ question, answer }: { question: string; answer: string }) => 
 };
 
 
+const renderFormattedDescription = (text: string) => {
+  if (!text) return null;
+
+  const lines = text.split(/\r?\n/);
+  const formattedElements: React.ReactNode[] = [];
+  let currentListItems: React.ReactNode[] = [];
+  let inList = false;
+
+  const parseInlineStyles = (lineText: string) => {
+    const parts = lineText.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={index} className="font-bold text-foreground">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const listMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+
+    if (listMatch) {
+      if (!inList) {
+        inList = true;
+        currentListItems = [];
+      }
+      currentListItems.push(
+        <li key={`li-${index}`} className="mb-1.5 list-disc ml-5 font-bengali text-sm md:text-base leading-relaxed text-foreground/80">
+          {parseInlineStyles(listMatch[1])}
+        </li>
+      );
+    } else {
+      if (inList) {
+        formattedElements.push(
+          <ul key={`ul-${index}`} className="my-3 list-disc pl-5 space-y-1">
+            {currentListItems}
+          </ul>
+        );
+        inList = false;
+        currentListItems = [];
+      }
+
+      if (trimmed === "") {
+        formattedElements.push(<div key={`br-${index}`} className="h-3.5" />);
+      } else {
+        formattedElements.push(
+          <p key={`p-${index}`} className="font-bengali text-sm md:text-base leading-[1.8] text-foreground/80 mb-3">
+            {parseInlineStyles(trimmed)}
+          </p>
+        );
+      }
+    }
+  });
+
+  if (inList && currentListItems.length > 0) {
+    formattedElements.push(
+      <ul key="ul-end" className="my-3 list-disc pl-5 space-y-1">
+        {currentListItems}
+      </ul>
+    );
+  }
+
+  return <div className="space-y-1">{formattedElements}</div>;
+};
+
+
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: settings } = useStoreSettings();
   const queryClient = useQueryClient();
+
+  // Query categories to map slug to name
+  const { data: categories = [] } = useQuery({
+    queryKey: ["shop-categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("*").eq("is_active", true);
+      return data || [];
+    }
+  });
 
   // Query product details dynamically from Supabase
   const { data: dbProduct, isLoading } = useQuery({
@@ -163,13 +239,13 @@ const ProductDetail = () => {
       rating: computedRating,
       reviewCount: computedReviewCount,
       category: dbProduct.category || "",
-      categoryLabel: dbProduct.categoryLabel || dbProduct.category || "হোম ডেকোর",
+      categoryLabel: categories.find(c => c.slug === dbProduct.category)?.name || dbProduct.category || "হোম ডেকোর",
       features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
         ? dbProduct.tags
         : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
       specs: finalSpecs
     };
-  }, [dbProduct, dbReviews]);
+  }, [dbProduct, dbReviews, categories]);
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
@@ -769,9 +845,7 @@ const ProductDetail = () => {
                   viewport={{ once: true }}
                   className="prose-editorial"
                 >
-                  <p className="font-bengali text-lg leading-[1.9] text-foreground/80">
-                    {product.fullDescription}
-                  </p>
+                  {renderFormattedDescription(product.fullDescription)}
                 </motion.div>
                 {product.features.length > 0 && (
                   <div className="space-y-3 pt-4">

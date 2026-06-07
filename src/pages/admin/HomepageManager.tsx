@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
-import { useStoreSettings, DEFAULT_SECTION_ORDER, type HomepageSectionOrder, type TrustFeatureItem, type HeroBannerSlide } from "@/hooks/useStoreSettings";
+import { useStoreSettings, DEFAULT_SECTION_ORDER, type HomepageSectionOrder, type TrustFeatureItem, type HeroBannerSlide, type GalleryItem } from "@/hooks/useStoreSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,7 @@ import {
   Save, GripVertical, Eye, EyeOff, Monitor, Smartphone,
   Plus, Trash2, ChevronDown, ChevronUp, Settings2,
   Image, Layout, Package, Star, Megaphone, Tag,
-  Users, BarChart2, Mail, Globe, Layers, Loader2
+  Users, BarChart2, Mail, Globe, Layers, Loader2, BookOpen
 } from "lucide-react";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -38,6 +38,7 @@ const TAB_ICONS: Record<string, any> = {
   trust: Star,
   stats: BarChart2,
   newsletter: Mail,
+  gallery: Image,
   announcement: Megaphone,
 };
 
@@ -168,6 +169,9 @@ export default function HomepageManager() {
   const [announcement, setAnnouncement] = useState(
     settings?.announcementBar || { enabled: true, text: "", bg_color: "#102a20", text_color: "#ffffff", link_url: "" }
   );
+  const [homepageGallery, setHomepageGallery] = useState<GalleryItem[]>(
+    settings?.homepageGallery || []
+  );
   const [saving, setSaving] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<string | null>(null);
 
@@ -183,6 +187,7 @@ export default function HomepageManager() {
       if (settings.offerBanner) setOfferBanner(settings.offerBanner);
       if (settings.statistics) setStatistics(settings.statistics);
       if (settings.announcementBar) setAnnouncement(settings.announcementBar);
+      if (settings.homepageGallery) setHomepageGallery(settings.homepageGallery);
       setHasLoaded(true);
     }
   }, [settings, hasLoaded]);
@@ -299,6 +304,66 @@ export default function HomepageManager() {
     setTrustItems((t) => t.filter((_, idx) => idx !== i));
   };
 
+  // ─── Gallery helpers ────────────────────────────────────────────────────────
+  const addGalleryItem = () => {
+    const newItem: GalleryItem = {
+      id: `g-${Date.now()}`,
+      image_url: "",
+      title: "নতুন গ্যালারি আইটেম",
+      link: "/products"
+    };
+    setHomepageGallery((g) => [...g, newItem]);
+  };
+
+  const updateGalleryItem = (i: number, updates: Partial<GalleryItem>) => {
+    setHomepageGallery((g) => g.map((item, idx) => idx === i ? { ...item, ...updates } : item));
+  };
+
+  const removeGalleryItem = (i: number) => {
+    setHomepageGallery((g) => g.filter((_, idx) => idx !== i));
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingIndex(`gallery-${i}`);
+      const mediaItem = await mediaService.upload(file, "images");
+      if (mediaItem?.url) {
+        updateGalleryItem(i, { image_url: mediaItem.url });
+        toast({ title: "ইমেজ আপলোড সফল হয়েছে" });
+      }
+    } catch (err: any) {
+      toast({ title: "ইমেজ আপলোড ব্যর্থ হয়েছে", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingIndex(null);
+    }
+  };
+
+  const addCustomQuote = () => {
+    setNewsletter((prev: any) => {
+      const list = prev.quotes_list || [];
+      const newQuote = { id: `q-${Date.now()}`, arabic: "", bengali: "", source: "" };
+      return { ...prev, quotes_list: [...list, newQuote] };
+    });
+  };
+
+  const updateCustomQuote = (idx: number, updates: any) => {
+    setNewsletter((prev: any) => {
+      const list = [...(prev.quotes_list || [])];
+      list[idx] = { ...list[idx], ...updates };
+      return { ...prev, quotes_list: list };
+    });
+  };
+
+  const removeCustomQuote = (idx: number) => {
+    setNewsletter((prev: any) => {
+      const list = (prev.quotes_list || []).filter((_: any, i: number) => i !== idx);
+      return { ...prev, quotes_list: list };
+    });
+  };
+
   // ─── Save all ──────────────────────────────────────────────────────────────
 
   const saveAll = async () => {
@@ -312,9 +377,9 @@ export default function HomepageManager() {
         upsertSetting("offer_banner", offerBanner),
         upsertSetting("statistics", statistics),
         upsertSetting("announcement_bar", announcement),
+        upsertSetting("homepage_gallery", homepageGallery),
       ]);
       qc.invalidateQueries({ queryKey: ["store-settings-all"] });
-      setHasLoaded(false);
       toast({ title: "✅ সব পরিবর্তন সেভ হয়েছে", description: "হোমপেজ আপডেট হয়েছে।" });
     } catch (e: any) {
       toast({ title: "ত্রুটি", description: e.message, variant: "destructive" });
@@ -355,7 +420,8 @@ export default function HomepageManager() {
             { id: "offer", label: "অফার ব্যানার" },
             { id: "trust", label: "ট্রাস্ট ফিচার" },
             { id: "stats", label: "পরিসংখ্যান" },
-            { id: "newsletter", label: "নিউজলেটার" },
+            { id: "newsletter", label: "ইসলামিক বাণী" },
+            { id: "gallery", label: "গ্যালারি / ইন্সপিরেশন" },
             { id: "announcement", label: "অ্যানাউন্সমেন্ট বার" },
           ].map((tab) => (
             <TabsTrigger
@@ -1191,6 +1257,42 @@ export default function HomepageManager() {
                   </div>
                 </div>
                 <div>
+                  <label className="text-sm font-medium">মোবাইল ব্যানার ইমেজ URL (Mobile View)</label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={offerBanner.mobile_image || ""}
+                      onChange={(e) => setOfferBanner((o: any) => ({ ...o, mobile_image: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                    <input
+                      type="file"
+                      id="offer-mobile-upload"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const media = await mediaService.upload(file, "images");
+                            if (media?.url) {
+                              setOfferBanner((o: any) => ({ ...o, mobile_image: media.url }));
+                            }
+                          } catch (err: any) {
+                            toast({ title: "আপলোড ব্যর্থ", description: err.message, variant: "destructive" });
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById("offer-mobile-upload")?.click()}
+                    >
+                      আপলোড
+                    </Button>
+                  </div>
+                </div>
+                <div>
                   <label className="text-sm font-medium">বাটন টেক্সট</label>
                   <Input
                     value={offerBanner.button_text}
@@ -1407,54 +1509,194 @@ export default function HomepageManager() {
         </TabsContent>
 
         {/* ── NEWSLETTER TAB ── */}
-        <TabsContent value="newsletter" className="mt-6">
+        <TabsContent value="newsletter" className="mt-6 space-y-6">
+          {/* Main Settings Card */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Mail className="h-4 w-4 text-accent" />
-                নিউজলেটার সেকশন
+                <BookOpen className="h-4 w-4 text-accent" />
+                ইসলামিক বাণী / উক্তি সেকশন ডিজাইন সেটিংস
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">শিরোনাম</label>
-                <Input
-                  value={newsletter.title}
-                  onChange={(e) => setNewsletter((n) => ({ ...n, title: e.target.value }))}
-                  className="mt-1"
-                  placeholder="আমাদের নিউজলেটারে সাবস্ক্রাইব করুন"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium">সাবটাইটেল</label>
-                <Textarea
-                  value={newsletter.subtitle}
-                  onChange={(e) => setNewsletter((n) => ({ ...n, subtitle: e.target.value }))}
-                  className="mt-1"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">ইনপুট প্লেসহোল্ডার</label>
-                <Input
-                  value={newsletter.placeholder}
-                  onChange={(e) => setNewsletter((n) => ({ ...n, placeholder: e.target.value }))}
-                  className="mt-1"
-                  placeholder="আপনার ইমেইল লিখুন"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">বাটন টেক্সট</label>
-                <Input
-                  value={newsletter.button_text}
-                  onChange={(e) => setNewsletter((n) => ({ ...n, button_text: e.target.value }))}
-                  className="mt-1"
-                  placeholder="সাবস্ক্রাইব করুন"
-                />
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">ডিজাইন থিম (Theme Style)</label>
+                  <Select
+                    value={newsletter.theme_style || "dark"}
+                    onValueChange={(v) => setNewsletter((n: any) => ({ ...n, theme_style: v as any }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="থিম সিলেক্ট করুন" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dark">ডার্ক গ্রিন নাইট (Mystic Green)</SelectItem>
+                      <SelectItem value="classic">ক্লাসিক এমারেল্ড (Classic Emerald)</SelectItem>
+                      <SelectItem value="gold">লাক্সারি গোল্ড (Luxury Gold)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center justify-between border rounded-xl p-3 bg-muted/10">
+                  <div className="space-y-0.5">
+                    <label className="text-sm font-medium">শুধুমাত্র আপনার কাস্টম উক্তিগুলো দেখান</label>
+                    <p className="text-xs text-muted-foreground">ডিফল্ট উক্তিগুলো হাইড করুন</p>
+                  </div>
+                  <Switch
+                    checked={!!newsletter.show_only_custom}
+                    onCheckedChange={(checked) => setNewsletter((n: any) => ({ ...n, show_only_custom: checked }))}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Quotes List Management */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-base">উক্তি ও বাণী সমূহের তালিকা (Custom Quotes)</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">হোমপেজে স্লাইডার আকারে দেখানোর জন্য একাধিক উক্তি যুক্ত করুন</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={addCustomQuote} className="border-accent text-accent hover:bg-accent/10">
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> উক্তি যোগ করুন
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
+              {(newsletter.quotes_list || []).map((q: any, i: number) => (
+                <Card key={q.id || i} className="relative overflow-hidden border border-border/60 hover:border-accent/30 transition-all duration-300">
+                  <CardContent className="pt-5 space-y-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="text-xs font-semibold text-accent uppercase tracking-wider">উক্তি #{i + 1}</span>
+                      <button
+                        onClick={() => removeCustomQuote(i)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="উক্তি মুছুন"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">আরবি টেক্সট (Arabic Script)</label>
+                        <Input
+                          value={q.arabic || ""}
+                          onChange={(e) => updateCustomQuote(i, { arabic: e.target.value })}
+                          className="font-arabic"
+                          placeholder="যেমন: إِنَّ مَعَ الْعُסْرِ يُסْرًا"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">উৎস / রেফারেন্স (Source/Reference)</label>
+                        <Input
+                          value={q.source || ""}
+                          onChange={(e) => updateCustomQuote(i, { source: e.target.value })}
+                          placeholder="যেমন: সূরা আশ-শারহ্ (৯৪:৬)"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">বাংলা অর্থ (Bengali Translation)</label>
+                      <Textarea
+                        value={q.bengali || ""}
+                        onChange={(e) => updateCustomQuote(i, { bengali: e.target.value })}
+                        rows={2}
+                        placeholder="নিশ্চয়ই কষ্টের সাথেই স্বস্তি রয়েছে।"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {(newsletter.quotes_list || []).length === 0 && (
+                <div className="rounded-2xl border-2 border-dashed border-border/40 py-12 text-center text-sm text-muted-foreground">
+                  কোনো কাস্টম উক্তি যোগ করা নেই। ডানদিকের "উক্তি যোগ করুন" বাটনে ক্লিক করুন।
+                </div>
+              )}
+            </div>
+          </div>
         </TabsContent>
+
+        {/* ── GALLERY TAB ── */}
+        <TabsContent value="gallery" className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">ডেকর ইন্সপিরেশন গ্যালারি</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">গ্রাহকদের ঘর সাজানোর ছবির গ্যালারি কাস্টমাইজ করুন</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={addGalleryItem}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> আইটেম যোগ করুন
+            </Button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {homepageGallery.map((item, i) => (
+              <Card key={item.id} className="overflow-hidden flex flex-col justify-between">
+                <CardContent className="pt-5 space-y-3 flex-1">
+                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden border bg-muted flex items-center justify-center group">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <Image className="h-8 w-8 text-muted-foreground" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="relative">
+                        <Button size="sm" variant="secondary" className="rounded-xl">আপলোড করুন</Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleGalleryUpload(e, i)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">শিরোনাম</label>
+                    <Input
+                      value={item.title}
+                      onChange={(e) => updateGalleryItem(i, { title: e.target.value })}
+                      className="mt-1 h-8 text-sm"
+                      placeholder="লিভিং রুম ডেকোর"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">লিংক (URL)</label>
+                    <Input
+                      value={item.link}
+                      onChange={(e) => updateGalleryItem(i, { link: e.target.value })}
+                      className="mt-1 h-8 text-sm font-mono"
+                      placeholder="/products"
+                    />
+                  </div>
+                </CardContent>
+
+                <div className="border-t bg-muted/20 px-4 py-2.5 flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
+                    onClick={() => removeGalleryItem(i)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> ডিলিট
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {homepageGallery.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-border/40 py-12 text-center text-sm text-muted-foreground">
+              কোনো গ্যালারি আইটেম নেই। উপরে "আইটেম যোগ করুন" ক্লিক করুন।
+            </div>
+          )}
+        </TabsContent>
+
 
         {/* ── ANNOUNCEMENT TAB ── */}
         <TabsContent value="announcement" className="mt-6">

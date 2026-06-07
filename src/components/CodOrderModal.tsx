@@ -25,6 +25,7 @@ const shippingOptions: { id: ShippingZone; label: string; price: number }[] = [
 
 const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
   const navigate = useNavigate();
+  const [localQuantity, setLocalQuantity] = useState(quantity);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -35,6 +36,10 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
   const [orderNote, setOrderNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    setLocalQuantity(quantity);
+  }, [quantity, open]);
 
   useEffect(() => {
     const fetchPaymentSettings = async () => {
@@ -65,7 +70,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   const { saveIncomplete, markConverted } = useIncompleteOrder({
     pageSource: "cod_modal",
-    products: [{ name: product.name, id: product.id, price: product.price, quantity, image: product.images[0] }],
+    products: [{ name: product.name, id: product.id, price: product.price, quantity: localQuantity, image: product.images[0] }],
   });
 
   const debouncedSave = (n: string, p: string) => {
@@ -77,7 +82,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
-  const subtotal = product.price * quantity;
+  const subtotal = product.price * localQuantity;
   const deliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
 
   let discountAmount = 0;
@@ -187,7 +192,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
         order_id: order.id,
         product_name: product.name,
         unit_price: product.price,
-        quantity,
+        quantity: localQuantity,
         total_price: subtotal,
       });
       if (itemsError) throw itemsError;
@@ -220,7 +225,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           items: [{
             name: product.name,
             image: product.images[0],
-            quantity,
+            quantity: localQuantity,
             unitPrice: product.price,
             totalPrice: subtotal,
           }],
@@ -353,18 +358,35 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
           {/* Product Summary */}
           <div className="flex items-center gap-2 sm:gap-3 rounded-xl border bg-card p-2 sm:p-3">
-            <div className="relative">
+            <div className="relative shrink-0">
               <img src={product.images[0]} alt={product.name} className="h-10 w-10 sm:h-14 sm:w-14 rounded-lg object-cover" />
-              {quantity > 1 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-accent text-[8px] sm:text-[10px] font-bold text-accent-foreground">
-                  {quantity}
-                </span>
-              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-display text-xs sm:text-sm font-bold text-card-foreground line-clamp-1">{product.name}</p>
+              
+              {/* Interactive Quantity Selector inside Modal */}
+              <div className="flex items-center gap-2.5 mt-2">
+                <span className="text-[11px] text-muted-foreground font-semibold">পরিমাণ:</span>
+                <div className="flex items-center border rounded-lg overflow-hidden h-6 bg-secondary/50">
+                  <button
+                    type="button"
+                    onClick={() => setLocalQuantity(q => Math.max(1, q - 1))}
+                    className="flex h-full w-6 items-center justify-center hover:bg-muted font-bold text-xs transition-colors"
+                  >
+                    -
+                  </button>
+                  <span className="font-mono text-xs font-bold w-7 text-center">{localQuantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setLocalQuantity(q => q + 1)}
+                    className="flex h-full w-6 items-center justify-center hover:bg-muted font-bold text-xs transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="font-display text-xs sm:text-sm font-bold text-foreground">{formatPrice(subtotal)}</p>
+            <p className="font-display text-xs sm:text-sm font-bold text-foreground shrink-0">{formatPrice(subtotal)}</p>
           </div>
 
           {/* Totals */}
