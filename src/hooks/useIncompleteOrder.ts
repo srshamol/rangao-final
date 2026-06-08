@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "incomplete_order_session";
