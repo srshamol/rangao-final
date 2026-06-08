@@ -22,11 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-<<<<<<< HEAD
 
 # Environment variables
 .env
+.env.local
+.env.production
 
-=======
->>>>>>> 1a0a721f41ec6a10e6d77cd2e8900fd36b6eb54e
+# Vercel
 .vercel
