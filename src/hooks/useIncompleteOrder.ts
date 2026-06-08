@@ -35,11 +35,51 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
   productsRef.current = products;
   pageSourceRef.current = pageSource;
 
+  const customerInfoRef = useRef<{ name?: string; phone?: string; email?: string } | null>(null);
+
+  const fireNotification = useCallback(async () => {
+    if (!incompleteIdRef.current || !customerInfoRef.current) return;
+    const info = customerInfoRef.current;
+    if (!info.name?.trim() && !info.phone?.trim()) return;
+
+    try {
+      const { sendTelegramNotification } = await import("@/lib/telegram");
+      const itemsList = productsRef.current
+        .map((p) => `• ${p.name} (Qty: ${p.quantity || 1}) - ৳${p.price * (p.quantity || 1)}`)
+        .join("\n");
+
+      const message = `⚠️ <b>নতুন ইনকমপ্লিট অর্ডার (কার্ট পরিত্যক্ত)!</b>\n\n` +
+        `<b>কাস্টমার:</b> ${info.name?.trim() || "N/A"}\n` +
+        `<b>মোবাইল:</b> ${info.phone?.trim() || "N/A"}\n` +
+        `<b>পেজ/সোর্স:</b> ${pageSourceRef.current}\n\n` +
+        `<b>পণ্যসমূহ:</b>\n${itemsList}`;
+
+      await sendTelegramNotification(message, { isIncompleteOrder: true });
+    } catch (tgErr) {
+      console.error("Error triggering incomplete order notification:", tgErr);
+    }
+  }, []);
+
+  // Fire notification on unmount/exit if the order has not been completed
+  useEffect(() => {
+    return () => {
+      if (incompleteIdRef.current) {
+        fireNotification();
+      }
+    };
+  }, [fireNotification]);
+
+  const fireAbandonedNotification = useCallback(async () => {
+    await fireNotification();
+  }, [fireNotification]);
+
   const saveIncomplete = useCallback(
     async (data: { name?: string; phone?: string; email?: string; formData?: Record<string, any> }) => {
       const { name, phone, email, formData } = data;
       // Need at least name or phone
       if (!name?.trim() && !phone?.trim()) return;
+
+      customerInfoRef.current = { name, phone, email };
 
       const currentProducts = productsRef.current;
       const currentPageSource = pageSourceRef.current;
@@ -71,24 +111,6 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
 
         if (incompleteId && !incompleteIdRef.current) {
           incompleteIdRef.current = incompleteId;
-
-          // Dispatch Telegram Notification for new incomplete order
-          try {
-            const { sendTelegramNotification } = await import("@/lib/telegram");
-            const itemsList = currentProducts
-              .map((p) => `• ${p.name} (Qty: ${p.quantity || 1}) - ৳${p.price * (p.quantity || 1)}`)
-              .join("\n");
-
-            const message = `⚠️ <b>নতুন ইনকমপ্লিট অর্ডার (কার্ট পরিত্যক্ত)!</b>\n\n` +
-              `<b>কাস্টমার:</b> ${name?.trim() || "N/A"}\n` +
-              `<b>মোবাইল:</b> ${phone?.trim() || "N/A"}\n` +
-              `<b>পেজ/সোর্স:</b> ${currentPageSource}\n\n` +
-              `<b>পণ্যসমূহ:</b>\n${itemsList}`;
-
-            await sendTelegramNotification(message, { isIncompleteOrder: true });
-          } catch (tgErr) {
-            console.error("Error triggering incomplete order notification:", tgErr);
-          }
         }
       } catch (err) {
         console.error("Incomplete order save error:", err);
@@ -125,5 +147,5 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
     }
   }, []);
 
-  return { saveIncomplete, markConverted, clearIncomplete };
+  return { saveIncomplete, markConverted, clearIncomplete, fireAbandonedNotification };
 }

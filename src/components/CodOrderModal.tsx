@@ -85,10 +85,19 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     fetchPaymentSettings();
   }, []);
 
-  const { saveIncomplete, markConverted } = useIncompleteOrder({
+  const { saveIncomplete, markConverted, fireAbandonedNotification } = useIncompleteOrder({
     pageSource: "cod_modal",
     products: [{ name: product.name, id: product.id, price: product.price, quantity: localQuantity, image: product.images[0] }],
   });
+
+  // Fire notification if the user exits/closes the modal without submitting order
+  const lastOpen = useRef(open);
+  useEffect(() => {
+    if (lastOpen.current && !open) {
+      fireAbandonedNotification();
+    }
+    lastOpen.current = open;
+  }, [open, fireAbandonedNotification]);
 
   const debouncedSave = (n: string, p: string) => {
     clearTimeout(saveTimer.current);
