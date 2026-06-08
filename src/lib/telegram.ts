@@ -117,7 +117,11 @@ export async function sendTelegramNotification(
       return { success: true };
     } catch (fallbackErr: any) {
       console.error("[Telegram] Local fallback dispatch failed:", fallbackErr);
-      return { success: false, error: fallbackErr.message || "Failed client-side Telegram dispatch" };
+      let errMsg = fallbackErr.message || "Failed client-side Telegram dispatch";
+      if (errMsg.includes("Failed to fetch") || errMsg.includes("fetch")) {
+        errMsg = "Failed to fetch. This usually happens locally because the `/api/telegram` serverless endpoint is unavailable in `npm run dev` mode, and direct browser requests to `api.telegram.org` are blocked by ad-blockers, Brave Shields, or ISP firewalls. Please test this on your deployed Vercel site.";
+      }
+      return { success: false, error: errMsg };
     }
   }
 }
