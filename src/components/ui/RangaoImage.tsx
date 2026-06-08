@@ -38,7 +38,7 @@ export default function RangaoImage({
       const urlObj = new URL(originalUrl);
       if (urlObj.hostname.includes("r2.dev")) {
         const path = urlObj.pathname;
-        return `${urlObj.origin}/img${path}?w=${w}&fmt=webp&q=75`;
+        return `/img${path}?w=${w}&fmt=webp&q=75`;
       }
     } catch (e) {
       // If it's a relative URL

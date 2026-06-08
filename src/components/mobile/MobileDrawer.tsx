@@ -192,6 +192,7 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
                   <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-accent">সহযোগিতা ও তথ্য</p>
                   <div className="space-y-1">
                     {[
+                      { label: "আমাদের সম্পর্কে", icon: HelpCircle, href: "/about" },
                       { label: "ব্লগ ও টিপস", icon: BookOpen, href: "/blog" },
                       { label: "যোগাযোগ করুন", icon: Mail, href: "#contact" },
                     ].map((item) => (

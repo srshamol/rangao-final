@@ -18,7 +18,9 @@ import {
   MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud 
 } from "lucide-react";
 import { mediaService } from "@/lib/mediaService";
-import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings } from "@/hooks/useStoreSettings";
+import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings, AboutUsSettings, CoreValueItem } from "@/hooks/useStoreSettings";
+import { Textarea } from "@/components/ui/textarea";
+import { BookOpen } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
 
@@ -148,6 +150,50 @@ export default function AdminSettings() {
     google_search_console_id: "",
   });
 
+  const [aboutUsSettings, setAboutUsSettings] = useState<AboutUsSettings>({
+    title: "আমাদের সম্পর্কে",
+    subtitle: "শৈল্পিক ও ইসলামিক নান্দনিকতায় আপনার ঘরকে রাঙিয়ে তোলার কারিগর",
+    story_title: "আমাদের পথচলা",
+    story_text: "রাঙাও মূলত প্রিমিয়াম ইসলামিক ওয়াল ক্যানভাস, কাঠের ক্যালিগ্রাফি এবং নিকাহনামা নিয়ে কাজ করে। আমরা বিশ্বাস করি প্রতিটি মুসলিমের ঘর সুন্দর এবং আল্লাহর স্মরণে মুখরিত থাকা উচিত শৈল্পিক ওয়াল আর্টের মাধ্যমে।",
+    banner_image_url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80",
+    story_image_url: "https://images.unsplash.com/photo-1617806118233-18e1db207f62?auto=format&fit=crop&w=600&q=80",
+    mission_title: "আমাদের মিশন",
+    mission_text: "বাংলাদেশের প্রতিটি ঘরে শৈল্পিক ও অর্থবহ ইসলামিক ডেকোর প্রোডাক্ট ও ক্যালিগ্রাফি পৌঁছে দেওয়া, যা ঘরে নিয়ে আসবে প্রশান্তি এবং স্মরণ করিয়ে দেবে আল্লাহর কালামকে।",
+    vision_title: "আমাদের ভিশন",
+    vision_text: "একটি বিশ্বস্ত ও প্রিমিয়াম লাইফস্টাইল ব্র্যান্ড হিসেবে নিজেদের প্রতিষ্ঠিত করা এবং আন্তর্জাতিক মান বজায় রেখে গ্রাহকদের সেরা হোম ডেকোরেশন উপহার দেওয়া।",
+    core_values: [
+      { id: "cv-1", title: "১০০% প্রিমিয়াম কোয়ালিটি", desc: "আমরা শুধুমাত্র উন্নত মানের আমদানিকৃত উপাদান এবং প্রিমিয়াম কাঠের ফ্রেম ব্যবহার করি।", icon: "ShieldCheck" },
+      { id: "cv-2", title: "শৈল্পিক ডিজাইন", desc: "আমাদের প্রতিটি আর্টওয়ার্ক অভিজ্ঞ ক্যালিগ্রাফার এবং ডিজাইনারদের দ্বারা নিখুঁতভাবে তৈরি।", icon: "Sparkles" },
+      { id: "cv-3", title: "গ্রাহক সন্তুষ্টি", desc: "গ্রাহকদের সন্তুষ্টি ও স্বাচ্ছন্দ্য আমাদের মূল লক্ষ্য, যার জন্য আমরা সার্বক্ষণিক সেবা প্রদান করি।", icon: "Heart" },
+      { id: "cv-4", title: "দ্রুত ও নিরাপদ ডেলিভারি", desc: "সারা বাংলাদেশে বাবল র‍্যাপড বক্সে অত্যন্ত নিরাপদ ও দ্রুততম সময়ে ডেলিভারি নিশ্চিত করি।", icon: "Truck" }
+    ]
+  });
+
+  const handleUpdateCoreValue = (index: number, field: string, val: string) => {
+    setAboutUsSettings(prev => {
+      const updated = [...prev.core_values];
+      updated[index] = { ...updated[index], [field]: val };
+      return { ...prev, core_values: updated };
+    });
+  };
+
+  const handleAddCoreValue = () => {
+    setAboutUsSettings(prev => ({
+      ...prev,
+      core_values: [
+        ...prev.core_values,
+        { id: `cv-${Date.now()}`, title: "নতুন মূল্যবোধ", desc: "বিবরণ লিখুন", icon: "Award" }
+      ]
+    }));
+  };
+
+  const handleRemoveCoreValue = (index: number) => {
+    setAboutUsSettings(prev => ({
+      ...prev,
+      core_values: prev.core_values.filter((_, i) => i !== index)
+    }));
+  };
+
   const [telegramSettings, setTelegramSettings] = useState<any>({
     bot_token: "",
     chat_id: "",
@@ -236,7 +282,7 @@ export default function AdminSettings() {
   };
 
   const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [activePickerField, setActivePickerField] = useState<"logo_url" | "mobile_logo_url" | "white_logo_url" | "favicon_url" | null>(null);
+  const [activePickerField, setActivePickerField] = useState<string | null>(null);
   const primaryLogoInputRef = useRef<HTMLInputElement>(null);
   const mobileLogoInputRef = useRef<HTMLInputElement>(null);
   const whiteLogoInputRef = useRef<HTMLInputElement>(null);
@@ -357,6 +403,13 @@ export default function AdminSettings() {
             setTelegramSettings(prev => ({
               ...prev,
               ...row.value
+            }));
+          }
+          if (row.key === "about_us_settings") {
+            setAboutUsSettings(prev => ({
+              ...prev,
+              ...row.value,
+              core_values: row.value.core_values || prev.core_values
             }));
           }
         });
@@ -630,6 +683,7 @@ export default function AdminSettings() {
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
           <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 ট্র্যাকিং ও অ্যানালিটিক্স</TabsTrigger>
           <TabsTrigger value="seo" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔍 SEO সেটিংস</TabsTrigger>
+          <TabsTrigger value="about" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📖 আমাদের সম্পর্কে</TabsTrigger>
           <TabsTrigger value="telegram" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📢 টেলিগ্রাম নোটিফিকেশন</TabsTrigger>
           <TabsTrigger value="security" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔑 সিকিউরিটি</TabsTrigger>
         </TabsList>
@@ -1941,6 +1995,222 @@ export default function AdminSettings() {
           </Card>
         </TabsContent>
 
+        {/* Tab: About Us Page Settings */}
+        <TabsContent value="about" className="space-y-6 outline-none">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-primary">📖 আমাদের সম্পর্কে (About Us) সেটিংস</CardTitle>
+              <CardDescription>গ্রাহক ফেস কার্ট স্টোরের "আমাদের সম্পর্কে" পৃষ্ঠার কন্টেন্ট এবং লেআউট কাস্টমাইজ করুন।</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await saveSetting("about_us_settings", aboutUsSettings);
+                }} 
+                className="space-y-6"
+              >
+                {/* Section 1: Hero Header */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><Store className="h-4.5 w-4.5 text-accent" /> হেডার ব্যানার সেটিংস</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>পেজ টাইটেল (Page Title)</Label>
+                      <Input 
+                        value={aboutUsSettings.title} 
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, title: e.target.value }))} 
+                        placeholder="যেমন: আমাদের সম্পর্কে"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>সাবটাইটেল (Subtitle)</Label>
+                      <Input 
+                        value={aboutUsSettings.subtitle} 
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, subtitle: e.target.value }))} 
+                        placeholder="আকর্ষণীয় স্লোগান বা সাবটাইটেল"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ব্যানার ব্যাকগ্রাউন্ড ইমেজ (Banner Image URL)</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={aboutUsSettings.banner_image_url} 
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, banner_image_url: e.target.value }))} 
+                        placeholder="ইমেজ URL দিন" 
+                        className="flex-1"
+                      />
+                      <Button type="button" variant="outline" onClick={() => setActivePickerField("banner_image_url")}>মিডিয়া লাইব্রেরি</Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Section 2: Our Story */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><BookOpen className="h-4.5 w-4.5 text-accent" /> আমাদের পথচলা (Our Story)</h3>
+                  <div className="space-y-2">
+                    <Label>স্টোরি হেডিং (Story Title)</Label>
+                    <Input 
+                      value={aboutUsSettings.story_title} 
+                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_title: e.target.value }))} 
+                      placeholder="যেমন: আমাদের পথচলা"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>স্টোরি বিবরণ (Story Content)</Label>
+                    <Textarea 
+                      value={aboutUsSettings.story_text} 
+                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_text: e.target.value }))} 
+                      placeholder="আপনার ব্রান্ড বা পথচলা সম্পর্কিত বিস্তারিত তথ্য লিখুন..." 
+                      className="min-h-[160px] leading-relaxed"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>স্টোরি সেকশন ইমেজ (Story Section Image URL)</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={aboutUsSettings.story_image_url} 
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, story_image_url: e.target.value }))} 
+                        placeholder="ইমেজ URL দিন" 
+                        className="flex-1"
+                      />
+                      <Button type="button" variant="outline" onClick={() => setActivePickerField("story_image_url")}>মিডিয়া লাইব্রেরি</Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Section 3: Mission & Vision */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><Globe className="h-4.5 w-4.5 text-accent" /> মিশন ও ভিশন</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Mission */}
+                    <div className="space-y-3 p-4 rounded-xl border bg-secondary/5">
+                      <div className="space-y-2">
+                        <Label className="font-bold">মিশন টাইটেল (Mission Title)</Label>
+                        <Input 
+                          value={aboutUsSettings.mission_title} 
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_title: e.target.value }))} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>মিশন বিবরণ</Label>
+                        <Textarea 
+                          value={aboutUsSettings.mission_text} 
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_text: e.target.value }))} 
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Vision */}
+                    <div className="space-y-3 p-4 rounded-xl border bg-secondary/5">
+                      <div className="space-y-2">
+                        <Label className="font-bold">ভিশন টাইটেল (Vision Title)</Label>
+                        <Input 
+                          value={aboutUsSettings.vision_title} 
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_title: e.target.value }))} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>ভিশন বিবরণ</Label>
+                        <Textarea 
+                          value={aboutUsSettings.vision_text} 
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_text: e.target.value }))} 
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Section 4: Core Values */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><Settings2 className="h-4.5 w-4.5 text-accent" /> আমাদের মূল মূল্যবোধ (Core Values)</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {aboutUsSettings.core_values.map((val, idx) => (
+                      <div key={val.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl border bg-secondary/10 relative">
+                        <div className="space-y-2">
+                          <Label className="text-xs">মূল্যবোধ নাম (Title)</Label>
+                          <Input 
+                            value={val.title} 
+                            onChange={e => handleUpdateCoreValue(idx, "title", e.target.value)} 
+                            className="bg-card"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">সংক্ষিপ্ত বিবরণ (Description)</Label>
+                          <Input 
+                            value={val.desc} 
+                            onChange={e => handleUpdateCoreValue(idx, "desc", e.target.value)} 
+                            className="bg-card"
+                          />
+                        </div>
+                        <div className="space-y-2 flex items-end justify-between gap-2">
+                          <div className="flex-1 space-y-2">
+                            <Label className="text-xs">আইকন (Icon)</Label>
+                            <Select value={val.icon} onValueChange={v => handleUpdateCoreValue(idx, "icon", v)}>
+                              <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ShieldCheck">🛡️ ShieldCheck</SelectItem>
+                                <SelectItem value="Sparkles">✨ Sparkles</SelectItem>
+                                <SelectItem value="Heart">❤️ Heart</SelectItem>
+                                <SelectItem value="Truck">🚚 Truck</SelectItem>
+                                <SelectItem value="Award">🏆 Award</SelectItem>
+                                <SelectItem value="Clock">🕒 Clock</SelectItem>
+                                <SelectItem value="Globe">🌐 Globe</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button 
+                            type="button" 
+                            variant="destructive" 
+                            size="icon" 
+                            className="mb-0.5 rounded-lg h-9 w-9" 
+                            onClick={() => handleRemoveCoreValue(idx)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2">
+                    <Button 
+                      type="button" 
+                      onClick={handleAddCoreValue} 
+                      variant="outline" 
+                      className="gap-1.5 rounded-xl text-xs"
+                    >
+                      <Plus className="h-4 w-4" /> নতুন যোগ করুন
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <Button 
+                    type="submit"
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    disabled={saving === "about_us_settings"}
+                  >
+                    {saving === "about_us_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} About Us সেটিংস সেভ করুন
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+
         {/* Tab 10: Telegram Notifications */}
         <TabsContent value="telegram" className="space-y-6 outline-none">
           <Card>
@@ -2073,7 +2343,11 @@ export default function AdminSettings() {
         onClose={() => setActivePickerField(null)}
         onSelect={(url) => {
           if (activePickerField) {
-            setStoreInfo(prev => ({ ...prev, [activePickerField]: url }));
+            if (activePickerField === "banner_image_url" || activePickerField === "story_image_url") {
+              setAboutUsSettings(prev => ({ ...prev, [activePickerField]: url }));
+            } else {
+              setStoreInfo(prev => ({ ...prev, [activePickerField]: url }));
+            }
           }
           setActivePickerField(null);
         }}

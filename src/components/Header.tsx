@@ -325,6 +325,10 @@ const Header = () => {
               ব্লগ/টিপস
               <span className="absolute bottom-0 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-accent transition-all duration-300 group-hover:w-6" />
             </a>
+            <a href="/about" className="group relative rounded-lg px-4 py-2 text-sm font-medium text-primary-foreground/60 transition-colors hover:text-primary-foreground">
+              আমাদের সম্পর্কে
+              <span className="absolute bottom-0 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-accent transition-all duration-300 group-hover:w-6" />
+            </a>
             <a href="#contact" className="group relative rounded-lg px-4 py-2 text-sm font-medium text-primary-foreground/60 transition-colors hover:text-primary-foreground">
               যোগাযোগ
               <span className="absolute bottom-0 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-accent transition-all duration-300 group-hover:w-6" />

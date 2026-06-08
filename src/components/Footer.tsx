@@ -149,6 +149,7 @@ const Footer = () => {
               {[
                 { label: "হোম", href: "/" },
                 { label: "সমস্ত প্রোডাক্ট", href: "/products" },
+                { label: "আমাদের সম্পর্কে", href: "/about" },
                 { label: "ব্লগ/টিপস", href: "/blog" },
               ].map((item) => (
                 <Link key={item.label} to={item.href} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">

@@ -38,8 +38,9 @@ export default async function handler(req: any, res: any) {
     // Static pages
     const staticRoutes = [
       { path: "/", priority: "1.0", changefreq: "daily" },
+      { path: "/products", priority: "0.8", changefreq: "daily" },
+      { path: "/blog", priority: "0.8", changefreq: "weekly" },
       { path: "/about", priority: "0.5", changefreq: "monthly" },
-      { path: "/contact", priority: "0.5", changefreq: "monthly" },
     ];
 
     staticRoutes.forEach((route) => {
@@ -73,6 +74,35 @@ export default async function handler(req: any, res: any) {
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>daily</changefreq>\n`;
         xml += `    <priority>0.8</priority>\n`;
+        xml += `  </url>\n`;
+      });
+    }
+
+    // Blog post helper to generate slug
+    const generateSlug = (text: string): string => {
+      if (!text) return "";
+      return text
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-zA-Z0-9\u0980-\u09FF]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    };
+
+    // Fetch and append blog posts
+    const { data: blogPosts } = await supabase
+      .from("blog_posts")
+      .select("id, title, updated_at")
+      .eq("is_active", true);
+
+    if (blogPosts) {
+      blogPosts.forEach((post) => {
+        const slug = generateSlug(post.title) || post.id;
+        const lastmod = post.updated_at ? new Date(post.updated_at).toISOString().split("T")[0] : currentDate;
+        xml += `  <url>\n`;
+        xml += `    <loc>${domain}/blog/${slug}</loc>\n`;
+        xml += `    <lastmod>${lastmod}</lastmod>\n`;
+        xml += `    <changefreq>weekly</changefreq>\n`;
+        xml += `    <priority>0.7</priority>\n`;
         xml += `  </url>\n`;
       });
     }

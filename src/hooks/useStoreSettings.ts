@@ -234,6 +234,27 @@ export interface SEOSettings {
   google_search_console_id: string;
 }
 
+export interface CoreValueItem {
+  id: string;
+  title: string;
+  desc: string;
+  icon: string;
+}
+
+export interface AboutUsSettings {
+  title: string;
+  subtitle: string;
+  story_title: string;
+  story_text: string;
+  banner_image_url: string;
+  story_image_url: string;
+  mission_title: string;
+  mission_text: string;
+  vision_title: string;
+  vision_text: string;
+  core_values: CoreValueItem[];
+}
+
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
   { id: "hero", label: "হিরো ব্যানার", config: { enabled: true, desktop: true, mobile: true } },
   { id: "categories", label: "ক্যাটাগরি সেকশন", config: { enabled: true, desktop: true, mobile: true, category_mode: "auto", count: 8, desktop_cols: 4, tablet_cols: 3, mobile_cols: 2, show_image: true, show_count: true, title: "আমাদের কাস্টম ক্যাটাগরি কালেকশন", subtitle: "আপনার ঘরের দেয়াল রাঙিয়ে তুলুন" } },
@@ -418,6 +439,24 @@ const defaults = {
     robots_follow: true,
     google_search_console_id: "",
   } as SEOSettings,
+  about_us_settings: {
+    title: "আমাদের সম্পর্কে",
+    subtitle: "শৈল্পিক ও ইসলামিক নান্দনিকতায় আপনার ঘরকে রাঙিয়ে তোলার কারিগর",
+    story_title: "আমাদের পথচলা",
+    story_text: "রাঙাও মূলত প্রিমিয়াম ইসলামিক ওয়াল ক্যানভাস, কাঠের ক্যালিগ্রাফি এবং নিকাহনামা নিয়ে কাজ করে। আমরা বিশ্বাস করি প্রতিটি মুসলিমের ঘর সুন্দর এবং আল্লাহর স্মরণে মুখরিত থাকা উচিত শৈল্পিক ওয়াল আর্টের মাধ্যমে। মানসম্মত উপাদান, নিখুঁত ডিজাইন এবং দুর্দান্ত কাস্টমার সার্ভিসের মাধ্যমে আমরা আপনার ঘরের সৌন্দর্য বাড়িয়ে তুলতে প্রতিশ্রুতিবদ্ধ।",
+    banner_image_url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80",
+    story_image_url: "https://images.unsplash.com/photo-1617806118233-18e1db207f62?auto=format&fit=crop&w=600&q=80",
+    mission_title: "আমাদের মিশন",
+    mission_text: "বাংলাদেশের প্রতিটি ঘরে শৈল্পিক ও অর্থবহ ইসলামিক ডেকোর প্রোডাক্ট ও ক্যালিগ্রাফি পৌঁছে দেওয়া, যা ঘরে নিয়ে আসবে প্রশান্তি এবং স্মরণ করিয়ে দেবে আল্লাহর কালামকে।",
+    vision_title: "আমাদের ভিশন",
+    vision_text: "একটি বিশ্বস্ত ও প্রিমিয়াম লাইফস্টাইল ব্র্যান্ড হিসেবে নিজেদের প্রতিষ্ঠিত করা এবং আন্তর্জাতিক মান বজায় রেখে গ্রাহকদের সেরা হোম ডেকোরেশন উপহার দেওয়া।",
+    core_values: [
+      { id: "cv-1", title: "১০০% প্রিমিয়াম কোয়ালিটি", desc: "আমরা শুধুমাত্র উন্নত মানের আমদানিকৃত উপাদান এবং প্রিমিয়াম কাঠের ফ্রেম ব্যবহার করি।", icon: "ShieldCheck" },
+      { id: "cv-2", title: "শৈল্পিক ডিজাইন", desc: "আমাদের প্রতিটি আর্টওয়ার্ক অভিজ্ঞ ক্যালিগ্রাফার এবং ডিজাইনারদের দ্বারা নিখুঁতভাবে তৈরি।", icon: "Sparkles" },
+      { id: "cv-3", title: "গ্রাহক সন্তুষ্টি", desc: "গ্রাহকদের সন্তুষ্টি ও স্বাচ্ছন্দ্য আমাদের মূল লক্ষ্য, যার জন্য আমরা সার্বক্ষণিক সেবা প্রদান করি।", icon: "Heart" },
+      { id: "cv-4", title: "দ্রুত ও নিরাপদ ডেলিভারি", desc: "সারা বাংলাদেশে বাবল র‍্যাপড বক্সে অত্যন্ত নিরাপদ ও দ্রুততম সময়ে ডেলিভারি নিশ্চিত করি।", icon: "Truck" }
+    ]
+  } as AboutUsSettings,
 };
 
 const defaultStoreSettingsData = {
@@ -443,6 +482,7 @@ const defaultStoreSettingsData = {
   sectionOrder: DEFAULT_SECTION_ORDER,
   announcementBar: defaults.announcement_bar,
   seoSettings: defaults.seo_settings,
+  aboutUsSettings: defaults.about_us_settings,
 };
 
 export function useStoreSettings() {
@@ -513,6 +553,7 @@ export function useStoreSettings() {
         sectionOrder,
         announcementBar: { ...defaults.announcement_bar, ...settings.announcement_bar } as AnnouncementBarConfig,
         seoSettings: { ...defaults.seo_settings, ...settings.seo_settings } as SEOSettings,
+        aboutUsSettings: { ...defaults.about_us_settings, ...settings.about_us_settings } as AboutUsSettings,
       };
     },
     staleTime: 1000 * 60 * 5, // 5 minutes cache
@@ -520,5 +561,5 @@ export function useStoreSettings() {
   });
 }
 
-export type { HomepageSectionOrder, SEOSettings };
+export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem };
 export { DEFAULT_SECTION_ORDER };

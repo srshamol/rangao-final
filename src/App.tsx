@@ -28,6 +28,7 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const Products = lazy(() => import("./pages/Products"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
+const About = lazy(() => import("./pages/About"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -108,6 +109,7 @@ const App = () => (
                 <Route path="/order-success/:orderNumber" element={<OrderSuccess />} />
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/:id" element={<BlogPost />} />
+                <Route path="/about" element={<About />} />
 
                 {/* Customer Auth & Account */}
                 <Route path="/login" element={<CustomerLogin />} />
