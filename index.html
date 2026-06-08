@@ -39,12 +39,13 @@
     <script>
       (function() {
         window.addEventListener("error", function(e) {
-          var target = e.target;
-          var isScript = target && target.tagName === "SCRIPT";
-          var isChunkError = (e.message && (e.message.indexOf("Failed to fetch dynamically imported module") >= 0 || e.message.indexOf("Importing a module script failed") >= 0)) ||
-                             (isScript && target.src && target.src.indexOf("/assets/") >= 0);
-          if (isChunkError) {
-            try {
+          try {
+            var target = e.target;
+            var isScript = target && target.tagName === "SCRIPT";
+            var src = isScript && target.src ? String(target.src) : "";
+            var isChunkError = (e.message && (e.message.indexOf("Failed to fetch dynamically imported module") >= 0 || e.message.indexOf("Importing a module script failed") >= 0)) ||
+                               (isScript && src && (src.indexOf("/assets/") >= 0 || src.indexOf("/src/") >= 0 || src.indexOf("index") >= 0));
+            if (isChunkError) {
               var lastReload = sessionStorage.getItem("last_chunk_reload");
               var now = Date.now();
               if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
@@ -54,9 +55,9 @@
                 console.warn("Script load/chunk failure detected in HTML head. Reloading...", url.toString());
                 window.location.replace(url.toString());
               }
-            } catch (err) {
-              window.location.reload();
             }
+          } catch (err) {
+            window.location.reload();
           }
         }, true);
 
