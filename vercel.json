@@ -77,7 +77,7 @@
       "destination": "/api/robots"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets|api|favicon.ico|placeholder.svg).*)",
       "destination": "/index.html"
     }
   ],
