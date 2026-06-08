@@ -107,6 +107,7 @@ export default function AdminTestimonials() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
       qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
       toast({ title: "রিভিউটি অনুমোদিত হয়েছে" });
     },
     onError: (e: any) => toast({ title: "ত্রুটি", description: e.message, variant: "destructive" }),
@@ -138,6 +139,7 @@ export default function AdminTestimonials() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
       qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
       setOpen(false);
       reset();
       toast({ title: "সফলভাবে সেভ হয়েছে" });
@@ -160,6 +162,7 @@ export default function AdminTestimonials() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
       qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
       toast({ title: "ডিলিট হয়েছে" });
     },
     onError: (e: any) => toast({ title: "ত্রুটি", description: e.message, variant: "destructive" }),

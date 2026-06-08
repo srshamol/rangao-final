@@ -221,7 +221,7 @@ export function useAutoStatistics() {
       const [products, orders, reviews] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("orders").select("id", { count: "exact", head: true }),
-        supabase.from("orders").select("id", { count: "exact", head: true }).eq("order_status" as any, "delivered"),
+        supabase.from("testimonials" as any).select("id", { count: "exact", head: true }).eq("is_active", true),
       ]);
       return {
         products: products.count || 0,
@@ -230,8 +230,8 @@ export function useAutoStatistics() {
         reviews: reviews.count || 0,
       };
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-    gcTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30, // 30 seconds cache (allows faster sync for statistics count)
+    gcTime: 1000 * 60 * 5,
   });
 }
 
