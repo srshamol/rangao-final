@@ -46,6 +46,25 @@
             var isChunkError = (e.message && (e.message.indexOf("Failed to fetch dynamically imported module") >= 0 || e.message.indexOf("Importing a module script failed") >= 0)) ||
                                (isScript && src && (src.indexOf("/assets/") >= 0 || src.indexOf("/src/") >= 0 || src.indexOf("index") >= 0));
             if (isChunkError) {
+              try {
+                // Instantly unregister all active Service Workers to break caching trap
+                if (navigator.serviceWorker) {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (var i = 0; i < registrations.length; i++) {
+                      registrations[i].unregister();
+                    }
+                  });
+                }
+                // Clear browser Cache Storage to bypass stale html caching
+                if (window.caches) {
+                  window.caches.keys().then(function(keys) {
+                    for (var i = 0; i < keys.length; i++) {
+                      window.caches.delete(keys[i]);
+                    }
+                  });
+                }
+              } catch (cacheErr) {}
+
               var lastReload = sessionStorage.getItem("last_chunk_reload");
               var now = Date.now();
               if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
