@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Warehouse, Ticket, Settings,
   LogOut, FolderTree, DollarSign, Users, ChevronDown, Clock, Truck,
   PackageCheck, AlertTriangle, Home, Shield, Star, Globe, BookOpen, User, UserCheck,
+  HardDrive,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,7 +48,7 @@ const bottomItems = [
   { title: "ফাইন্যান্স", url: "/admin/finance", icon: DollarSign },
   { title: "কাস্টমার", url: "/admin/customers", icon: Users },
   { title: "স্টাফ ও রোলস", url: "/admin/staff", icon: UserCheck },
-  { title: "মিডিয়া ও স্টোরেজ হাব", url: "/admin/media-library", icon: FolderTree },
+  { title: "মিডিয়া ও স্টোরেজ হাব", url: "/admin/media-library", icon: HardDrive },
   { title: "হোমপেজ", url: "/admin/homepage", icon: Home },
   { title: "হোমপেজ SEO", url: "/admin/homepage-seo", icon: Globe },
   { title: "অর্ডার কন্ট্রোল", url: "/admin/order-control", icon: Shield },
