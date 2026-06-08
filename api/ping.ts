@@ -1,12 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabaseClient() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase credentials (URL/Key) are missing in environment variables.");
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export default async function handler(req: any, res: any) {
   try {
     // Keep database hot with a lightweight query
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("products")
       .select("id")

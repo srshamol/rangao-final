@@ -1,8 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabaseClient() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase credentials (URL/Key) are missing in environment variables.");
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -17,6 +23,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     // 1. Fetch telegram_settings from store_settings table
+    const supabase = getSupabaseClient();
     const { data: row, error: dbError } = await supabase
       .from("store_settings" as any)
       .select("value")
