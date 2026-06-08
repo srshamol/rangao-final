@@ -10,6 +10,27 @@ interface Props {
   categories: any[];
 }
 
+const Highlight = ({ text, query }: { text: string; query: string }) => {
+  if (!query) return <>{text}</>;
+  const parts = query.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return <>{text}</>;
+  
+  const regex = new RegExp(`(${parts.map(p => p.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`, 'gi');
+  const textParts = text.split(regex);
+  
+  return (
+    <>
+      {textParts.map((part, i) => 
+        regex.test(part) ? (
+          <mark key={i} className="bg-accent/20 text-accent font-bold rounded-sm px-0.5">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+};
+
 const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,21 +61,29 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
 
   const searchResults = useMemo(() => {
     if (query.trim().length <= 1) return [];
-    const q = query.toLowerCase();
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.description && p.description.toLowerCase().includes(q)) ||
-      (p.category && p.category.toLowerCase().includes(q))
-    );
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return products.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const sDesc = (p.short_description || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+      const tags = (p.tags || []).map((t: string) => t.toLowerCase());
+      return searchTerms.every(term => 
+        name.includes(term) || desc.includes(term) || sDesc.includes(term) || cat.includes(term) || tags.some((t: string) => t.includes(term))
+      );
+    });
   }, [query, products]);
 
   const categorySuggestions = useMemo(() => {
     if (query.trim().length <= 1) return [];
-    const q = query.toLowerCase();
-    return categories.filter((c) =>
-      c.name.toLowerCase().includes(q) ||
-      (c.description && c.description.toLowerCase().includes(q))
-    );
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return categories.filter((c) => {
+      const name = c.name.toLowerCase();
+      const desc = (c.description || "").toLowerCase();
+      return searchTerms.every(term => 
+        name.includes(term) || desc.includes(term)
+      );
+    });
   }, [query, categories]);
 
   const handleSelectProduct = (id: string) => {
@@ -69,6 +98,13 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
     navigate(`/category/${slug}`);
   };
 
+  const handleSearchSubmit = () => {
+    if (query.trim().length > 0) {
+      onClose();
+      navigate(`/products?search=${encodeURIComponent(query.trim())}`);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -77,10 +113,16 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: "-100%" }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed inset-0 z-50 flex flex-col bg-background lg:hidden"
+          className="fixed inset-0 z-[1200] flex flex-col bg-background lg:hidden"
         >
           {/* Top Search Bar */}
-          <div className="flex h-16 items-center gap-3 border-b border-border/40 px-4 py-2 shadow-sm bg-gradient-to-r from-secondary/30 to-background">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearchSubmit();
+            }}
+            className="flex h-16 items-center gap-3 border-b border-border/40 px-4 py-2 shadow-sm bg-gradient-to-r from-secondary/30 to-background"
+          >
             <Search className="h-5 w-5 text-muted-foreground shrink-0" />
             <input
               ref={inputRef}
@@ -91,17 +133,18 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
               className="flex-1 bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-0"
             />
             {query && (
-              <button onClick={() => setQuery("")} className="p-1 rounded-full hover:bg-secondary text-muted-foreground">
+              <button type="button" onClick={() => setQuery("")} className="p-1 rounded-full hover:bg-secondary text-muted-foreground">
                 <X className="h-4.5 w-4.5" />
               </button>
             )}
             <button
+              type="button"
               onClick={onClose}
               className="rounded-xl bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-primary hover:text-white"
             >
               বন্ধ করুন
             </button>
-          </div>
+          </form>
 
           {/* Search Scroll Content */}
           <div className="flex-1 overflow-y-auto px-4 py-5 scrollbar-none">
@@ -141,7 +184,9 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
                           className="flex items-center gap-2.5 rounded-xl border bg-card p-3 text-left hover:border-accent/40"
                         >
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent font-semibold text-[10px]">🕌</span>
-                          <span className="text-xs font-bold text-card-foreground truncate">{cat.name}</span>
+                          <span className="text-xs font-bold text-card-foreground truncate">
+                            <Highlight text={cat.name} query={query} />
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -165,8 +210,10 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
                             className="h-11 w-11 shrink-0 rounded-lg object-cover bg-secondary"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-card-foreground truncate">{p.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{p.description}</p>
+                            <p className="text-xs font-bold text-card-foreground truncate">
+                              <Highlight text={p.name} query={query} />
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">{p.short_description || p.description}</p>
                           </div>
                           <span className="shrink-0 text-xs font-extrabold text-accent">৳{(p.sale_price ?? p.regular_price).toLocaleString("bn-BD")}</span>
                         </button>

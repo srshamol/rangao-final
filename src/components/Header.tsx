@@ -30,6 +30,27 @@ const socialIconMap: Record<string, React.ElementType> = {
   custom: Globe
 };
 
+const Highlight = ({ text, query }: { text: string; query: string }) => {
+  if (!query) return <>{text}</>;
+  const parts = query.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return <>{text}</>;
+  
+  const regex = new RegExp(`(${parts.map(p => p.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`, 'gi');
+  const textParts = text.split(regex);
+  
+  return (
+    <>
+      {textParts.map((part, i) => 
+        regex.test(part) ? (
+          <mark key={i} className="bg-accent/20 text-accent font-bold rounded-sm px-0.5">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+};
+
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -110,18 +131,29 @@ const Header = () => {
 
   const searchResults = useMemo(() => {
     if (searchQuery.length <= 1) return [];
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const searchTerms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    return products.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const sDesc = (p.short_description || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+      const tags = (p.tags || []).map((t: string) => t.toLowerCase());
+      return searchTerms.every(term => 
+        name.includes(term) || desc.includes(term) || sDesc.includes(term) || cat.includes(term) || tags.some((t: string) => t.includes(term))
+      );
+    });
   }, [searchQuery, products]);
 
   const categorySuggestions = useMemo(() => {
     if (searchQuery.length <= 1) return [];
-    return categories.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.description && c.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const searchTerms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    return categories.filter((c) => {
+      const name = c.name.toLowerCase();
+      const desc = (c.description || "").toLowerCase();
+      return searchTerms.every(term => 
+        name.includes(term) || desc.includes(term)
+      );
+    });
   }, [searchQuery, categories]);
 
   const handleSearchSelect = (productId: string) => {
@@ -350,7 +382,17 @@ const Header = () => {
               className="overflow-hidden border-t border-primary-foreground/5"
             >
               <div className="container py-3">
-                <div className="relative mx-auto max-w-2xl">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (searchQuery.trim().length > 0) {
+                      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                    }
+                  }}
+                  className="relative mx-auto max-w-2xl"
+                >
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-foreground/30" />
                   <input
                     ref={searchRef}
@@ -365,6 +407,7 @@ const Header = () => {
                   />
                   {searchQuery && (
                     <button
+                      type="button"
                       onClick={() => setSearchQuery("")}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-primary-foreground/30 hover:text-primary-foreground/60"
                     >
@@ -383,6 +426,7 @@ const Header = () => {
                             {categorySuggestions.map((cat) => (
                               <button
                                 key={cat.id}
+                                type="button"
                                 onClick={() => {
                                   navigate(`/category/${cat.slug}`);
                                   setSearchQuery("");
@@ -391,7 +435,9 @@ const Header = () => {
                                 className="flex items-center gap-2 rounded-lg p-2 text-left text-xs font-semibold text-card-foreground hover:bg-secondary transition-colors"
                               >
                                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent/10 text-accent font-semibold text-[9px]">🕌</span>
-                                <span className="truncate">{cat.name}</span>
+                                <span className="truncate">
+                                  <Highlight text={cat.name} query={searchQuery} />
+                                </span>
                               </button>
                             ))}
                           </div>
@@ -407,13 +453,16 @@ const Header = () => {
                           {searchResults.map((p) => (
                             <button
                               key={p.id}
+                              type="button"
                               onClick={() => handleSearchSelect(p.id)}
                               className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-secondary"
                             >
                               <img src={p.images?.[0] || ""} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-card-foreground truncate">{p.name}</p>
-                                <p className="text-xs text-muted-foreground truncate">{p.description}</p>
+                                <p className="text-sm font-semibold text-card-foreground truncate">
+                                  <Highlight text={p.name} query={searchQuery} />
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{p.short_description || p.description}</p>
                               </div>
                               <span className="shrink-0 text-sm font-bold text-accent">৳{p.sale_price ?? p.regular_price}</span>
                             </button>
@@ -428,7 +477,7 @@ const Header = () => {
                       <p className="text-sm text-muted-foreground">কোনো প্রোডাক্ট বা ক্যাটাগরি পাওয়া যায়নি</p>
                     </div>
                   )}
-                </div>
+                </form>
               </div>
             </motion.div>
           )}
@@ -447,7 +496,17 @@ const Header = () => {
               <div className="max-h-[85vh] overflow-y-auto overscroll-contain">
               <nav className="container flex flex-col gap-1 py-4">
                 {/* Mobile search */}
-                <div className="relative mb-3">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (searchQuery.trim().length > 0) {
+                      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+                      setMobileOpen(false);
+                      setSearchQuery("");
+                    }
+                  }}
+                  className="relative mb-3"
+                >
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-foreground/30" />
                   <input
                     type="text"
@@ -465,15 +524,18 @@ const Header = () => {
                           {categorySuggestions.map((cat) => (
                             <button
                               key={cat.id}
+                              type="button"
                               onClick={() => {
                                 navigate(`/category/${cat.slug}`);
-                                setSearchQuery("");
-                                setMobileOpen(false);
+                                  setSearchQuery("");
+                                  setMobileOpen(false);
                               }}
                               className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs font-semibold text-primary-foreground hover:bg-primary-foreground/5"
                             >
                               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-accent/20 text-accent font-semibold text-[8px]">🕌</span>
-                              <span className="truncate">{cat.name}</span>
+                              <span className="truncate">
+                                <Highlight text={cat.name} query={searchQuery} />
+                              </span>
                             </button>
                           ))}
                         </div>
@@ -483,17 +545,20 @@ const Header = () => {
                       {searchResults.map((p) => (
                         <button
                           key={p.id}
+                          type="button"
                           onClick={() => { handleSearchSelect(p.id); setMobileOpen(false); }}
                           className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-primary-foreground hover:bg-primary-foreground/5"
                         >
                           <img src={p.images?.[0] || ""} alt={p.name} className="h-8 w-8 rounded-lg object-cover" />
-                          <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
+                          <span className="flex-1 text-xs font-medium truncate">
+                            <Highlight text={p.name} query={searchQuery} />
+                          </span>
                           <span className="text-xs font-bold text-accent">৳{p.sale_price ?? p.regular_price}</span>
                         </button>
                       ))}
                     </div>
                   )}
-                </div>
+                </form>
 
                 <a href="/" className="rounded-xl px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary-foreground/5">হোম</a>
                 <a href="/products" className="rounded-xl px-4 py-3 text-sm font-medium text-primary-foreground/60 hover:bg-primary-foreground/5 hover:text-primary-foreground">সমস্ত প্রোডাক্ট</a>

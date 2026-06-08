@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SlidersHorizontal, Grid3X3, List, Star, X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import SEO from "@/components/SEO";
 import Breadcrumbs from "@/components/Breadcrumbs";
 
@@ -20,8 +20,10 @@ type ViewMode = "grid" | "list";
 
 const Products = () => {
   const { slug } = useParams();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const searchQueryParam = searchParams.get("search");
   const activeCategory = slug || categoryParam;
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -99,6 +101,21 @@ const Products = () => {
       const price = p.sale_price ?? p.regular_price;
       if (price < priceRange[0] || price > priceRange[1]) return false;
       if ((p.rating || 0) < minRating) return false;
+      
+      if (searchQueryParam) {
+        const searchTerms = searchQueryParam.toLowerCase().split(/\s+/).filter(Boolean);
+        const name = p.name?.toLowerCase() || "";
+        const desc = p.description?.toLowerCase() || "";
+        const sDesc = p.short_description?.toLowerCase() || "";
+        const cat = p.category?.toLowerCase() || "";
+        const tags = (p.tags || []).map((t: string) => t.toLowerCase());
+        
+        const isMatch = searchTerms.every(term => 
+          name.includes(term) || desc.includes(term) || sDesc.includes(term) || cat.includes(term) || tags.some((t: string) => t.includes(term))
+        );
+        if (!isMatch) return false;
+      }
+      
       return true;
     });
     switch (sortBy) {
@@ -116,13 +133,31 @@ const Products = () => {
         break;
     }
     return result;
-  }, [products, selectedCategories, priceRange, minRating, sortBy]);
+  }, [products, selectedCategories, priceRange, minRating, sortBy, searchQueryParam]);
 
   const clearFilters = () => {
     setSelectedCategories([]);
     setPriceRange([0, maxPrice]);
     setMinRating(0);
     setSortBy("default");
+    
+    if (slug) {
+      navigate("/products");
+    } else {
+      const newParams = new URLSearchParams(searchParams);
+      let changed = false;
+      if (newParams.has("search")) {
+        newParams.delete("search");
+        changed = true;
+      }
+      if (newParams.has("category")) {
+        newParams.delete("category");
+        changed = true;
+      }
+      if (changed) {
+        setSearchParams(newParams);
+      }
+    }
   };
 
   const FilterContent = () => (
@@ -230,15 +265,21 @@ const Products = () => {
   }, [activeCategory, categories]);
 
   const catSeo = activeCategory ? (seoData as any)[activeCategory] : null;
-  const pageTitle = catSeo?.title || (activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট");
-  const seoDescription = catSeo?.description || (activeCategoryData ? `${activeCategoryData.name} কালেকশন দেখুন রাঙাও স্টোরে।` : "রাঙাও স্টোরের সমস্ত প্রিমিয়াম ক্যাটাগরি এবং প্রোডাক্ট কালেকশন।");
+  const pageTitle = searchQueryParam 
+    ? `সার্চ ফলাফল: "${searchQueryParam}"`
+    : (catSeo?.title || (activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট"));
+  const seoDescription = searchQueryParam
+    ? `রাঙাও স্টোরে "${searchQueryParam}" এর জন্য সার্চ ফলাফল দেখুন।`
+    : (catSeo?.description || (activeCategoryData ? `${activeCategoryData.name} কালেকশন দেখুন রাঙাও স্টোরে।` : "রাঙাও স্টোরের সমস্ত প্রিমিয়াম ক্যাটাগরি এবং প্রোডাক্ট কালেকশন।"));
   const seoText = catSeo?.text || "";
 
   const isPageLoading = categoriesLoading || productsLoading;
 
-  const breadcrumbItems = activeCategoryData 
-    ? [{ label: "প্রোডাক্টস", url: "/products" }, { label: activeCategoryData.name }]
-    : [{ label: "সমস্ত প্রোডাক্ট" }];
+  const breadcrumbItems = searchQueryParam
+    ? [{ label: "প্রোডাক্টস", url: "/products" }, { label: `সার্চ: "${searchQueryParam}"` }]
+    : (activeCategoryData 
+      ? [{ label: "প্রোডাক্টস", url: "/products" }, { label: activeCategoryData.name }]
+      : [{ label: "সমস্ত প্রোডাক্ট" }]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -248,7 +289,9 @@ const Products = () => {
       <main className="py-8 md:py-12">
         <div className="container">
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট"}</h1>
+            <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
+              {searchQueryParam ? `সার্চ ফলাফল: "${searchQueryParam}"` : (activeCategoryData ? activeCategoryData.name : "সমস্ত প্রোডাক্ট")}
+            </h1>
             {seoText && (
               <p className="mt-2 text-sm text-foreground/80 leading-relaxed font-bengali max-w-3xl border-l-2 border-accent pl-3.5">
                 {seoText}
