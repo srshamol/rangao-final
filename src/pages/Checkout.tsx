@@ -97,6 +97,11 @@ const Checkout = () => {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
+  // Clear debounce timer on unmount to prevent state update on unmounted component
+  useEffect(() => {
+    return () => clearTimeout(saveTimer.current);
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const newForm = { ...form, [e.target.name]: e.target.value };
     setForm(newForm);
@@ -228,7 +233,7 @@ const Checkout = () => {
           `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
           `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
 
-        sendTelegramNotification(message, { isNewOrder: true });
+        await sendTelegramNotification(message, { isNewOrder: true });
       } catch (tgErr) {
         console.error("Error triggering telegram notification:", tgErr);
       }

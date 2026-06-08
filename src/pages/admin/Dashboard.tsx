@@ -102,7 +102,8 @@ export default function Dashboard() {
         return 0;
       }
     },
-    staleTime: 60000,
+    staleTime: 30_000,
+    refetchInterval: 60_000, // fallback polling if Realtime drops
   });
 
   const { data: stats } = useQuery({
@@ -147,6 +148,8 @@ export default function Dashboard() {
       });
       return Object.entries(counts).map(([name, value]) => ({ name, value, label: statusLabels[name] || name }));
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: dailySales } = useQuery({
@@ -173,6 +176,8 @@ export default function Dashboard() {
       );
       return results;
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: recentOrders } = useQuery({
@@ -181,6 +186,8 @@ export default function Dashboard() {
       const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(8);
       return data || [];
     },
+    staleTime: 20_000,
+    refetchInterval: 30_000, // recent orders — most time-sensitive
   });
 
   const { data: lowStockProducts } = useQuery({
@@ -189,6 +196,8 @@ export default function Dashboard() {
       const { data } = await supabase.from("products").select("id, name, sku, stock_quantity, low_stock_alert").lt("stock_quantity", 5).order("stock_quantity", { ascending: true }).limit(8);
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: topProducts } = useQuery({
@@ -204,6 +213,8 @@ export default function Dashboard() {
       });
       return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
     },
+    staleTime: 60_000,
+    refetchInterval: 120_000, // top products change less often
   });
 
   const totalOrders = statusBreakdown?.reduce((s, i) => s + i.value, 0) || 0;

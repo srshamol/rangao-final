@@ -32,7 +32,8 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data } = await supabase.from("categories").select("id, name, slug");
       return data || [];
-    }
+    },
+    staleTime: 300_000, // categories rarely change
   });
 
   const { data, isLoading } = useQuery({
@@ -50,6 +51,8 @@ export default function AdminProducts() {
       const { data, count } = await q;
       return { products: data || [], total: count || 0 };
     },
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const deleteMutation = useMutation({

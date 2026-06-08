@@ -33,6 +33,8 @@ export default function Finance() {
       const returnCharge = all.filter(o => o.order_status === "cancelled").reduce((s, o) => s + Number(o.delivery_charge || 0), 0);
       return { totalSales, totalDelivery, netProfit: totalSales - totalDelivery, pending, returnCharge };
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: balance } = useQuery({
@@ -64,7 +66,8 @@ export default function Finance() {
       }
       return results;
     },
-    staleTime: 300000,
+    staleTime: 120_000,
+    refetchInterval: 300_000, // 5 min — 30-day chart changes slowly
   });
 
   const { data: transactions } = useQuery({
@@ -75,6 +78,8 @@ export default function Finance() {
         .gte("created_at", from).in("order_status", ["delivered", "cancelled"]).order("created_at", { ascending: false }).limit(50);
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const exportCSV = () => {

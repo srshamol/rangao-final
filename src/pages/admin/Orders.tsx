@@ -183,7 +183,7 @@ export default function AdminOrders() {
           `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
           `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
 
-        sendTelegramNotification(message, { isStatusUpdate: true });
+        await sendTelegramNotification(message, { isStatusUpdate: true });
       } catch (tgErr) {
         console.error("Error triggering telegram courier booking notification:", tgErr);
       }
@@ -227,6 +227,24 @@ export default function AdminOrders() {
             order_id: order.id, action: "auto_status_sync",
             details: `Steadfast স্ট্যাটাস: ${deliveryStatus} → ${newStatus}`, staff_name: "System"
           });
+
+          // Send Telegram notification for auto-synced status changes
+          try {
+            const { sendTelegramNotification } = await import("@/lib/telegram");
+            const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
+            const newStatusBangla = statusLabels[newStatus] || newStatus;
+            const autoMessage = `🔄 <b>অর্ডার স্ট্যাটাস অটো-আপডেট (Steadfast)!</b>\n\n` +
+              `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+              `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
+              `<b>মোবাইল:</b> ${order.customer_phone}\n` +
+              `<b>Steadfast স্ট্যাটাস:</b> ${deliveryStatus}\n` +
+              `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+              `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+            await sendTelegramNotification(autoMessage, { isStatusUpdate: true });
+          } catch (tgErr) {
+            console.error("Error triggering auto-sync telegram notification:", tgErr);
+          }
+
           updated++;
         }
       }
@@ -276,6 +294,19 @@ export default function AdminOrders() {
           order_id: order.id, action: "bulk_courier_booked",
           details: `বাল্ক শিপিং দিয়ে Steadfast-এ পাঠানো`, staff_name: "Admin"
         });
+      }
+
+      // Send bulk Telegram notification
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const orderNumbers = selectedOrders.map((o: any) => `#${o.order_number}`).join(", ");
+        const bulkMessage = `🚚 <b>বাল্ক অর্ডার Steadfast-এ পাঠানো হয়েছে!</b>\n\n` +
+          `<b>মোট অর্ডার:</b> ${selectedOrders.length}টি\n` +
+          `<b>অর্ডার নং সমূহ:</b> ${orderNumbers}\n` +
+          `<b>স্ট্যাটাস:</b> প্রসেসিং`;
+        await sendTelegramNotification(bulkMessage, { isStatusUpdate: true });
+      } catch (tgErr) {
+        console.error("Error triggering bulk steadfast telegram notification:", tgErr);
       }
 
       toast({ title: "✅ বাল্ক শিপিং সফল!", description: `${selectedOrders.length}টি অর্ডার পাঠানো হয়েছে` });
@@ -338,6 +369,8 @@ export default function AdminOrders() {
       const { data } = await supabase.from("orders").select("order_status, created_at");
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const statusCounts = allOrders?.reduce((acc: Record<string, number>, o: any) => {
@@ -428,6 +461,8 @@ export default function AdminOrders() {
 
       return { orders: data || [], total: count || 0, productImages };
     },
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const totalPages = Math.ceil((data?.total || 0) / pageSize);

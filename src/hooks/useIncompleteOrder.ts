@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "incomplete_order_session";
@@ -28,7 +28,12 @@ interface UseIncompleteOrderOptions {
 export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderOptions) {
   const incompleteIdRef = useRef<string | null>(null);
   const sessionId = useRef(getSessionId());
-  const savedRef = useRef(false);
+  // Store latest products/pageSource in refs so saveIncomplete callback stays stable
+  // (avoids dependency on the products array which is a new reference every render)
+  const productsRef = useRef(products);
+  const pageSourceRef = useRef(pageSource);
+  productsRef.current = products;
+  pageSourceRef.current = pageSource;
 
   const saveIncomplete = useCallback(
     async (data: { name?: string; phone?: string; email?: string; formData?: Record<string, any> }) => {
@@ -36,12 +41,15 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
       // Need at least name or phone
       if (!name?.trim() && !phone?.trim()) return;
 
+      const currentProducts = productsRef.current;
+      const currentPageSource = pageSourceRef.current;
+
       const payload: Record<string, any> = {
         customer_name: name?.trim() || null,
         customer_phone: phone?.trim() || null,
         customer_email: email?.trim() || null,
-        product_info: products,
-        page_source: pageSource,
+        product_info: currentProducts,
+        page_source: currentPageSource,
         form_data: formData || {},
         session_id: sessionId.current,
         status: "abandoned",
@@ -49,6 +57,7 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
 
       try {
         if (incompleteIdRef.current) {
+          // Update existing record with latest form data
           await supabase
             .from("incomplete_orders" as any)
             .update(payload)
@@ -61,32 +70,31 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
             .single();
           if (row) {
             incompleteIdRef.current = (row as any).id;
-            
+
             // Dispatch Telegram Notification for new incomplete order
             try {
               const { sendTelegramNotification } = await import("@/lib/telegram");
-              const itemsList = products
+              const itemsList = currentProducts
                 .map((p) => `• ${p.name} (Qty: ${p.quantity || 1}) - ৳${p.price * (p.quantity || 1)}`)
                 .join("\n");
-              
+
               const message = `⚠️ <b>নতুন ইনকমপ্লিট অর্ডার (কার্ট পরিত্যক্ত)!</b>\n\n` +
                 `<b>কাস্টমার:</b> ${name?.trim() || "N/A"}\n` +
                 `<b>মোবাইল:</b> ${phone?.trim() || "N/A"}\n` +
-                `<b>পেজ/সোর্স:</b> ${pageSource}\n\n` +
+                `<b>পেজ/সোর্স:</b> ${currentPageSource}\n\n` +
                 `<b>পণ্যসমূহ:</b>\n${itemsList}`;
-                
-              sendTelegramNotification(message, { isIncompleteOrder: true });
+
+              await sendTelegramNotification(message, { isIncompleteOrder: true });
             } catch (tgErr) {
               console.error("Error triggering incomplete order notification:", tgErr);
             }
           }
         }
-        savedRef.current = true;
       } catch (err) {
         console.error("Incomplete order save error:", err);
       }
     },
-    [pageSource, products]
+    [] // stable — reads latest values from refs, no deps needed
   );
 
   const markConverted = useCallback(async (orderId?: string) => {

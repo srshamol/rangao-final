@@ -37,6 +37,13 @@ export async function sendTelegramNotification(
     }
 
     const data = await response.json();
+    if (data?.status === "success" || data?.status === "skipped") {
+      return { success: true };
+    }
+    // If the serverless function itself returned an error payload, throw so fallback runs
+    if (data?.error) {
+      throw new Error(`Serverless relay error: ${data.error}`);
+    }
     return { success: true };
   } catch (err) {
     console.warn("[Telegram] Serverless relay failed or is unavailable locally. Falling back to direct client-side dispatch...", err);

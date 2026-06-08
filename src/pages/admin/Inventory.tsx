@@ -22,7 +22,7 @@ export default function AdminInventory() {
   const [adjustNote, setAdjustNote] = useState("");
 
   const { data: stats } = useQuery({
-    queryKey: ["inventory-stats"],
+    queryKey: ["admin-inventory", "stats"],
     queryFn: async () => {
       const { data: products } = await supabase.from("products").select("stock_quantity, cost_price");
       const total = products?.length || 0;
@@ -30,18 +30,22 @@ export default function AdminInventory() {
       const lowStock = (products || []).filter((p) => p.stock_quantity < 5).length;
       return { total, totalValue, lowStock };
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: lowStockProducts } = useQuery({
-    queryKey: ["inventory-low-stock"],
+    queryKey: ["admin-low-stock"],
     queryFn: async () => {
       const { data } = await supabase.from("products").select("*").lt("stock_quantity", 5).order("stock_quantity");
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: logs } = useQuery({
-    queryKey: ["inventory-logs"],
+    queryKey: ["admin-inventory", "logs"],
     queryFn: async () => {
       const { data } = await supabase
         .from("inventory_log")
@@ -50,6 +54,8 @@ export default function AdminInventory() {
         .limit(20);
       return data || [];
     },
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const adjustMutation = useMutation({
@@ -78,7 +84,7 @@ export default function AdminInventory() {
             `<b>SKU:</b> ${adjustProduct.sku || "N/A"}\n` +
             `<b>বর্তমান স্টক:</b> ${stockAfter} পিস (সীমা: ${adjustProduct.low_stock_alert || 5} পিস)`;
           
-          sendTelegramNotification(message, { isLowStock: true });
+          await sendTelegramNotification(message, { isLowStock: true });
         } catch (tgErr) {
           console.error("Error triggering low stock telegram notification:", tgErr);
         }

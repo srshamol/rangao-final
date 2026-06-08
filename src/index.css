@@ -207,6 +207,13 @@ body {
   }
 }
 
+/* Cookie consent banner — clears mobile bottom nav with safe area support */
+@media (max-width: 1023px) {
+  .cookie-banner-mobile {
+    bottom: calc(env(safe-area-inset-bottom) + 86px) !important;
+  }
+}
+
 @keyframes shimmer {
   100% {
     transform: translateX(100%);

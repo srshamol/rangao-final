@@ -37,6 +37,23 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
   const [submitting, setSubmitting] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
+  // Clear debounce timer on unmount / modal close to prevent leaks
+  useEffect(() => {
+    return () => clearTimeout(saveTimer.current);
+  }, []);
+
+  // Reset form state when modal is re-opened
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setPhone("");
+      setAddress("");
+      setShipping("dhaka");
+      setPayment("cod");
+      setOrderNote("");
+    }
+  }, [open]);
+
   useEffect(() => {
     setLocalQuantity(quantity);
   }, [quantity, open]);
@@ -225,7 +242,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
           `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
 
-        sendTelegramNotification(message, { isNewOrder: true });
+        await sendTelegramNotification(message, { isNewOrder: true });
       } catch (tgErr) {
         console.error("Error triggering telegram notification:", tgErr);
       }

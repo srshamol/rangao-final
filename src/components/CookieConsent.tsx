@@ -33,43 +33,61 @@ export default function CookieConsent() {
     <AnimatePresence>
       {showBanner && (
         <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 50, scale: 0.95 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="fixed bottom-6 left-1/2 z-[1000] w-[90%] max-w-md -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-background/95 p-5 shadow-2xl backdrop-blur-md md:bottom-8 md:w-full"
+          initial={{ opacity: 0, y: 60 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 60 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          // On mobile: sits ABOVE the 70px bottom nav bar (+16px gap = 86px)
+          // On lg+ (desktop): no bottom nav, standard 32px from bottom
+          className="cookie-banner-mobile fixed bottom-[86px] left-1/2 z-[1000] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-background/97 shadow-2xl backdrop-blur-md lg:bottom-8 lg:max-w-md"
         >
-          <div className="flex items-start gap-4">
-            <div className="rounded-full bg-primary/10 p-2.5 text-primary">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="font-display text-sm font-bold text-foreground">কুকি পলিসি ও ট্র্যাকিং</h4>
-              <p className="font-bengali text-xs leading-relaxed text-muted-foreground">
-                আমরা আপনার শপিং অভিজ্ঞতা আরও উন্নত করতে এবং ওয়েবসাইটের পারফরম্যান্স ট্র্যাকিংয়ের জন্য কুকি ব্যবহার করি।
-              </p>
-            </div>
-          </div>
+          {/* Dismiss X — absolute top-right corner */}
+          <button
+            onClick={handleDecline}
+            aria-label="বন্ধ করুন"
+            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
 
-          <div className="mt-4 flex items-center justify-end gap-2.5">
-            <Button
-              onClick={handleDecline}
-              variant="outline"
-              size="sm"
-              className="h-9 rounded-xl font-bengali text-xs font-semibold text-muted-foreground border-border hover:bg-secondary"
-            >
-              <X className="mr-1.5 h-3.5 w-3.5" /> না, থাক
-            </Button>
-            <Button
-              onClick={handleAccept}
-              size="sm"
-              className="h-9 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-bengali text-xs font-bold shadow-md shadow-primary/20"
-            >
-              <Check className="mr-1.5 h-3.5 w-3.5" /> ঠিক আছে
-            </Button>
+          <div className="p-4 pr-10">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-2.5">
+              <div className="shrink-0 rounded-full bg-primary/10 p-2 text-primary">
+                <ShieldAlert className="h-4 w-4" />
+              </div>
+              <h4 className="font-display text-sm font-bold text-foreground leading-tight">
+                কুকি পলিসি ও ট্র্যাকিং
+              </h4>
+            </div>
+
+            {/* Description */}
+            <p className="font-bengali text-[11.5px] leading-relaxed text-muted-foreground mb-4">
+              আমরা আপনার শপিং অভিজ্ঞতা উন্নত করতে এবং ওয়েবসাইটের পারফরম্যান্স ট্র্যাকিংয়ের জন্য কুকি ব্যবহার করি।
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleDecline}
+                variant="outline"
+                size="sm"
+                className="h-9 flex-1 rounded-xl font-bengali text-xs font-semibold text-muted-foreground border-border hover:bg-secondary"
+              >
+                না, থাক
+              </Button>
+              <Button
+                onClick={handleAccept}
+                size="sm"
+                className="h-9 flex-[2] rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bengali text-xs font-bold shadow-md shadow-primary/20"
+              >
+                <Check className="mr-1.5 h-3.5 w-3.5" /> ঠিক আছে, সম্মত
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
+

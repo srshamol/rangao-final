@@ -110,7 +110,7 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
           `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
           `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
 
-        sendTelegramNotification(message, { isNewOrder: true });
+        await sendTelegramNotification(message, { isNewOrder: true });
       } catch (tgErr) {
         console.error("Error triggering telegram notification:", tgErr);
       }

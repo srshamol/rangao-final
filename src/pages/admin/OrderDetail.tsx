@@ -75,6 +75,8 @@ export default function OrderDetail() {
       const { data } = await supabase.from("orders").select("*").eq("id", id).single();
       return data;
     },
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const { data: items } = useQuery({
@@ -83,6 +85,8 @@ export default function OrderDetail() {
       const { data } = await supabase.from("order_items").select("*").eq("order_id", id);
       return data || [];
     },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
   const updateStatus = useMutation({
@@ -128,7 +132,7 @@ export default function OrderDetail() {
               `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
               `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
 
-            sendTelegramNotification(message, { isStatusUpdate: true });
+            await sendTelegramNotification(message, { isStatusUpdate: true });
           } catch (tgErr) {
             console.error("Error triggering telegram status update notification:", tgErr);
           }
@@ -205,7 +209,7 @@ export default function OrderDetail() {
           `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
           `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
 
-        sendTelegramNotification(message, { isStatusUpdate: true });
+        await sendTelegramNotification(message, { isStatusUpdate: true });
       } catch (tgErr) {
         console.error("Error triggering telegram courier booking notification:", tgErr);
       }

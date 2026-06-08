@@ -34,6 +34,8 @@ export default function AdminCoupons() {
       const { data } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const saveMutation = useMutation({

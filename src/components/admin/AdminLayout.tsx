@@ -2,8 +2,14 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AdminSidebar from "./AdminSidebar";
 import SEO from "@/components/SEO";
+import { useAdminRealtime } from "@/hooks/useAdminRealtime";
 
 export default function AdminLayout() {
+  // ✅ Central Supabase Realtime subscription — invalidates React Query cache
+  // on any DB change (orders, products, incomplete_orders, etc.)
+  // All child admin pages share the same QueryClient → they all get live data.
+  useAdminRealtime();
+
   return (
     <SidebarProvider>
       <SEO title="অ্যাডমিন প্যানেল" description="রাঙাও অ্যাডমিন প্যানেল" noIndex={true} />
@@ -25,3 +31,4 @@ export default function AdminLayout() {
     </SidebarProvider>
   );
 }
+
