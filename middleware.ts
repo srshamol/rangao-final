@@ -1,6 +1,3 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
 // Helper to decode base64url string
@@ -67,17 +64,30 @@ async function verifyJwt(token: string, secret: string): Promise<any | null> {
   }
 }
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+// Helper to get cookie value by name from request
+function getCookie(request: Request, name: string): string | undefined {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookies = cookieHeader.split(';').map(c => c.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith(`${name}=`)) {
+      return cookie.substring(name.length + 1);
+    }
+  }
+  return undefined;
+}
+
+export async function middleware(req: Request) {
+  const url = new URL(req.url);
+  const { pathname } = url;
 
   // Only protect /admin routes, excluding login static assets & login page itself
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = req.cookies.get('sb-admin-auth-token')?.value;
+    const token = getCookie(req, 'sb-admin-auth-token');
 
     if (!token) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl, 307);
+      return Response.redirect(loginUrl.toString(), 307);
     }
 
     if (!JWT_SECRET) {
@@ -85,7 +95,7 @@ export async function middleware(req: NextRequest) {
       // Secure default: If the secret is missing in prod, redirect to login rather than allowing access
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl, 307);
+      return Response.redirect(loginUrl.toString(), 307);
     }
 
     const payload = await verifyJwt(token, JWT_SECRET);
@@ -94,11 +104,16 @@ export async function middleware(req: NextRequest) {
     if (!payload || (role !== 'admin' && role !== 'manager')) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl, 307);
+      return Response.redirect(loginUrl.toString(), 307);
     }
   }
 
-  return NextResponse.next();
+  // Instruct Vercel to continue request processing
+  return new Response(null, {
+    headers: {
+      'x-middleware-next': '1',
+    },
+  });
 }
 
 // Config to optimize middleware execution matching paths
