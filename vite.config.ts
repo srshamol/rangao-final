@@ -111,13 +111,6 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("node_modules/framer-motion")) {
             return "vendor-framer";
           }
-          // ── Recharts / D3 (heavy — isolate) ─────────────────────────────
-          if (
-            id.includes("node_modules/recharts") ||
-            id.includes("node_modules/d3-")
-          ) {
-            return "vendor-charts";
-          }
           // ── Radix UI primitives ──────────────────────────────────────────
           if (id.includes("node_modules/@radix-ui/")) {
             return "vendor-radix";
