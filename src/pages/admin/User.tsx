@@ -25,6 +25,7 @@ interface Customer {
   totalSpent: number;
   lastOrder: string | null;
   created_at: string;
+  is_registered?: boolean;
 }
 
 interface ActivityLog {
@@ -83,8 +84,8 @@ export default function UserManagement() {
     const adminRoles = ["admin", "manager"];
     return new Set<string>(
       userRoles
-        .filter((ur: any) => adminRoles.includes(ur.role))
-        .map((ur: any) => ur.user_id)
+          .filter((ur: any) => adminRoles.includes(ur.role))
+          .map((ur: any) => ur.user_id)
     );
   }, [userRoles]);
 
@@ -229,36 +230,68 @@ export default function UserManagement() {
     return "ডেস্কটপ / ল্যাপটপ";
   };
 
-  // Build the list of registered customers supplemented by order statistics
+  // Build the list of registered and unregistered customers supplemented by order statistics
   const customers = useMemo<Customer[]>(() => {
     if (!nonAdminProfiles) return [];
     
     // Map of user_id -> statistics
     const statsMap: Record<string, { totalOrders: number; totalSpent: number; lastOrder: string | null }> = {};
     
+    // Guest (unregistered) customer statistics grouped by phone number
+    const guestStatsMap: Record<string, { name: string; email: string | null; phone: string; totalOrders: number; totalSpent: number; lastOrder: string | null; firstOrder: string }> = {};
+
+    const registeredPhones = new Set(nonAdminProfiles.map(p => p.phone).filter(Boolean));
+    const registeredEmails = new Set(nonAdminProfiles.map(p => p.email?.toLowerCase()).filter(Boolean));
+    
     orders?.forEach((o: any) => {
-      let key = o.user_id;
+      let regUserId = o.user_id;
+      
       // Fallback matching by phone/email if user_id is null (for guest orders matching registered profiles)
-      if (!key && o.customer_phone) {
+      if (!regUserId && o.customer_phone) {
         const matchingProfile = nonAdminProfiles.find((p: any) => p.phone === o.customer_phone || p.email === o.customer_email);
         if (matchingProfile) {
-          key = matchingProfile.user_id;
+          regUserId = matchingProfile.user_id;
         }
       }
       
-      if (key) {
-        if (!statsMap[key]) {
-          statsMap[key] = { totalOrders: 0, totalSpent: 0, lastOrder: null };
+      if (regUserId) {
+        if (!statsMap[regUserId]) {
+          statsMap[regUserId] = { totalOrders: 0, totalSpent: 0, lastOrder: null };
         }
-        statsMap[key].totalOrders++;
-        statsMap[key].totalSpent += Number(o.total_amount);
-        if (!statsMap[key].lastOrder || new Date(o.created_at) > new Date(statsMap[key].lastOrder)) {
-          statsMap[key].lastOrder = o.created_at;
+        statsMap[regUserId].totalOrders++;
+        statsMap[regUserId].totalSpent += Number(o.total_amount);
+        if (!statsMap[regUserId].lastOrder || new Date(o.created_at) > new Date(statsMap[regUserId].lastOrder)) {
+          statsMap[regUserId].lastOrder = o.created_at;
+        }
+      } else if (o.customer_phone) {
+        // Guest/Unregistered customer
+        const phone = o.customer_phone;
+        if (!guestStatsMap[phone]) {
+          guestStatsMap[phone] = {
+            name: o.customer_name || "অজানা অতিথি",
+            email: o.customer_email || null,
+            phone: phone,
+            totalOrders: 0,
+            totalSpent: 0,
+            lastOrder: null,
+            firstOrder: o.created_at
+          };
+        }
+        guestStatsMap[phone].totalOrders++;
+        guestStatsMap[phone].totalSpent += Number(o.total_amount);
+        // Keep name and email from latest order
+        if (!guestStatsMap[phone].lastOrder || new Date(o.created_at) > new Date(guestStatsMap[phone].lastOrder)) {
+          guestStatsMap[phone].lastOrder = o.created_at;
+          guestStatsMap[phone].name = o.customer_name || guestStatsMap[phone].name;
+          guestStatsMap[phone].email = o.customer_email || guestStatsMap[phone].email;
+        }
+        if (new Date(o.created_at) < new Date(guestStatsMap[phone].firstOrder)) {
+          guestStatsMap[phone].firstOrder = o.created_at;
         }
       }
     });
 
-    return nonAdminProfiles.map((p: any) => {
+    const regCustomers = nonAdminProfiles.map((p: any) => {
       const stats = statsMap[p.user_id] || { totalOrders: 0, totalSpent: 0, lastOrder: null };
       return {
         id: p.id,
@@ -269,9 +302,27 @@ export default function UserManagement() {
         totalOrders: stats.totalOrders,
         totalSpent: stats.totalSpent,
         lastOrder: stats.lastOrder,
-        created_at: p.created_at
+        created_at: p.created_at,
+        is_registered: true
       };
-    }).sort((a, b) => b.totalSpent - a.totalSpent);
+    });
+
+    const guestCustomers = Object.values(guestStatsMap).map((g) => {
+      return {
+        id: `guest-${g.phone}`,
+        user_id: "",
+        name: g.name,
+        phone: g.phone,
+        email: g.email,
+        totalOrders: g.totalOrders,
+        totalSpent: g.totalSpent,
+        lastOrder: g.lastOrder,
+        created_at: g.firstOrder,
+        is_registered: false
+      };
+    });
+
+    return [...regCustomers, ...guestCustomers].sort((a, b) => b.totalSpent - a.totalSpent);
   }, [nonAdminProfiles, orders]);
 
   const filtered = useMemo(() => {
@@ -370,12 +421,17 @@ export default function UserManagement() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div>
-                              <p className="font-medium flex items-center gap-1.5">
-                                {c.name}
+                              <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                                <span>{c.name}</span>
+                                {c.is_registered ? (
+                                  <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-md dark:bg-blue-900/30 dark:text-blue-400">নিবন্ধিত</span>
+                                ) : (
+                                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md dark:bg-slate-800/30 dark:text-slate-400">অতিথি (Guest)</span>
+                                )}
                                 {isBlocked(c.phone) && (
                                   <span className="text-[10px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded-md dark:bg-red-900/30 dark:text-red-400">Blocked</span>
                                 )}
-                              </p>
+                              </div>
                               {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
                             </div>
                           </div>
@@ -431,7 +487,7 @@ export default function UserManagement() {
                               className="h-8 w-8 text-red-500 hover:bg-red-50"
                               title="প্রোফাইল মুছুন"
                               onClick={() => setDeleteCustomerTarget(c)}
-                              disabled={deleteCustomer.isPending || c.email?.toLowerCase() === "bdinfosky@gmail.com"}
+                              disabled={deleteCustomer.isPending || !c.is_registered || c.email?.toLowerCase() === "bdinfosky@gmail.com"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
