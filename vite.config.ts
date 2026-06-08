@@ -86,44 +86,6 @@ export default defineConfig(({ mode }) => ({
         entryFileNames: `assets/[name].[hash].js`,
         chunkFileNames: `assets/[name].[hash].js`,
         assetFileNames: `assets/[name].[hash].[ext]`,
-        manualChunks(id) {
-          // ── Core React runtime ──────────────────────────────────────────
-          if (
-            id.includes("node_modules/react/") ||
-            id.includes("node_modules/react-dom/") ||
-            id.includes("node_modules/scheduler/")
-          ) {
-            return "vendor-react";
-          }
-          // ── React Router ────────────────────────────────────────────────
-          if (id.includes("node_modules/react-router")) {
-            return "vendor-router";
-          }
-          // ── TanStack Query ──────────────────────────────────────────────
-          if (id.includes("node_modules/@tanstack/")) {
-            return "vendor-query";
-          }
-          // ── Supabase ────────────────────────────────────────────────────
-          if (id.includes("node_modules/@supabase/")) {
-            return "vendor-supabase";
-          }
-          // ── Framer Motion (heavy — isolate) ─────────────────────────────
-          if (id.includes("node_modules/framer-motion")) {
-            return "vendor-framer";
-          }
-          // ── Radix UI primitives ──────────────────────────────────────────
-          if (id.includes("node_modules/@radix-ui/")) {
-            return "vendor-radix";
-          }
-          // ── Lucide icons ─────────────────────────────────────────────────
-          if (id.includes("node_modules/lucide-react")) {
-            return "vendor-icons";
-          }
-          // ── Everything else in node_modules → generic vendor ─────────────
-          if (id.includes("node_modules/")) {
-            return "vendor-misc";
-          }
-        },
       },
     },
   },
