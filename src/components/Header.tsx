@@ -260,16 +260,22 @@ const Header = () => {
                           const count = getCatCount(parent.slug);
                           return (
                             <div key={parent.id} className="space-y-1">
-                              <a href={`/category/${parent.slug}`} className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-card-foreground transition-all duration-200 hover:bg-accent/8">
-                                {parent.image_url ? (
-                                  <img src={parent.image_url} alt="" className="h-8 w-8 rounded-lg object-cover" />
-                                ) : (
-                                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground font-semibold">🕌</span>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <span className="font-bold truncate block">{parent.name}</span>
-                                  <p className="text-[10px] text-muted-foreground/60">{count}টি প্রোডাক্ট</p>
+                              <a 
+                                href={`/category/${parent.slug}`} 
+                                className="group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-card-foreground transition-all duration-300 hover:bg-accent/8 hover:translate-x-1 border border-transparent hover:border-accent/10"
+                              >
+                                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-secondary flex items-center justify-center">
+                                  {parent.image_url ? (
+                                    <img src={parent.image_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover/item:scale-110" />
+                                  ) : (
+                                    <span className="text-muted-foreground font-semibold text-sm">🕌</span>
+                                  )}
                                 </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-bold truncate block transition-colors duration-300 group-hover/item:text-accent">{parent.name}</span>
+                                  <p className="text-[10px] text-muted-foreground/60 transition-colors duration-300 group-hover/item:text-accent/70">{count}টি প্রোডাক্ট</p>
+                                </div>
+                                <ChevronRight className="h-3.5 w-3.5 opacity-0 -translate-x-2 text-accent transition-all duration-300 group-hover/item:opacity-100 group-hover/item:translate-x-0 shrink-0" />
                               </a>
 
                               {parent.children.length > 0 && (
