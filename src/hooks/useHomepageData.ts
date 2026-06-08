@@ -188,8 +188,8 @@ export function useTestimonials(limit?: number) {
       if (error) return [] as DBTestimonial[];
       return (data || []) as DBTestimonial[];
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-    gcTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30, // 30 seconds cache (allows faster sync for newly added reviews)
+    gcTime: 1000 * 60 * 5,
   });
 }
 

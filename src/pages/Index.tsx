@@ -149,7 +149,15 @@ const Index = () => {
         break;
 
       case "testimonials":
-        sectionContent = <Testimonials />;
+        sectionContent = (
+          <Testimonials
+            title={config.title}
+            subtitle={config.subtitle}
+            autoplay={config.autoplay}
+            loop={config.loop}
+            sliderSpeed={config.slider_speed}
+          />
+        );
         break;
 
       case "brands":

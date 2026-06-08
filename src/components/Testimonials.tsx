@@ -4,9 +4,23 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useEffect, useCallback, useState } from "react";
 import { useTestimonials } from "@/hooks/useHomepageData";
 
-const Testimonials = () => {
+interface TestimonialsProps {
+  title?: string;
+  subtitle?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  sliderSpeed?: number;
+}
+
+const Testimonials = ({
+  title = "আমাদের কাস্টমাররা যা বলেন",
+  subtitle = "রিভিউ",
+  autoplay = true,
+  loop = true,
+  sliderSpeed = 4000,
+}: TestimonialsProps) => {
   const { data: testimonials, isLoading } = useTestimonials(12);
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start", slidesToScroll: 1 });
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: loop, align: "start", slidesToScroll: 1 });
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const onSelect = useCallback(() => {
@@ -19,16 +33,19 @@ const Testimonials = () => {
     onSelect();
     emblaApi.on("select", onSelect);
 
-    const autoplay = setInterval(() => {
-      if (emblaApi.canScrollNext()) emblaApi.scrollNext();
-      else emblaApi.scrollTo(0);
-    }, 4000);
+    let autoplayTimer: ReturnType<typeof setInterval> | null = null;
+    if (autoplay) {
+      autoplayTimer = setInterval(() => {
+        if (emblaApi.canScrollNext()) emblaApi.scrollNext();
+        else emblaApi.scrollTo(0);
+      }, sliderSpeed);
+    }
 
     return () => {
-      clearInterval(autoplay);
+      if (autoplayTimer) clearInterval(autoplayTimer);
       emblaApi.off("select", onSelect);
     };
-  }, [emblaApi, onSelect]);
+  }, [emblaApi, onSelect, autoplay, sliderSpeed]);
 
   if (isLoading || !testimonials || testimonials.length === 0) return null;
 
@@ -42,7 +59,7 @@ const Testimonials = () => {
             viewport={{ once: true }}
             className="inline-block rounded-full bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-accent"
           >
-            রিভিউ
+            {subtitle}
           </motion.span>
           <div className="mx-auto mt-4 flex items-center justify-center gap-3">
             <div className="h-px w-12 bg-gradient-to-r from-transparent to-accent/30" />
@@ -56,7 +73,7 @@ const Testimonials = () => {
             transition={{ delay: 0.1 }}
             className="mt-5 font-display text-3xl font-extrabold text-foreground md:text-5xl"
           >
-            আমাদের কাস্টমাররা যা বলেন
+            {title}
           </motion.h2>
         </div>
 
