@@ -233,7 +233,7 @@ const Checkout = () => {
           `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
           `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
 
-        await sendTelegramNotification(message, { isNewOrder: true });
+        await sendTelegramNotification(message, { isNewOrder: true, orderId: order.id } as any);
       } catch (tgErr) {
         console.error("Error triggering telegram notification:", tgErr);
       }

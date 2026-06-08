@@ -6,6 +6,7 @@ interface SendTelegramOptions {
   isStatusUpdate?: boolean;
   isIncompleteOrder?: boolean;
   isLowStock?: boolean;
+  orderId?: string;
 }
 
 export async function sendTelegramNotification(
@@ -13,7 +14,37 @@ export async function sendTelegramNotification(
   options: SendTelegramOptions = {}
 ): Promise<{ success: boolean; error?: string }> {
   
-  // 1. Try production path (Vercel Serverless Function)
+  // 1. Try secure Postgres RPC function (recommended, bypasses RLS, works locally & on Vercel)
+  try {
+    const { data, error } = await supabase.rpc("send_telegram_notification", {
+      p_message: message,
+      p_options: {
+        isTest: options.isTest || false,
+        isNewOrder: options.isNewOrder || false,
+        isStatusUpdate: options.isStatusUpdate || false,
+        isIncompleteOrder: options.isIncompleteOrder || false,
+        isLowStock: options.isLowStock || false,
+        orderId: options.orderId || null
+      }
+    });
+
+    if (!error && data) {
+      if (data.success || data.status === "skipped") {
+        console.log("[Telegram] Notification sent successfully via RPC:", data);
+        return { success: true };
+      }
+      if (data.error) {
+        throw new Error(data.error);
+      }
+    }
+    if (error) throw error;
+  } catch (rpcErr: any) {
+    // If the function doesn't exist, we'll log it as a warning and proceed to Vercel/client fallback.
+    // If it's a genuine credentials failure, we also try other fallbacks.
+    console.warn("[Telegram] RPC dispatch failed, trying Vercel serverless relay...", rpcErr.message || rpcErr);
+  }
+
+  // 2. Try production path (Vercel Serverless Function)
   try {
     const response = await fetch("/api/telegram", {
       method: "POST",
@@ -27,6 +58,7 @@ export async function sendTelegramNotification(
         isStatusUpdate: options.isStatusUpdate || false,
         isIncompleteOrder: options.isIncompleteOrder || false,
         isLowStock: options.isLowStock || false,
+        orderId: options.orderId || null,
       }),
     });
 
@@ -48,7 +80,7 @@ export async function sendTelegramNotification(
   } catch (err) {
     console.warn("[Telegram] Serverless relay failed or is unavailable locally. Falling back to direct client-side dispatch...", err);
     
-    // 2. Local Fallback: Fetch settings and dispatch directly from client browser
+    // 3. Local Fallback: Fetch settings and dispatch directly from client browser
     try {
       const { data: row, error: dbError } = await supabase
         .from("store_settings" as any)
@@ -118,6 +150,16 @@ export async function sendTelegramNotification(
       const result = await response.json();
       if (!response.ok || !result.ok) {
         return { success: false, error: result.description || "Failed to send message via Telegram Bot API." };
+      }
+
+      // Log to history locally if user is signed in as admin/staff
+      if (options.orderId) {
+        await supabase.from("order_history" as any).insert({
+          order_id: options.orderId,
+          action: "telegram_notification",
+          details: "Telegram notification sent successfully via client-side fallback dispatch",
+          staff_name: "System",
+        }).catch((e: any) => console.warn("Failed to write to order_history from fallback:", e));
       }
 
       console.log("[Telegram] Direct client-side message sent successfully!");

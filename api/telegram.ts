@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { message, isTest, isNewOrder, isStatusUpdate, isIncompleteOrder, isLowStock } = req.body;
+  const { message, isTest, isNewOrder, isStatusUpdate, isIncompleteOrder, isLowStock, orderId } = req.body;
 
   if (!message) {
     return res.status(400).json({ error: "Message content is required" });
@@ -94,15 +94,45 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok || !result.ok) {
       console.error("Telegram API error:", result);
+      if (orderId) {
+        await supabase.from("order_history" as any).insert({
+          order_id: orderId,
+          action: "telegram_notification",
+          details: `Telegram notification failed: ${result.description || "Unknown error"}`,
+          staff_name: "System",
+        }).catch((e: any) => console.error("Failed to write to order_history on error:", e));
+      }
       return res.status(502).json({
         error: "Failed to send message via Telegram API",
         details: result.description || "Unknown error",
       });
     }
 
+    if (orderId) {
+      await supabase.from("order_history" as any).insert({
+        order_id: orderId,
+        action: "telegram_notification",
+        details: "Telegram notification sent successfully via Vercel serverless relay",
+        staff_name: "System",
+      }).catch((e: any) => console.error("Failed to write to order_history on success:", e));
+    }
+
     return res.status(200).json({ status: "success", telegram_response: result });
   } catch (err: any) {
     console.error("Notification handler exception:", err);
+    if (orderId) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase.from("order_history" as any).insert({
+          order_id: orderId,
+          action: "telegram_notification",
+          details: `Telegram serverless function exception: ${err.message || "Unknown error"}`,
+          staff_name: "System",
+        });
+      } catch (logErr) {
+        console.error("Failed to write exception to order_history:", logErr);
+      }
+    }
     return res.status(500).json({ error: err.message || "Internal server error" });
   }
 }
