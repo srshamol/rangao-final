@@ -289,10 +289,10 @@ const BlogPost = () => {
       <SEO
         title={(seoData as any)?.seo_title || displayPost.title}
         description={(seoData as any)?.seo_description || displayPost.excerpt}
-        canonicalUrl={(seoData as any)?.canonical_url}
+        canonical={(seoData as any)?.canonical_url}
         type="article"
         image={displayPost.image}
-        schemas={articleSchema ? [articleSchema] : undefined}
+        schema={articleSchema ? [articleSchema] : undefined}
       />
       <Breadcrumbs
         items={[

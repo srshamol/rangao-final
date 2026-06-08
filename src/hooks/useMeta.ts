@@ -28,7 +28,8 @@ export function useMeta({
   useEffect(() => {
     // 1. Update Document Title
     const suffix = " | রাঙাও";
-    const finalTitle = title.endsWith(suffix) ? title : `${title}${suffix}`;
+    const hasSiteName = title.includes("রাঙাও") || title.includes("Rangao");
+    const finalTitle = hasSiteName ? title : `${title}${suffix}`;
     document.title = finalTitle;
 
     // Helper function to update or create meta tags
