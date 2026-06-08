@@ -34,6 +34,52 @@
     <!-- Supabase CDN preconnect for hero image and assets -->
     <link rel="preconnect" href="https://yglexjxvypwmvjvsspil.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://yglexjxvypwmvjvsspil.supabase.co" />
+
+    <!-- Inline Chunk/Script Load Failure Recovery Script -->
+    <script>
+      (function() {
+        window.addEventListener("error", function(e) {
+          var target = e.target;
+          var isScript = target && target.tagName === "SCRIPT";
+          var isChunkError = (e.message && (e.message.indexOf("Failed to fetch dynamically imported module") >= 0 || e.message.indexOf("Importing a module script failed") >= 0)) ||
+                             (isScript && target.src && target.src.indexOf("/assets/") >= 0);
+          if (isChunkError) {
+            try {
+              var lastReload = sessionStorage.getItem("last_chunk_reload");
+              var now = Date.now();
+              if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
+                sessionStorage.setItem("last_chunk_reload", now.toString());
+                var url = new URL(window.location.href);
+                url.searchParams.set("t", now.toString());
+                console.warn("Script load/chunk failure detected in HTML head. Reloading...", url.toString());
+                window.location.replace(url.toString());
+              }
+            } catch (err) {
+              window.location.reload();
+            }
+          }
+        }, true);
+
+        window.addEventListener("unhandledrejection", function(e) {
+          var reason = (e.reason && e.reason.message) || "";
+          if (reason.indexOf("Failed to fetch dynamically imported module") >= 0 || reason.indexOf("Importing a module script failed") >= 0) {
+            try {
+              var lastReload = sessionStorage.getItem("last_chunk_reload");
+              var now = Date.now();
+              if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
+                sessionStorage.setItem("last_chunk_reload", now.toString());
+                var url = new URL(window.location.href);
+                url.searchParams.set("t", now.toString());
+                window.location.replace(url.toString());
+              }
+            } catch (err) {
+              window.location.reload();
+            }
+          }
+        });
+      })();
+    </script>
+
     <!-- Vercel edge caching: HTML is a shell, assets are hashed — safe to cache -->
     <script>
       (function() {
