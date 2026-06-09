@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategories, useProductCountByCategory } from "@/hooks/useHomepageData";
 import { useRef } from "react";
+import RangaoImage from "@/components/ui/RangaoImage";
 
 interface Props {
   title?: string;
@@ -173,7 +174,7 @@ const CategorySection = ({
                     <div className={`relative h-24 w-24 md:h-28 md:w-28 overflow-hidden rounded-2xl border border-border/40 shadow-sm transition-all duration-400 ${
                       isActive ? "shadow-[0_0_15px_-2px_hsl(var(--accent)/0.5)] border-accent/30" : "group-hover:scale-110"
                     }`}>
-                      <img src={cat.image_url} alt={cat.name} className="h-full w-full object-cover" />
+                      <RangaoImage src={cat.image_url} alt={cat.name} width={112} height={112} className="h-full w-full object-cover" />
                     </div>
                   ) : null}
 

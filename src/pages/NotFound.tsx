@@ -2,6 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Home, ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import SEO from "@/components/SEO";
 
 const NotFound = () => {
   const location = useLocation();
@@ -25,6 +26,7 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <SEO title="পেজ পাওয়া যায়নি" noIndex={true} />
       {/* Decorative glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="h-[400px] w-[400px] rounded-full bg-accent/5 blur-[120px]" />

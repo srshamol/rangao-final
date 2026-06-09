@@ -79,7 +79,7 @@ const BlogPost = () => {
     return {
       id: activePost.id,
       title: activePost.title,
-      excerpt: activePost.excerpt,
+      excerpt: activePost.excerpt || activePost.content?.slice(0, 160).replace(/[#*_`\n\r]/g, " ").trim() + "...",
       content: activePost.content,
       image: (activePost as any).image_url || (activePost as any).image || "",
       category: activePost.category,

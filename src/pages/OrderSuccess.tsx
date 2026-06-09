@@ -2,6 +2,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SEO from "@/components/SEO";
 import { analytics } from "@/services/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -287,6 +288,7 @@ const OrderSuccess = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="অর্ডার সফল সম্পন্ন হয়েছে" noIndex={true} />
       <Header />
       <main className="py-10 md:py-16">
         <div className="container max-w-3xl">

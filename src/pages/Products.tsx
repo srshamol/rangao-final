@@ -284,7 +284,11 @@ const Products = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <SEO title={pageTitle} description={seoDescription} />
+      <SEO 
+        title={pageTitle} 
+        description={seoDescription} 
+        keywords={activeCategoryData ? `${activeCategoryData.name}, রাঙাও, Rangao, ইসলামিক ডেকোর, ওয়াল ক্যানভাস, হোম ডেকোর` : "সমস্ত প্রোডাক্ট, রাঙাও, Rangao, ইসলামিক ওয়াল আর্ট, কাঠের ডেকোর, ক্যানভাস ফ্রেম"}
+      />
       <Breadcrumbs items={breadcrumbItems} />
       <main className="py-8 md:py-12">
         <div className="container">

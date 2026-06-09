@@ -382,6 +382,19 @@ const ProductDetail = () => {
     enabled: isUuid
   });
 
+  const productKeywords = useMemo(() => {
+    if (!product) return "";
+    const tags = Array.isArray(dbProduct?.tags) ? dbProduct.tags : [];
+    return [
+      product.name,
+      product.categoryLabel,
+      product.brand,
+      ...tags,
+      "রাঙাও",
+      "Rangao"
+    ].filter(Boolean).join(", ");
+  }, [product, dbProduct]);
+
   const productSchema = useMemo(() => {
     if (!product) return null;
     const storeUrl = settings?.storeInfo?.website_url;
@@ -393,6 +406,8 @@ const ProductDetail = () => {
       "image": product.images,
       "description": product.shortDescription,
       "sku": product.sku || product.id,
+      "keywords": productKeywords,
+      "category": product.categoryLabel,
       "brand": {
         "@type": "Brand",
         "name": product.brand || "Rangao"
@@ -411,7 +426,7 @@ const ProductDetail = () => {
         "reviewCount": product.reviewCount || 1
       }
     };
-  }, [product]);
+  }, [product, productKeywords, settings?.storeInfo?.website_url]);
 
   const faqSchema = useMemo(() => {
     const faqs = (seoData as any)?.faqs;
@@ -501,6 +516,7 @@ const ProductDetail = () => {
         title={(seoData as any)?.seo_title || product.name} 
         description={(seoData as any)?.seo_description || product.shortDescription}
         canonical={(seoData as any)?.canonical_url}
+        keywords={productKeywords}
         image={product.images[0]}
         type="product"
         schema={combinedSchemas}
@@ -852,17 +868,21 @@ const ProductDetail = () => {
                       <h3 className="font-display text-base font-bold text-foreground">ট্যাগ</h3>
                       <div className="flex flex-wrap gap-2">
                         {product.features.map((feature, i) => (
-                          <motion.span
+                          <motion.div
                             key={i}
                             initial={{ opacity: 0, scale: 0.9 }}
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-accent/30 hover:bg-secondary hover:text-foreground"
                           >
-                            <Check className="h-3.5 w-3.5 text-accent" />
-                            {feature}
-                          </motion.span>
+                            <Link
+                              to={`/products?search=${encodeURIComponent(feature)}`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-accent/30 hover:bg-secondary hover:text-foreground cursor-pointer"
+                            >
+                              <Check className="h-3.5 w-3.5 text-accent" />
+                              {feature}
+                            </Link>
+                          </motion.div>
                         ))}
                       </div>
                     </div>

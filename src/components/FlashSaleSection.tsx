@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Flame, Clock, ArrowRight, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useHomepageData";
+import RangaoImage from "@/components/ui/RangaoImage";
 
 const FlashSaleSection = () => {
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ const FlashSaleSection = () => {
                 onClick={() => navigate(`/product/${product.id}`)}
               >
                 <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-secondary/30">
-                  <img src={img} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 ease-out hover:scale-110" loading="lazy" />
+                  <RangaoImage src={img} alt={product.name} width={256} height={256} className="transition-transform duration-700 ease-out hover:scale-110" />
                   <span className="absolute left-3 top-3 rounded-full bg-destructive px-3 py-1.5 text-[11px] font-bold text-destructive-foreground shadow-md">
                     {Math.round((1 - price / original) * 100)}% ছাড়
                   </span>
