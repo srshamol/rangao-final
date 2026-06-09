@@ -69,12 +69,16 @@ export default function OrderDetail() {
   };
 
 
+  const isUuid = !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const { data: order, isLoading } = useQuery({
     queryKey: ["admin-order", id],
     queryFn: async () => {
+      if (!isUuid) return null;
       const { data } = await supabase.from("orders").select("*").eq("id", id).single();
       return data;
     },
+    enabled: isUuid,
     staleTime: 20_000,
     refetchInterval: 30_000,
   });
@@ -82,9 +86,11 @@ export default function OrderDetail() {
   const { data: items } = useQuery({
     queryKey: ["admin-order-items", id],
     queryFn: async () => {
+      if (!isUuid) return [];
       const { data } = await supabase.from("order_items").select("*").eq("order_id", id);
       return data || [];
     },
+    enabled: isUuid,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });

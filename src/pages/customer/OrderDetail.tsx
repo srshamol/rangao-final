@@ -31,10 +31,12 @@ export default function CustomerOrderDetail() {
   const navigate = useNavigate();
   const { user } = useCustomer();
 
+  const isUuid = !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ["customer-order", id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user || !isUuid) return null;
       const { data, error } = await supabase
         .from("orders")
         .select("*")
@@ -44,12 +46,13 @@ export default function CustomerOrderDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && isUuid,
   });
 
   const { data: items = [], isLoading: itemsLoading } = useQuery({
     queryKey: ["customer-order-items", id],
     queryFn: async () => {
+      if (!isUuid) return [];
       const { data, error } = await supabase
         .from("order_items")
         .select("*")
@@ -57,7 +60,7 @@ export default function CustomerOrderDetail() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!id,
+    enabled: isUuid,
   });
 
   if (!user) {

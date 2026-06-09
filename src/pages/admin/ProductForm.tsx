@@ -23,7 +23,7 @@ interface SpecItem {
 
 export default function ProductForm() {
   const { id } = useParams();
-  const isEdit = !!id && id !== "new";
+  const isEdit = !!id && id !== "new" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();

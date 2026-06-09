@@ -203,6 +203,17 @@ export default function MediaLibrary() {
       // Asynchronously fetch actual file sizes for scanned assets in the background
       scannedItems.forEach(async (scanned) => {
         try {
+          if (scanned.url.startsWith("data:")) {
+            const base64Str = scanned.url.split(",")[1] || "";
+            const bytes = Math.round((base64Str.length * 3) / 4);
+            if (bytes > 0) {
+              setItems(prev => prev.map(item => 
+                item.id === scanned.id ? { ...item, file_size: bytes } : item
+              ));
+            }
+            return;
+          }
+
           const response = await fetch(scanned.url, { method: "HEAD" });
           const length = response.headers.get("content-length");
           if (length) {

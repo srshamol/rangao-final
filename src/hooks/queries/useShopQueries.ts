@@ -27,9 +27,11 @@ export function useProducts(filters?: { category?: string; minPrice?: number; ma
 }
 
 export function useProduct(id: string) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   return useQuery({
     queryKey: ["product-detail", id],
     queryFn: async () => {
+      if (!isUuid) return null;
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -39,6 +41,7 @@ export function useProduct(id: string) {
       if (error) throw error;
       return data;
     },
+    enabled: isUuid,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
   });

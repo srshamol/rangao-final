@@ -135,6 +135,10 @@ const ProductDetail = () => {
   const { data: settings } = useStoreSettings();
   const queryClient = useQueryClient();
 
+  const isUuid = useMemo(() => {
+    return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  }, [id]);
+
   // Query categories to map slug to name
   const { data: categories = [] } = useQuery({
     queryKey: ["shop-categories"],
@@ -148,6 +152,7 @@ const ProductDetail = () => {
   const { data: dbProduct, isLoading, refetch: refetchProduct } = useQuery({
     queryKey: ["product-detail", id],
     queryFn: async () => {
+      if (!isUuid) return null;
       const { data, error } = await supabase
         .from("products")
         .select(`
@@ -159,7 +164,7 @@ const ProductDetail = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: isUuid,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
     gcTime: 1000 * 60 * 10, // 10 minutes cache
     initialData: () => {
@@ -370,11 +375,11 @@ const ProductDetail = () => {
   const { data: seoData } = useQuery({
     queryKey: ["product-seo-details", id],
     queryFn: async () => {
-      if (!id) return null;
+      if (!isUuid) return null;
       const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${id}`).maybeSingle();
       return data?.value || null;
     },
-    enabled: !!id
+    enabled: isUuid
   });
 
   const productSchema = useMemo(() => {
