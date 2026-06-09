@@ -285,7 +285,7 @@ const ProductDetail = () => {
   const dynamicWhatsAppLink = useMemo(() => {
     if (!product) return "";
     const number = settings?.contactInfo?.whatsapp || "8801XXXXXXXXX";
-    const message = `হ্যালো, আমি ${product.name} সম্পর্কে জানতে চাই।`;
+    const message = `হ্যালো, আমি ${product.name} ${product.stock === 0 ? "প্রি-অর্ডার" : "অর্ডার"} করতে চাই।`;
     return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
   }, [settings, product]);
 
@@ -719,13 +719,13 @@ const ProductDetail = () => {
                       {/* Stock */}
                       <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
                         product.stock === 0
-                          ? "bg-destructive/10 text-destructive"
+                          ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
                           : product.stock <= 5
                             ? "bg-amber-500/10 text-amber-600"
                             : "bg-success/10 text-success"
                       }`}>
                         <span className={`h-2 w-2 animate-pulse rounded-full ${
-                          product.stock === 0 ? "bg-destructive" : product.stock <= 5 ? "bg-amber-500" : "bg-success"
+                          product.stock === 0 ? "bg-purple-500" : product.stock <= 5 ? "bg-amber-500" : "bg-success"
                         }`} />
                         {stock.text}
                       </div>
@@ -746,15 +746,15 @@ const ProductDetail = () => {
                               {quantity}
                             </span>
                             <button
-                              onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                              onClick={() => setQuantity(product.stock === 0 ? quantity + 1 : Math.min(product.stock, quantity + 1))}
                               className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
-                              disabled={quantity >= product.stock}
+                              disabled={product.stock > 0 && quantity >= product.stock}
                             >
                               <Plus className="h-4 w-4 text-muted-foreground" />
                             </button>
                           </div>
                           <span className="font-bengali text-xs text-muted-foreground">
-                            সর্বোচ্চ {product.stock}টি
+                            {product.stock === 0 ? "প্রি-অর্ডার" : `সর্বোচ্চ ${product.stock}টি`}
                           </span>
                         </div>
                       </div>
@@ -765,16 +765,19 @@ const ProductDetail = () => {
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                               size="lg"
-                              className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-accent to-accent/90 py-6.5 text-sm font-bold text-accent-foreground shadow-[0_4px_15px_-3px_rgba(197,168,92,0.35)] transition-all duration-300 hover:from-accent/95 hover:to-accent/85 hover:shadow-[0_8px_25px_-3px_rgba(197,168,92,0.55)] border border-accent/10"
-                              disabled={product.stock === 0}
+                              className={`group relative w-full overflow-hidden rounded-2xl py-6.5 text-sm font-bold shadow-[0_4px_15px_-3px_rgba(197,168,92,0.35)] transition-all duration-300 border ${
+                                product.stock === 0
+                                  ? "bg-purple-600 text-white hover:bg-purple-700 hover:shadow-[0_8px_25px_-3px_rgba(147,51,234,0.45)] border-purple-500/20"
+                                  : "bg-accent text-accent-foreground hover:from-accent/95 hover:to-accent/85 hover:shadow-[0_8px_25px_-3px_rgba(197,168,92,0.55)] border-accent/10 bg-gradient-to-r from-accent to-accent/90"
+                              }`}
                               onClick={() => {
                                 addToCart(product, quantity);
                                 analytics.addToCart(product as any, quantity);
-                                toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                                toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
                               }}
                             >
                               <ShoppingCart className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                              কার্টে যোগ করুন
+                              {product.stock === 0 ? "কার্টে যোগ করুন (প্রি-অর্ডার)" : "কার্টে যোগ করুন"}
                             </Button>
                           </motion.div>
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -785,7 +788,7 @@ const ProductDetail = () => {
                             >
                               <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
                                 <MessageCircle className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                                WhatsApp এ অর্ডার
+                                {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার" : "WhatsApp এ অর্ডার"}
                               </a>
                             </Button>
                           </motion.div>
@@ -794,13 +797,16 @@ const ProductDetail = () => {
                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                           <Button
                             size="lg"
-                            className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-success to-[#22995e] py-7 text-base font-extrabold text-white shadow-[0_4px_20px_-3px_rgba(43,178,114,0.35)] transition-all duration-300 hover:from-[#2bb272] hover:to-[#1f8c54] hover:shadow-[0_8px_28px_-3px_rgba(43,178,114,0.55)]"
-                            disabled={product.stock === 0}
+                            className={`group relative w-full overflow-hidden rounded-2xl py-7 text-base font-extrabold text-white transition-all duration-300 ${
+                              product.stock === 0
+                                ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_4px_20px_-3px_rgba(147,51,234,0.35)] hover:shadow-[0_8px_28px_-3px_rgba(147,51,234,0.55)]"
+                                : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54] shadow-[0_4px_20px_-3px_rgba(43,178,114,0.35)] hover:shadow-[0_8px_28px_-3px_rgba(43,178,114,0.55)]"
+                            }`}
                             onClick={() => setCodModalOpen(true)}
                           >
                             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
                             <Banknote className="mr-2.5 h-5.5 w-5.5 shrink-0 transition-transform group-hover:scale-110" />
-                            ক্যাশ অন ডেলিভারিতে অর্ডার করুন
+                            {product.stock === 0 ? "প্রি-অর্ডার করুন (ক্যাশ অন ডেলিভারি)" : "ক্যাশ অন ডেলিভারিতে অর্ডার করুন"}
                           </Button>
                         </motion.div>
                       </div>
@@ -1155,23 +1161,29 @@ const ProductDetail = () => {
               <div className="flex gap-2.5">
                 <Button
                   size="default"
-                  className="h-11.5 flex-1 rounded-xl bg-gradient-to-r from-accent to-accent/90 text-xs font-bold text-accent-foreground shadow-[0_3px_12px_-3px_rgba(197,168,92,0.3)] border border-accent/10"
-                  disabled={product.stock === 0}
+                  className={`h-11.5 flex-1 rounded-xl text-[10px] sm:text-xs font-bold border ${
+                    product.stock === 0
+                      ? "bg-purple-600 text-white border-purple-500/20 hover:bg-purple-700"
+                      : "bg-gradient-to-r from-accent to-accent/90 text-accent-foreground border-accent/10 hover:from-accent/95 hover:to-accent/85"
+                  }`}
                   onClick={() => {
                     addToCart(product, quantity);
                     analytics.addToCart(product as any, quantity);
-                    toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
+                    toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
                   }}
                 >
-                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> কার্টে যোগ করুন
+                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> {product.stock === 0 ? "কার্টে (প্রি-অর্ডার)" : "কার্টে যোগ করুন"}
                 </Button>
                 <Button
                   size="default"
-                  className="h-11.5 flex-[1.2] rounded-xl bg-gradient-to-r from-success to-[#22995e] text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)]"
-                  disabled={product.stock === 0}
+                  className={`h-11.5 flex-[1.2] rounded-xl text-[10px] sm:text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] ${
+                    product.stock === 0
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
+                      : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54]"
+                  }`}
                   onClick={() => setCodModalOpen(true)}
                 >
-                  <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> অর্ডার করুন
+                  <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> {product.stock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
                 </Button>
               </div>
             </div>

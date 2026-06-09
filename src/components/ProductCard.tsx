@@ -46,7 +46,7 @@ export function dbToCard(p: DBProduct): CardProduct {
 }
 
 function getStockLabel(stock: number) {
-  if (stock === 0) return { text: "স্টক শেষ" };
+  if (stock === 0) return { text: "প্রি-অর্ডার" };
   if (stock <= 5) return { text: `মাত্র ${stock}টি বাকি` };
   return { text: "স্টকে আছে" };
 }
@@ -140,7 +140,7 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
             )}
             <div className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm backdrop-blur-md ${
               product.stock === 0
-                ? "bg-destructive/95 text-white"
+                ? "bg-purple-600 text-white"
                 : product.stock <= 5
                 ? "bg-amber-500 text-white"
                 : "bg-emerald-600 text-white"
@@ -179,17 +179,23 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
         <div className="p-4 md:p-5 pt-1 md:pt-1 flex gap-1.5">
           <Button
             onClick={handleOrderClick}
-            className="flex-1 rounded-xl bg-primary text-xs font-semibold text-primary-foreground transition-all duration-300 hover:bg-primary/90 h-11"
+            className={`flex-1 rounded-xl text-xs font-semibold transition-all duration-300 h-11 ${
+              product.stock === 0
+                ? "bg-purple-600 text-white hover:bg-purple-700"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            }`}
             size="sm"
-            disabled={product.stock === 0}
           >
-            অর্ডার করুন
+            {product.stock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
           </Button>
           <Button
             onClick={handleOrder}
-            className="rounded-xl bg-accent px-3.5 text-accent-foreground shadow-[0_0_20px_-4px_hsl(var(--accent)/0.5)] transition-all duration-300 hover:bg-accent/90 h-11"
+            className={`rounded-xl px-3.5 transition-all duration-300 h-11 ${
+              product.stock === 0
+                ? "bg-purple-600/10 text-purple-600 border border-purple-500/20 hover:bg-purple-600/20"
+                : "bg-accent text-accent-foreground shadow-[0_0_20px_-4px_hsl(var(--accent)/0.5)] hover:bg-accent/90"
+            }`}
             size="sm"
-            disabled={product.stock === 0}
           >
             <ShoppingBag className="h-4 w-4" />
           </Button>

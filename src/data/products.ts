@@ -271,9 +271,9 @@ export const products: Product[] = [
 export const WHATSAPP_NUMBER = "8801XXXXXXXXX";
 export const PHONE_NUMBER = "+8801XXXXXXXXX";
 
-export function getWhatsAppLink(productName?: string) {
+export function getWhatsAppLink(productName?: string, isPreOrder?: boolean) {
   const message = productName
-    ? `হ্যালো, আমি ${productName} সম্পর্কে জানতে চাই।`
+    ? `হ্যালো, আমি ${productName} ${isPreOrder ? "প্রি-অর্ডার" : "অর্ডার"} করতে চাই।`
     : "হ্যালো, আমি Rangao থেকে একটি প্রোডাক্ট সম্পর্কে জানতে চাই।";
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
@@ -283,7 +283,7 @@ export function formatPrice(price: number) {
 }
 
 export function getStockLabel(stock: number) {
-  if (stock === 0) return { text: "স্টক আউট", color: "text-destructive" };
+  if (stock === 0) return { text: "প্রি-অর্ডার", color: "text-purple-600 dark:text-purple-400" };
   if (stock <= 5) return { text: `মাত্র ${stock}টি বাকি`, color: "text-destructive" };
   return { text: "স্টকে আছে", color: "text-success" };
 }

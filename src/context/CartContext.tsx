@@ -46,12 +46,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
-        const newQty = Math.min(existing.quantity + quantity, product.stock);
+        const newQty = product.stock === 0
+          ? existing.quantity + quantity
+          : Math.min(existing.quantity + quantity, product.stock);
         return prev.map((i) =>
           i.product.id === product.id ? { ...i, quantity: newQty } : i
         );
       }
-      return [...prev, { product, quantity: Math.min(quantity, product.stock) }];
+      const newQty = product.stock === 0 ? quantity : Math.min(quantity, product.stock);
+      return [...prev, { product, quantity: newQty }];
     });
     setIsOpen(true);
     trackAddToCart({ id: product.id, name: product.name, category: product.category, price: product.price });
@@ -69,7 +72,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setItems((prev) =>
       prev.map((i) =>
         i.product.id === productId
-          ? { ...i, quantity: Math.min(quantity, i.product.stock) }
+          ? { ...i, quantity: i.product.stock === 0 ? quantity : Math.min(quantity, i.product.stock) }
           : i
       )
     );

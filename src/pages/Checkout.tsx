@@ -203,7 +203,7 @@ const Checkout = () => {
       // 2. Insert order items
       const orderItems = items.map((i) => ({
         order_id: order.id,
-        product_name: i.product.name,
+        product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
         unit_price: i.product.price,
         quantity: i.quantity,
         total_price: i.product.price * i.quantity,
@@ -218,11 +218,12 @@ const Checkout = () => {
       // Send Telegram notification to admin
       try {
         const { sendTelegramNotification } = await import("@/lib/telegram");
+        const hasPreOrder = items.some((i) => i.product.stock === 0);
         const itemsList = items
-          .map((i) => `• ${i.product.name} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
+          .map((i) => `• ${i.product.name}${i.product.stock === 0 ? " [প্রি-অর্ডার]" : ""} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
           .join("\n");
 
-        const message = `🛍️ <b>নতুন অর্ডার এসেছে!</b>\n\n` +
+        const message = `🛍️ <b>নতুন ${hasPreOrder ? "প্রি-অর্ডার / " : ""}অর্ডার এসেছে!</b>\n\n` +
           `<b>অর্ডার নং:</b> #${order.order_number}\n` +
           `<b>গ্রাহকের নাম:</b> ${form.name}\n` +
           `<b>মোবাইল:</b> ${form.phone}\n` +

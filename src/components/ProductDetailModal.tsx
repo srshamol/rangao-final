@@ -23,7 +23,7 @@ const ProductDetailModal = ({ product, open, onClose }: Props) => {
           <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
           <div className={`absolute right-4 top-4 rounded-full px-3 py-1.5 text-xs font-bold shadow-md backdrop-blur-md ${
             product.stock === 0
-              ? "bg-destructive/90 text-destructive-foreground"
+              ? "bg-purple-600 text-white"
               : product.stock <= 5
                 ? "bg-amber-500/90 text-white"
                 : "bg-success/90 text-success-foreground"
@@ -83,12 +83,15 @@ const ProductDetailModal = ({ product, open, onClose }: Props) => {
           <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <Button
               asChild
-              className="flex-1 rounded-xl bg-success text-base font-semibold text-success-foreground shadow-md transition-all hover:bg-success/90 hover:shadow-lg"
+              className={`flex-1 rounded-xl text-base font-semibold text-white shadow-md transition-all hover:shadow-lg ${
+                product.stock === 0
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-success hover:bg-success/90"
+              }`}
               size="lg"
-              disabled={product.stock === 0}
             >
-              <a href={getWhatsAppLink(product.name)} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="mr-2 h-5 w-5" /> WhatsApp এ অর্ডার করুন
+              <a href={getWhatsAppLink(product.name, product.stock === 0)} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="mr-2 h-5 w-5" /> {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার করুন" : "WhatsApp এ অর্ডার করুন"}
               </a>
             </Button>
             <Button

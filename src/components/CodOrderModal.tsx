@@ -214,9 +214,11 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
       if (orderError) throw orderError;
 
+      const isPreOrder = product.stock === 0;
+
       const { error: itemsError } = await supabase.from("order_items").insert({
         order_id: order.id,
-        product_name: product.name,
+        product_name: isPreOrder ? `${product.name} (প্রি-অর্ডার)` : product.name,
         unit_price: product.price,
         quantity: localQuantity,
         total_price: subtotal,
@@ -226,7 +228,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
       // Send Telegram notification to admin
       try {
         const { sendTelegramNotification } = await import("@/lib/telegram");
-        const itemsList = `• ${product.name} (Qty: ${localQuantity}) - ৳${subtotal}`;
+        const itemsList = `• ${product.name}${isPreOrder ? " [প্রি-অর্ডার]" : ""} (Qty: ${localQuantity}) - ৳${subtotal}`;
         
         let couponInfo = "";
         if (appliedCoupon) {
@@ -238,7 +240,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           noteInfo = `<b>নোট:</b> ${orderNote.trim()}\n`;
         }
 
-        const message = `🛍️ <b>নতুন অর্ডার এসেছে (COD)!</b>\n\n` +
+        const message = `🛍️ <b>নতুন ${isPreOrder ? "প্রি-অর্ডার" : "অর্ডার"} এসেছে (COD)!</b>\n\n` +
           `<b>অর্ডার নং:</b> #${order.order_number}\n` +
           `<b>গ্রাহকের নাম:</b> ${name.trim()}\n` +
           `<b>মোবাইল:</b> ${phone.trim()}\n` +
