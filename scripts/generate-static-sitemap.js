@@ -151,10 +151,10 @@ async function generate() {
       fs.mkdirSync(publicDir, { recursive: true });
     }
 
-    // Write sitemap.xml
+    // Write sitemap.xml to public/
     const sitemapPath = path.join(publicDir, "sitemap.xml");
     fs.writeFileSync(sitemapPath, xml, "utf-8");
-    console.log(`✅ Static sitemap.xml created successfully at: ${sitemapPath}`);
+    console.log(`✅ Static sitemap.xml created successfully in public/`);
 
     // 2. Build robots.txt
     let robotsText = "User-agent: *\n";
@@ -165,12 +165,25 @@ async function generate() {
     robotsText += "Disallow: /cart\n";
     robotsText += "Disallow: /checkout\n";
     robotsText += "Disallow: /account\n";
+    robotsText += "Disallow: /account/*\n";
+    robotsText += "Disallow: /login\n";
+    robotsText += "Disallow: /register\n";
+    robotsText += "Disallow: /forgot-password\n";
+    robotsText += "Disallow: /reset-password\n";
     robotsText += `Sitemap: ${domain}/sitemap.xml\n`;
 
-    // Write robots.txt
+    // Write robots.txt to public/
     const robotsPath = path.join(publicDir, "robots.txt");
     fs.writeFileSync(robotsPath, robotsText, "utf-8");
-    console.log(`✅ Static robots.txt created successfully at: ${robotsPath}`);
+    console.log(`✅ Static robots.txt created successfully in public/`);
+
+    // Write copies to dist/ if it exists (e.g. running post-build or during custom scripts)
+    const distDir = path.resolve(process.cwd(), "dist");
+    if (fs.existsSync(distDir)) {
+      fs.writeFileSync(path.join(distDir, "sitemap.xml"), xml, "utf-8");
+      fs.writeFileSync(path.join(distDir, "robots.txt"), robotsText, "utf-8");
+      console.log(`✅ Copies of sitemap.xml & robots.txt written to dist/`);
+    }
 
   } catch (err) {
     console.error("❌ Failed to generate sitemap/robots.txt:", err);

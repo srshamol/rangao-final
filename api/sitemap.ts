@@ -13,8 +13,12 @@ export default async function handler(req: any, res: any) {
       .eq("key", "store_info")
       .maybeSingle();
     
+    const host = req.headers.host || "www.rangao.bd";
+    const proto = req.headers["x-forwarded-proto"] || "https";
+    const requestDomain = `${proto}://${host}`;
+
     const storeVal = (storeInfoData as any)?.value || {};
-    const siteDomain = storeVal.website_url || "https://www.rangao.bd";
+    const siteDomain = storeVal.website_url || requestDomain;
     const domain = siteDomain.endsWith("/") ? siteDomain.slice(0, -1) : siteDomain;
 
     // 2. Fetch categories
