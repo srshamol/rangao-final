@@ -108,7 +108,7 @@ async function generate() {
       categories.forEach((cat) => {
         const lastmod = cat.updated_at ? new Date(cat.updated_at).toISOString().split("T")[0] : currentDate;
         xml += `  <url>\n`;
-        xml += `    <loc>${domain}/category/${cat.slug}</loc>\n`;
+        xml += `    <loc>${domain}/category/${encodeURIComponent(cat.slug)}</loc>\n`;
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>weekly</changefreq>\n`;
         xml += `    <priority>0.6</priority>\n`;
@@ -121,7 +121,7 @@ async function generate() {
       products.forEach((prod) => {
         const lastmod = prod.updated_at ? new Date(prod.updated_at).toISOString().split("T")[0] : currentDate;
         xml += `  <url>\n`;
-        xml += `    <loc>${domain}/product/${prod.id}</loc>\n`;
+        xml += `    <loc>${domain}/product/${encodeURIComponent(prod.id)}</loc>\n`;
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>daily</changefreq>\n`;
         xml += `    <priority>0.8</priority>\n`;
@@ -135,7 +135,7 @@ async function generate() {
         const slug = generateSlug(post.title) || post.id;
         const lastmod = post.updated_at ? new Date(post.updated_at).toISOString().split("T")[0] : currentDate;
         xml += `  <url>\n`;
-        xml += `    <loc>${domain}/blog/${slug}</loc>\n`;
+        xml += `    <loc>${domain}/blog/${encodeURIComponent(slug)}</loc>\n`;
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>weekly</changefreq>\n`;
         xml += `    <priority>0.7</priority>\n`;
