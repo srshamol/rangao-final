@@ -50,9 +50,9 @@ export default function CookieConsent() {
             <X className="h-4 w-4" />
           </button>
 
-          <div className="p-4 pr-10">
+          <div className="p-5">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-2.5">
+            <div className="flex items-center gap-3 mb-2.5 pr-6">
               <div className="shrink-0 rounded-full bg-primary/10 p-2 text-primary">
                 <ShieldAlert className="h-4 w-4" />
               </div>
