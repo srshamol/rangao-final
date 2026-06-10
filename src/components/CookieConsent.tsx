@@ -33,13 +33,13 @@ export default function CookieConsent() {
     <AnimatePresence>
       {showBanner && (
         <motion.div
-          initial={{ opacity: 0, y: 60 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 60 }}
+          initial={{ opacity: 0, y: 60, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 60, x: "-50%" }}
           transition={{ duration: 0.35, ease: "easeOut" }}
           // On mobile: sits ABOVE the 70px bottom nav bar (+16px gap = 86px)
           // On lg+ (desktop): no bottom nav, standard 32px from bottom
-          className="cookie-banner-mobile fixed bottom-[86px] left-1/2 z-[1000] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-background/97 shadow-2xl backdrop-blur-md lg:bottom-8 lg:max-w-md"
+          className="cookie-banner-mobile fixed bottom-[86px] left-1/2 z-[1000] w-[calc(100%-24px)] max-w-sm overflow-hidden rounded-2xl border border-border bg-background/97 shadow-2xl backdrop-blur-md lg:bottom-8 lg:max-w-md"
         >
           {/* Dismiss X — absolute top-right corner */}
           <button
