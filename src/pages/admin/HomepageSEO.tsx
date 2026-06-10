@@ -10,14 +10,16 @@ import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Save, Globe, Search, Share2, Loader2 } from "lucide-react";
+import { Save, Globe, Search, Share2, Loader2, UploadCloud, Trash2 } from "lucide-react";
 import type { SEOSettings } from "@/hooks/useStoreSettings";
+import MediaPicker from "@/components/MediaPicker";
 
 export default function AdminHomepageSEO() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: settings } = useStoreSettings();
   const [saving, setSaving] = useState(false);
+  const [activePickerField, setActivePickerField] = useState(false);
   
   const [form, setForm] = useState<SEOSettings>({
     site_title: "Rangao – রাঙাও",
@@ -181,11 +183,22 @@ export default function AdminHomepageSEO() {
             <CardContent className="space-y-4 pt-6">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">OG Image URL</Label>
-                <Input
-                  value={form.og_image || ""}
-                  onChange={(e) => set("og_image", e.target.value)}
-                  placeholder="https://... (1200x630px)"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={form.og_image || ""}
+                    onChange={(e) => set("og_image", e.target.value)}
+                    placeholder="https://... (1200x630px)"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" className="gap-1.5 rounded-xl shrink-0" onClick={() => setActivePickerField(true)}>
+                    <UploadCloud className="h-4 w-4" /> Select Image
+                  </Button>
+                  {form.og_image && (
+                    <Button type="button" variant="destructive" className="gap-1 rounded-xl shrink-0" onClick={() => set("og_image", "")}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -235,8 +248,16 @@ export default function AdminHomepageSEO() {
               </div>
             </CardContent>
           </Card>
-        </div>
       </div>
+      {activePickerField && (
+        <MediaPicker
+          onSelect={(url) => {
+            set("og_image", url);
+            setActivePickerField(false);
+          }}
+          onClose={() => setActivePickerField(false)}
+        />
+      )}
     </div>
   );
 }
