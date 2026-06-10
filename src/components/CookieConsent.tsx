@@ -69,7 +69,7 @@ export default function CookieConsent() {
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
               <Button
-                onClick={handleDecline}
+                onClick={handleAccept}
                 variant="outline"
                 size="sm"
                 className="h-9 flex-1 rounded-xl font-bengali text-xs font-semibold text-muted-foreground border-border hover:bg-secondary"
