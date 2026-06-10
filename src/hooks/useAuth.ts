@@ -41,13 +41,14 @@ export function useAuth() {
       // Non-blocking background role check — doesn't delay loading
       if (session?.user) {
         setIsAdmin(true); // ProtectedRoute validates; optimistic here
+        const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
         supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
           .maybeSingle()
           .then(({ data }) => {
-            if (data) setIsAdmin(data.role === "admin" || data.role === "manager");
+            if (data) setIsAdmin(STAFF_ROLES.includes(data.role));
           })
           .catch(() => { /* silent — RLS migration may not be applied yet */ });
       }
@@ -64,13 +65,14 @@ export function useAuth() {
     // Session is valid — trust Supabase auth.
     // ProtectedRoute will do the real role guard via user_roles table or JWT.
     // Non-blocking background role check (doesn't delay login redirect)
+    const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
     supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", data.user?.id)
       .maybeSingle()
       .then(({ data: roleData }) => {
-        if (roleData) setIsAdmin(roleData.role === "admin" || roleData.role === "manager");
+        if (roleData) setIsAdmin(STAFF_ROLES.includes(roleData.role));
       })
       .catch(() => { /* RLS migration may not be applied yet — ProtectedRoute guards */ });
 

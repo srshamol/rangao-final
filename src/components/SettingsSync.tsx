@@ -115,7 +115,10 @@ export default function SettingsSync() {
         ogImg.setAttribute("property", "og:image");
         document.head.appendChild(ogImg);
       }
-      ogImg.content = seo.og_image;
+      const absoluteImage = seo.og_image.startsWith("/")
+        ? `${window.location.origin}${seo.og_image}`
+        : seo.og_image;
+      ogImg.content = absoluteImage;
     }
 
     const syncProductAndCategory = async () => {

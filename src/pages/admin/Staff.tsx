@@ -5,21 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCheck, Trash2, Loader2, Shield, AlertTriangle } from "lucide-react";
+import { UserCheck, Trash2, Loader2, Shield, AlertTriangle, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 
 export default function StaffManagement() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.email?.toLowerCase() === "bdinfosky@gmail.com";
+  const isSuperAdmin = user?.email?.toLowerCase() === "bdinfosky@gmail.com" || user?.app_metadata?.role === "super_admin";
   
   const [selectedUserForRole, setSelectedUserForRole] = useState("");
-  const [selectedRole, setSelectedRole] = useState("manager");
+  const [selectedRole, setSelectedRole] = useState("admin");
   const [removeTarget, setRemoveTarget] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const qc = useQueryClient();
 
   // Fetch registered customer profiles
@@ -40,6 +42,28 @@ export default function StaffManagement() {
       const { data } = await supabase
         .from("user_roles")
         .select("user_id, role");
+      return data || [];
+    }
+  });
+
+  // Fetch customer activities to resolve emails as fallback
+  const { data: activities } = useQuery({
+    queryKey: ["customer-activities-staff"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customer_activities" as any)
+        .select("user_id, email, phone");
+      return data || [];
+    }
+  });
+
+  // Fetch orders to resolve emails as fallback
+  const { data: orders } = useQuery({
+    queryKey: ["orders-staff"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select("user_id, customer_name, customer_email, customer_phone");
       return data || [];
     }
   });
@@ -118,17 +142,51 @@ export default function StaffManagement() {
 
   const staffMembers = useMemo(() => {
     if (!userRoles || !profiles) return [];
-    return userRoles.map((ur: any) => {
+    
+    let list = userRoles.map((ur: any) => {
       const p = profiles.find((prof: any) => prof.user_id === ur.user_id);
+      
+      // Fallback name/email/phone from activities or orders
+      let fallbackEmail = "";
+      let fallbackName = "";
+      let fallbackPhone = "";
+      
+      if (!p) {
+        const act = activities?.find((a: any) => a.user_id === ur.user_id);
+        if (act) {
+          fallbackEmail = act.email || "";
+          fallbackPhone = act.phone || "";
+        }
+        
+        const ord = orders?.find((o: any) => o.user_id === ur.user_id);
+        if (ord) {
+          if (!fallbackEmail) fallbackEmail = ord.customer_email || "";
+          if (!fallbackPhone) fallbackPhone = ord.customer_phone || "";
+          fallbackName = ord.customer_name || "";
+        }
+      }
+
       return {
         user_id: ur.user_id,
         role: ur.role,
-        name: p?.full_name || "অজানা স্টাফ",
-        email: p?.email || "কোনো ইমেইল নেই",
-        phone: p?.phone || "কোনো ফোন নেই",
+        name: p?.full_name || fallbackName || "অজানা স্টাফ",
+        email: p?.email || fallbackEmail || "কোনো ইমেইল নেই",
+        phone: p?.phone || fallbackPhone || "কোনো ফোন নেই",
       };
     });
-  }, [userRoles, profiles]);
+
+    // Filter by search term if provided
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(m => 
+        m.name.toLowerCase().includes(term) ||
+        m.email.toLowerCase().includes(term) ||
+        m.phone.toLowerCase().includes(term)
+      );
+    }
+
+    return list;
+  }, [profiles, userRoles, activities, orders, searchTerm]);
 
   if (profilesLoading || rolesLoading) {
     return (
@@ -166,6 +224,18 @@ export default function StaffManagement() {
             <CardDescription>নিযুক্ত সকল স্টাফদের তালিকা ও তাদের বর্তমান অ্যাক্সেস রোল।</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-4 pb-2 border-b border-border/10">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="নাম, ইমেইল বা ফোন দিয়ে খুঁজুন..."
+                  className="pl-9 h-9 rounded-xl text-xs"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="w-full overflow-x-auto">
               <Table className="min-w-[500px]">
                 <TableHeader>
@@ -205,12 +275,11 @@ export default function StaffManagement() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="super_admin">Super Admin</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                                <SelectItem value="editor">Editor</SelectItem>
-                                <SelectItem value="sales">Sales</SelectItem>
-                                <SelectItem value="marketing">Marketing</SelectItem>
-                                <SelectItem value="accountant">Accountant</SelectItem>
+                                <SelectItem value="moderator">Moderator</SelectItem>
+                                <SelectItem value="support">Support</SelectItem>
+                                <SelectItem value="delivery_staff">Delivery Staff</SelectItem>
                               </SelectContent>
                             </Select>
                           )}
@@ -281,12 +350,11 @@ export default function StaffManagement() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin (পূর্ণ নিয়ন্ত্রণ)</SelectItem>
-                  <SelectItem value="manager">Manager (ম্যানেজার)</SelectItem>
-                  <SelectItem value="editor">Editor (এডিটর)</SelectItem>
-                  <SelectItem value="sales">Sales (বিক্রয়)</SelectItem>
-                  <SelectItem value="marketing">Marketing (মার্কেটিং)</SelectItem>
-                  <SelectItem value="accountant">Accountant (হিসাবরক্ষক)</SelectItem>
+                  <SelectItem value="super_admin">Super Admin (সুপার অ্যাডমিন)</SelectItem>
+                  <SelectItem value="admin">Admin (অ্যাডমিন)</SelectItem>
+                  <SelectItem value="moderator">Moderator (মডারেটর)</SelectItem>
+                  <SelectItem value="support">Support (সাপোর্ট)</SelectItem>
+                  <SelectItem value="delivery_staff">Delivery Staff (ডেলিভারি স্টাফ)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -81,7 +81,25 @@ const Checkout = () => {
     }
   }, []);
 
-  const deliveryCharge = subtotal >= 5000 ? 0 : 120;
+  const { data: storeSettings } = useStoreSettings();
+
+  const deliveryChargeSettings = storeSettings?.deliveryCharges;
+  const isDhaka = form.division === "ঢাকা";
+  
+  let deliveryCharge = 120; // Default fallback
+  if (deliveryChargeSettings) {
+    const inside = Number(deliveryChargeSettings.dhaka_inside) ?? 70;
+    const outside = Number(deliveryChargeSettings.dhaka_outside) ?? 130;
+    const minFree = Number(deliveryChargeSettings.free_delivery_min) ?? 0;
+    
+    if (minFree > 0 && subtotal >= minFree) {
+      deliveryCharge = 0;
+    } else {
+      deliveryCharge = isDhaka ? inside : outside;
+    }
+  } else {
+    deliveryCharge = subtotal >= 5000 ? 0 : 120;
+  }
   const total = subtotal + deliveryCharge;
 
   const { saveIncomplete, markConverted } = useIncompleteOrder({
@@ -121,7 +139,6 @@ const Checkout = () => {
   };
 
   const [submitting, setSubmitting] = useState(false);
-  const { data: storeSettings } = useStoreSettings();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,6 +220,7 @@ const Checkout = () => {
       // 2. Insert order items
       const orderItems = items.map((i) => ({
         order_id: order.id,
+        product_id: i.product.id,
         product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
         unit_price: i.product.price,
         quantity: i.quantity,
@@ -418,7 +436,12 @@ const Checkout = () => {
                         </span>
                       </div>
                       {deliveryCharge > 0 && (
-                        <p className="text-xs text-muted-foreground">৳৫,০০০+ অর্ডারে ফ্রি ডেলিভারি</p>
+                        <p className="text-xs text-muted-foreground">
+                          {deliveryChargeSettings && Number(deliveryChargeSettings.free_delivery_min) > 0 
+                            ? `৳${Number(deliveryChargeSettings.free_delivery_min).toLocaleString()}+ অর্ডারে ফ্রি ডেলিভারি`
+                            : "৳৫,০০০+ অর্ডারে ফ্রি ডেলিভারি"
+                          }
+                        </p>
                       )}
                       <div className="flex justify-between border-t pt-3">
                         <span className="font-bengali text-base font-bold text-foreground">মোট</span>

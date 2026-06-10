@@ -19,6 +19,7 @@ export default function AdminProfile() {
   const [role, setRole] = useState<string>("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
   
   // Password change state
   const [oldPassword, setOldPassword] = useState("");
@@ -53,10 +54,12 @@ export default function AdminProfile() {
         if (profileData) {
           setFullName(profileData.full_name || "");
           setPhone(profileData.phone || "");
+          setUsername(profileData.username || "");
         } else {
           // If no profile exists yet, prefill with user metadata if available
           setFullName(user.user_metadata?.full_name || "");
           setPhone(user.user_metadata?.phone || "");
+          setUsername(user.user_metadata?.username || "");
         }
       } catch (err: any) {
         console.error("Error fetching admin profile:", err);
@@ -71,6 +74,18 @@ export default function AdminProfile() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (username.trim()) {
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+      if (!usernameRegex.test(username.trim())) {
+        toast({
+          title: "❌ ভুল ইনপুট",
+          description: "ইউজারনেম ৩ থেকে ২০ অক্ষরের হতে হবে এবং শুধুমাত্র ইংরেজি বর্ণ, সংখ্যা, আন্ডারস্কোর (_) বা হাইফেন (-) থাকতে পারবে।",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     if (phone.trim()) {
       const bdPhoneRegex = /^(01[3-9]\d{8})$/;
@@ -96,6 +111,7 @@ export default function AdminProfile() {
       const profilePayload = {
         full_name: fullName.trim(),
         phone: phone.trim(),
+        username: username.trim() ? username.trim().toLowerCase() : null,
         email: user.email,
         updated_at: new Date().toISOString(),
       };
@@ -124,7 +140,7 @@ export default function AdminProfile() {
     } catch (err: any) {
       toast({
         title: "❌ আপডেট ব্যর্থ",
-        description: err.message || "প্রোফাইল আপডেট করতে সমস্যা হয়েছে।",
+        description: err.message || "প্রোফাইল আপডেট করতে সমস্যা হয়েছে। ইউজারনেমটি অন্য কেউ ব্যবহার করে থাকতে পারে।",
         variant: "destructive",
       });
     } finally {
@@ -233,6 +249,21 @@ export default function AdminProfile() {
                     value={role ? role.toUpperCase() : "অ্যাডমিন"}
                     disabled
                     className="pl-9 rounded-xl bg-secondary/50 text-muted-foreground cursor-not-allowed border-border/70"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-xs font-semibold">ইউজারনেম (লগইন করার জন্য)</Label>
+                <div className="relative">
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                  <Input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="ইউজারনেম লিখুন (যেমন: test_admin)"
+                    className="pl-9 rounded-xl border-border/70"
                   />
                 </div>
               </div>

@@ -81,7 +81,7 @@ export default function UserManagement() {
 
   const adminUserIds = useMemo(() => {
     if (!userRoles) return new Set<string>();
-    const adminRoles = ["admin", "manager"];
+    const adminRoles = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
     return new Set<string>(
       userRoles
           .filter((ur: any) => adminRoles.includes(ur.role))
@@ -341,9 +341,10 @@ export default function UserManagement() {
       if (act.email && act.email.toLowerCase() === "bdinfosky@gmail.com") return false;
       
       if (act.email && userRoles) {
+        const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
         const matchingRole = userRoles.find((ur: any) => {
           const matchingProfile = profiles?.find((p: any) => p.user_id === ur.user_id);
-          return matchingProfile?.email === act.email && (ur.role === "admin" || ur.role === "manager");
+          return matchingProfile?.email === act.email && STAFF_ROLES.includes(ur.role);
         });
         if (matchingRole) return false;
       }

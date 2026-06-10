@@ -61,8 +61,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         }
 
         // Session confirmed by server — check role
+        const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
         const jwtRole = session.user?.app_metadata?.role as string | undefined;
-        if (jwtRole === "admin" || jwtRole === "manager") {
+        if (jwtRole && STAFF_ROLES.includes(jwtRole)) {
           setAuthorized(true);
           setLoading(false);
           return;
@@ -81,7 +82,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
               return;
             }
             const roles: string[] = (rows || []).map((r: any) => r.role as string);
-            const hasAccess = roles.some(r => r === "admin" || r === "manager");
+            const hasAccess = roles.some(r => STAFF_ROLES.includes(r));
             if (!hasAccess) {
               // Valid session but no admin role — sign out and redirect
               supabaseAdmin.auth.signOut();

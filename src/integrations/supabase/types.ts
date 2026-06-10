@@ -144,6 +144,7 @@ export type Database = {
           saved_addresses: Json | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           created_at?: string
@@ -155,6 +156,7 @@ export type Database = {
           saved_addresses?: Json | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           created_at?: string
@@ -166,6 +168,7 @@ export type Database = {
           saved_addresses?: Json | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -605,7 +608,11 @@ export type Database = {
     }
     Enums: {
       app_role:
+        | "super_admin"
         | "admin"
+        | "moderator"
+        | "support"
+        | "delivery_staff"
         | "manager"
         | "editor"
         | "sales"
@@ -752,7 +759,11 @@ export const Constants = {
   public: {
     Enums: {
       app_role: [
+        "super_admin",
         "admin",
+        "moderator",
+        "support",
+        "delivery_staff",
         "manager",
         "editor",
         "sales",

@@ -24,10 +24,10 @@ export default function AdminInventory() {
   const { data: stats } = useQuery({
     queryKey: ["admin-inventory", "stats"],
     queryFn: async () => {
-      const { data: products } = await supabase.from("products").select("stock_quantity, cost_price");
+      const { data: products } = await supabase.from("products").select("stock_quantity, cost_price, low_stock_alert");
       const total = products?.length || 0;
       const totalValue = (products || []).reduce((s, p) => s + (p.stock_quantity * Number(p.cost_price || 0)), 0);
-      const lowStock = (products || []).filter((p) => p.stock_quantity < 5).length;
+      const lowStock = (products || []).filter((p) => p.stock_quantity <= (p.low_stock_alert ?? 5)).length;
       return { total, totalValue, lowStock };
     },
     staleTime: 30_000,
@@ -37,8 +37,14 @@ export default function AdminInventory() {
   const { data: lowStockProducts } = useQuery({
     queryKey: ["admin-low-stock"],
     queryFn: async () => {
-      const { data } = await supabase.from("products").select("*").lt("stock_quantity", 5).order("stock_quantity");
-      return data || [];
+      // Fetch products and filter client-side or use a query that respects low_stock_alert.
+      // Since low_stock_alert is dynamic per row, we query all products or filter appropriately.
+      // We can query products where stock_quantity is low. To be safe and efficient, we can fetch basic details.
+      const { data } = await supabase.from("products").select("*");
+      const filtered = (data || []).filter((p) => p.stock_quantity <= (p.low_stock_alert ?? 5));
+      // Sort by stock_quantity
+      filtered.sort((a, b) => a.stock_quantity - b.stock_quantity);
+      return filtered;
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -91,8 +97,10 @@ export default function AdminInventory() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["admin-inventory"] });
+      qc.invalidateQueries({ queryKey: ["admin-low-stock"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-stats"] });
       setAdjustOpen(false);
       setAdjustProduct(null);
       setAdjustQty(0);

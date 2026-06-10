@@ -140,15 +140,6 @@ export default function AdminSettings() {
     tiktok_debug_mode: false
   });
 
-  const [seoSettings, setSeoSettings] = useState<SEOSettings>({
-    site_title: "Rangao – রাঙাও",
-    site_description: "রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি, ওয়াল আর্ট ও হোম ডেকোর স্টোর।",
-    title_format: "{title} | {siteName}",
-    default_keywords: "ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি",
-    robots_index: true,
-    robots_follow: true,
-    google_search_console_id: "",
-  });
 
   const [aboutUsSettings, setAboutUsSettings] = useState<AboutUsSettings>({
     title: "আমাদের সম্পর্কে",
@@ -229,57 +220,6 @@ export default function AdminSettings() {
   const [newPlatform, setNewPlatform] = useState("facebook");
   const [newUrl, setNewUrl] = useState("");
 
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [updatingPassword, setUpdatingPassword] = useState(false);
-
-  const handleChangePassword = async () => {
-    if (!oldPassword.trim()) {
-      toast({ title: "❌ ভুল ইনপুট", description: "বর্তমান পাসওয়ার্ড দিতে হবে।", variant: "destructive" });
-      return;
-    }
-    if (!newPassword.trim()) {
-      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড খালি হতে পারবে না।", variant: "destructive" });
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।", variant: "destructive" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({ title: "❌ ভুল ইনপুট", description: "নতুন পাসওয়ার্ড দুটি মেলেনি।", variant: "destructive" });
-      return;
-    }
-
-    setUpdatingPassword(true);
-    try {
-      // 1. Verify old password by attempting sign-in with current user's email
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user?.email || "",
-        password: oldPassword.trim()
-      });
-
-      if (verifyError) {
-        throw new Error("আপনার বর্তমান পাসওয়ার্ডটি সঠিক নয়।");
-      }
-
-      // 2. Perform the update to new password
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword.trim(),
-      });
-      if (error) throw error;
-      
-      toast({ title: "✅ সফল", description: "আপনার পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে।" });
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (e: any) {
-      toast({ title: "❌ আপডেট ব্যর্থ", description: e.message, variant: "destructive" });
-    } finally {
-      setUpdatingPassword(false);
-    }
-  };
 
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [activePickerField, setActivePickerField] = useState<string | null>(null);
@@ -393,12 +333,7 @@ export default function AdminSettings() {
             }));
             setDbTracking(row.value);
           }
-          if (row.key === "seo_settings") {
-            setSeoSettings(prev => ({
-              ...prev,
-              ...row.value
-            }));
-          }
+
           if (row.key === "telegram_settings") {
             setTelegramSettings(prev => ({
               ...prev,
@@ -682,10 +617,8 @@ export default function AdminSettings() {
           <TabsTrigger value="ecommerce" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">💳 পেমেন্ট ও ডেলিভারি</TabsTrigger>
           <TabsTrigger value="courier" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📦 কুরিয়ার সেটিংস</TabsTrigger>
           <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 ট্র্যাকিং ও অ্যানালিটিক্স</TabsTrigger>
-          <TabsTrigger value="seo" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔍 SEO সেটিংস</TabsTrigger>
           <TabsTrigger value="about" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📖 আমাদের সম্পর্কে</TabsTrigger>
           <TabsTrigger value="telegram" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📢 টেলিগ্রাম নোটিফিকেশন</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🔑 সিকিউরিটি</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Logo & Favicon Management */}
@@ -1820,77 +1753,7 @@ export default function AdminSettings() {
         </TabsContent>
 
 
-        {/* Tab 8: Security & Credentials */}
-        <TabsContent value="security" className="space-y-6 outline-none">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2 text-primary">🔒 অ্যাডমিন পাসওয়ার্ড পরিবর্তন</CardTitle>
-              <CardDescription>আপনার অ্যাকাউন্ট লগইন পাসওয়ার্ড পরিবর্তন করুন</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleChangePassword();
-                }} 
-                className="space-y-4"
-              >
-                {/* Hidden username field for password managers / accessibility */}
-                <input 
-                  type="text" 
-                  name="username" 
-                  value={user?.email || ""} 
-                  readOnly 
-                  className="hidden" 
-                  autoComplete="username" 
-                />
 
-                <div className="space-y-2">
-                  <Label>বর্তমান পাসওয়ার্ড</Label>
-                  <Input 
-                    type="password" 
-                    value={oldPassword} 
-                    onChange={e => setOldPassword(e.target.value)} 
-                    placeholder="আপনার বর্তমান অ্যাকাউন্ট পাসওয়ার্ডটি দিন" 
-                    className="rounded-xl"
-                    autoComplete="current-password"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>নতুন পাসওয়ার্ড</Label>
-                  <Input 
-                    type="password" 
-                    value={newPassword} 
-                    onChange={e => setNewPassword(e.target.value)} 
-                    placeholder="কমপক্ষে ৬ ডিজিটের নতুন পাসওয়ার্ড দিন" 
-                    className="rounded-xl"
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>পাসওয়ার্ড নিশ্চিত করুন</Label>
-                  <Input 
-                    type="password" 
-                    value={confirmPassword} 
-                    onChange={e => setConfirmPassword(e.target.value)} 
-                    placeholder="নতুন পাসওয়ার্ডটি আবার দিন" 
-                    className="rounded-xl"
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="pt-2">
-                  <Button 
-                    type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
-                    disabled={updatingPassword}
-                  >
-                    {updatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} পাসওয়ার্ড আপডেট করুন
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Tab 9: SEO settings */}
         <TabsContent value="seo" className="space-y-6 outline-none">

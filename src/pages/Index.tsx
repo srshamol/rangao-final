@@ -253,12 +253,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <SEO 
-        title={settings?.homepageSEO?.meta_title} 
-        description={settings?.homepageSEO?.meta_description}
-        keywords={settings?.homepageSEO?.meta_keywords}
-        image={settings?.homepageSEO?.og_image}
-      />
+      <SEO />
       <main>
         <QueryErrorBoundary>
           {sectionOrder.map((section) =>

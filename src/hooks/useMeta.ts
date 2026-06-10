@@ -7,6 +7,7 @@ export interface MetaProps {
   url?: string;
   type?: "website" | "product";
   noindex?: boolean;
+  nofollow?: boolean;
   preloadImage?: string;
   product?: {
     price: string;
@@ -22,6 +23,7 @@ export function useMeta({
   url,
   type = "website",
   noindex = false,
+  nofollow = false,
   preloadImage,
   product,
 }: MetaProps) {
@@ -50,7 +52,9 @@ export function useMeta({
 
     // 2. Standard Meta Tags
     updateOrCreateMeta("description", description);
-    updateOrCreateMeta("robots", noindex ? "noindex, nofollow" : "index, follow");
+    const indexPart = noindex ? "noindex" : "index";
+    const followPart = nofollow ? "nofollow" : "follow";
+    updateOrCreateMeta("robots", `${indexPart}, ${followPart}`);
 
     // 3. Canonical Link Tag
     const currentUrl = url || window.location.href;

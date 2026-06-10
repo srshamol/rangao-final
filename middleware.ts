@@ -100,8 +100,9 @@ export async function middleware(req: Request) {
 
     const payload = await verifyJwt(token, JWT_SECRET);
     const role = payload?.app_metadata?.role;
+    const STAFF_ROLES = ['super_admin', 'admin', 'moderator', 'support', 'delivery_staff', 'manager', 'editor', 'sales', 'marketing', 'accountant'];
 
-    if (!payload || (role !== 'admin' && role !== 'manager')) {
+    if (!payload || !STAFF_ROLES.includes(role)) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
       return Response.redirect(loginUrl.toString(), 307);

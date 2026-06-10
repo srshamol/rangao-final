@@ -245,8 +245,8 @@ const BlogPost = () => {
   };
 
   // Simple markdown-like rendering for ## headings and lists
-  const renderContent = (content: string) => {
-    return content.split("\n").map((line, i) => {
+  const renderContent = (content: string = "") => {
+    return (content || "").split("\n").map((line, i) => {
       const trimmed = line.trim();
       if (!trimmed) return <br key={i} />;
       if (trimmed.startsWith("## ")) {

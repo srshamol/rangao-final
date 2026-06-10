@@ -10,6 +10,10 @@ const FloatingWhatsApp = () => {
 
   const link = `https://wa.me/${whatsapp}?text=${encodeURIComponent("হ্যালো, আমি Rangao থেকে একটি প্রোডাক্ট সম্পর্কে জানতে চাই।")}`;
 
+  if (settings?.contactInfo?.whatsapp_enabled === false) {
+    return null;
+  }
+
   return (
     <motion.div
       initial={{ scale: 0 }}

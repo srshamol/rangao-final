@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { Mail, Lock, Eye, EyeOff, Check, ShieldAlert, Sparkles, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -35,7 +36,31 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    let loginEmail = email.trim();
+    if (!loginEmail.includes("@")) {
+      try {
+        const { data: resolvedEmail, error: rpcError } = await supabase.rpc(
+          "resolve_email_by_username",
+          { p_username: loginEmail }
+        );
+        
+        if (rpcError) throw rpcError;
+        if (!resolvedEmail) {
+          throw new Error("ইউজারনেমটি খুঁজে পাওয়া যায়নি অথবা ব্যবহারকারী স্টাফ নন।");
+        }
+        loginEmail = resolvedEmail;
+      } catch (err: any) {
+        setLoading(false);
+        toast({
+          title: "লগইন ব্যর্থ হয়েছে",
+          description: err.message || "ইউজারনেমটি সঠিক নয়।",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const { error } = await signIn(loginEmail, password);
     setLoading(false);
 
     if (error) {
@@ -140,16 +165,16 @@ export default function AdminLogin() {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email field */}
+              {/* Email/Username field */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">ইমেইল ঠিকানা</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">ইমেইল বা ইউজারনেম</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground/60 transition-colors" />
                   <Input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@rangao.bd"
+                    placeholder="admin@rangao.bd অথবা ইউজারনেম"
                     className="h-11 pl-11 pr-4 rounded-xl bg-background border-border/70 text-foreground placeholder:text-muted-foreground/45 focus:border-[#0F3D2E]/40 focus:ring-1 focus:ring-[#0F3D2E]/20 transition-all text-sm"
                     required
                   />

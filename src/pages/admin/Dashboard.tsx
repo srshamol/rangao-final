@@ -109,9 +109,12 @@ export default function Dashboard() {
   const { data: stats } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-      const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const today = todayStart.toISOString();
+      const weekAgo = new Date(todayStart.getTime() - 7 * 86400000).toISOString();
+      const monthAgo = new Date(todayStart.getTime() - 30 * 86400000).toISOString();
 
       const [ordersToday, weeklyOrders, monthlyOrders, products, lowStock] = await Promise.all([
         supabase.from("orders").select("id, total_amount").gte("created_at", today),
@@ -155,26 +158,30 @@ export default function Dashboard() {
   const { data: dailySales } = useQuery({
     queryKey: ["admin-daily-sales-7"],
     queryFn: async () => {
+      const todayStart = startOfDay(new Date());
+      const sevenDaysAgo = subDays(todayStart, 6).toISOString();
+
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("total_amount, created_at")
+        .gte("created_at", sevenDaysAgo)
+        .not("order_status", "eq", "cancelled");
+
       const days = [];
       for (let i = 6; i >= 0; i--) {
         const d = subDays(new Date(), i);
-        const dayStart = startOfDay(d).toISOString();
-        const dayEnd = new Date(startOfDay(d).getTime() + 86400000).toISOString();
-        days.push({ date: format(d, "dd MMM"), dayStart, dayEnd });
+        const dayStart = startOfDay(d);
+        const dayEnd = new Date(dayStart.getTime() + 86400000);
+
+        const dayOrders = (orders || []).filter((o) => {
+          const orderDate = new Date(o.created_at);
+          return orderDate >= dayStart && orderDate < dayEnd;
+        });
+
+        const total = dayOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+        days.push({ day: format(d, "dd MMM"), sales: total, orders: dayOrders.length });
       }
-      const results = await Promise.all(
-        days.map(async (day) => {
-          const { data } = await supabase
-            .from("orders")
-            .select("total_amount")
-            .gte("created_at", day.dayStart)
-            .lt("created_at", day.dayEnd)
-            .not("order_status", "eq", "cancelled");
-          const total = (data || []).reduce((s, o) => s + Number(o.total_amount), 0);
-          return { day: day.date, sales: total, orders: data?.length || 0 };
-        })
-      );
-      return results;
+      return days;
     },
     staleTime: 30_000,
     refetchInterval: 60_000,

@@ -232,6 +232,7 @@ export interface SEOSettings {
   robots_index: boolean;
   robots_follow: boolean;
   google_search_console_id: string;
+  og_image?: string;
 }
 
 export interface CoreValueItem {
@@ -253,6 +254,14 @@ export interface AboutUsSettings {
   vision_title: string;
   vision_text: string;
   core_values: CoreValueItem[];
+}
+
+export interface DeliveryCharges {
+  dhaka_inside: number;
+  dhaka_outside: number;
+  free_delivery_min: number;
+  delivery_time_inside?: string;
+  delivery_time_outside?: string;
 }
 
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
@@ -311,6 +320,13 @@ const defaults = {
       { id: "sl-4", platform: "tiktok", icon: "Music", url: "https://tiktok.com/@rangao", order: 4, enabled: true }
     ]
   } as ContactInfo,
+  delivery_charges: {
+    dhaka_inside: 70,
+    dhaka_outside: 130,
+    free_delivery_min: 0,
+    delivery_time_inside: "৩-৫ কার্যদিবস",
+    delivery_time_outside: "৫-৭ কার্যদিবস"
+  } as DeliveryCharges,
   homepage_sections: {
     show_categories: true,
     show_featured: true,
@@ -438,6 +454,7 @@ const defaults = {
     robots_index: true,
     robots_follow: true,
     google_search_console_id: "",
+    og_image: "",
   } as SEOSettings,
   about_us_settings: {
     title: "আমাদের সম্পর্কে",
@@ -471,6 +488,7 @@ const defaultStoreSettingsData = {
     banner_video_url: "",
   } as HeroBanner,
   contactInfo: defaults.contact_info,
+  deliveryCharges: defaults.delivery_charges,
   homepageSections: defaults.homepage_sections,
   storeInfo: defaults.store_info,
   trustFeatures: defaults.trust_features,
@@ -542,6 +560,7 @@ export function useStoreSettings() {
       return {
         heroBanner,
         contactInfo: { ...defaults.contact_info, ...settings.contact_info } as ContactInfo,
+        deliveryCharges: { ...defaults.delivery_charges, ...settings.delivery_charges } as DeliveryCharges,
         homepageSections: { ...defaults.homepage_sections, ...settings.homepage_sections } as HomepageSections,
         storeInfo: { ...defaults.store_info, ...settings.store_info } as StoreInfo,
         trustFeatures: (settings.trust_features || defaults.trust_features) as TrustFeatureItem[],
@@ -561,5 +580,5 @@ export function useStoreSettings() {
   });
 }
 
-export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem };
+export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem, DeliveryCharges };
 export { DEFAULT_SECTION_ORDER };

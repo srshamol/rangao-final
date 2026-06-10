@@ -55,6 +55,23 @@ export default function AdminProducts() {
     refetchInterval: 30_000,
   });
 
+  // Separate query for accurate full-DB stats (not page-scoped)
+  const { data: statsData } = useQuery({
+    queryKey: ["admin-products-stats"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("status, stock_quantity");
+      const all = data || [];
+      return {
+        activeCount: all.filter((p) => p.status === "active").length,
+        outOfStock: all.filter((p) => p.stock_quantity <= 0).length,
+      };
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       const { error } = await supabase.from("products").delete().in("id", ids);
@@ -78,9 +95,9 @@ export default function AdminProducts() {
 
   const totalPages = Math.ceil((data?.total || 0) / pageSize);
 
-  // Stats
-  const activeCount = data?.products.filter((p: any) => p.status === "active").length || 0;
-  const outOfStock = data?.products.filter((p: any) => p.stock_quantity <= 0).length || 0;
+  // Full-DB stats from dedicated query
+  const activeCount = statsData?.activeCount ?? 0;
+  const outOfStock = statsData?.outOfStock ?? 0;
 
   return (
     <div className="space-y-4">

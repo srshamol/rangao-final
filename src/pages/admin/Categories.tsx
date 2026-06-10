@@ -17,6 +17,20 @@ import {
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { mediaService } from "@/lib/mediaService";
 
+// Converts any string to a URL-safe slug.
+// For Bengali/non-ASCII input the non-safe chars are stripped;
+// a minimal Latin fallback is preserved so the field is never silently empty.
+const toUrlSlug = (value: string): string => {
+  return value
+    .toLowerCase()
+    .replace(/[\u0980-\u09FF]+/g, "")  // strip Bengali Unicode block
+    .replace(/[^a-z0-9\-\s]/g, "")     // strip other non-ASCII
+    .trim()
+    .replace(/\s+/g, "-")             // spaces → hyphens
+    .replace(/-+/g, "-")              // collapse multiple hyphens
+    .replace(/^-|-$/g, "");           // trim leading/trailing hyphens
+};
+
 interface CategoryForm {
   name: string;
   slug: string;
@@ -88,8 +102,23 @@ export default function AdminCategories() {
     },
   });
 
+  // Invalidate every cache key that references categories so
+  // Header, Footer, ProductForm, and the public shop all refresh immediately.
+  const invalidateCategoryCache = () => {
+    qc.invalidateQueries({ queryKey: ["admin-categories"] });
+    qc.invalidateQueries({ queryKey: ["categories-list"] });        // ProductForm admin
+    qc.invalidateQueries({ queryKey: ["categories-list-admin"] }); // Products admin list
+    qc.invalidateQueries({ queryKey: ["shop-categories"] });        // public shop / Header / Footer
+    qc.invalidateQueries({ queryKey: ["category-seo-data"] });      // public Products page SEO
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Guard: slug must be URL-safe (non-empty, only a-z0-9 and hyphens)
+      if (!form.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug)) {
+        throw new Error("স্লাগ অবশ্যই ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন দিয়ে হতে হবে (যেমন: calligraphy-art)");
+      }
+
       const payload = {
         ...form,
         parent_id: form.parent_id || null,
@@ -120,7 +149,7 @@ export default function AdminCategories() {
         }, { onConflict: "key" });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      invalidateCategoryCache();
       setOpen(false);
       resetForm();
       toast({ title: "সফল" });
@@ -134,7 +163,7 @@ export default function AdminCategories() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      invalidateCategoryCache();
       toast({ title: "ক্যাটাগরি ডিলিট হয়েছে" });
     },
   });
@@ -178,11 +207,22 @@ export default function AdminCategories() {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium">নাম</label>
-                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))} />
+                <Input value={form.name} onChange={(e) => {
+                    const slug = toUrlSlug(e.target.value);
+                    setForm((f) => ({ ...f, name: e.target.value, slug }));
+                  }} />
               </div>
               <div>
-                <label className="text-sm font-medium">স্লাগ</label>
-                <Input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
+                <label className="text-sm font-medium">স্লাগ <span className="text-xs text-muted-foreground">(URL-safe: a-z, 0-9, হাইফেন)</span></label>
+                <Input
+                  value={form.slug}
+                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                  className={form.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug) ? "border-destructive focus-visible:ring-destructive" : ""}
+                  placeholder="calligraphy-art"
+                />
+                {form.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug) && (
+                  <p className="text-xs text-destructive mt-1">শুধু ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন ব্যবহার করুন</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium">প্যারেন্ট ক্যাটাগরি (ঐচ্ছিক)</label>

@@ -218,6 +218,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
       const { error: itemsError } = await supabase.from("order_items").insert({
         order_id: order.id,
+        product_id: product.id,
         product_name: isPreOrder ? `${product.name} (প্রি-অর্ডার)` : product.name,
         unit_price: product.price,
         quantity: localQuantity,

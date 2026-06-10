@@ -74,7 +74,7 @@ export default function SEO({
   const finalKeywords = keywords || seo?.default_keywords || "ইসলামিক ডেকোর, ক্যালিগ্রাফি";
   
   // Use default branded OG image if none provided
-  const finalImage = image || store?.logo_url || "/brand/rangao-og-default.jpg";
+  const finalImage = image || seo?.og_image || store?.logo_url || "/brand/rangao-og-default.jpg";
 
   // Use the useMeta hook for DOM metadata modifications
   useMeta({
@@ -84,6 +84,7 @@ export default function SEO({
     url: currentUrl,
     type: type === "product" ? "product" : "website",
     noindex: noIndex || seo?.robots_index === false,
+    nofollow: seo?.robots_follow === false,
     product: type === "product" ? {
       price: price || "0",
       currency: "BDT",
@@ -148,14 +149,16 @@ export default function SEO({
     keywordsMeta.setAttribute("content", finalKeywords);
 
     // 2. Set search console verification if configured
+    let gVerify = document.head.querySelector('meta[name="google-site-verification"]');
     if (seo?.google_search_console_id) {
-      let gVerify = document.head.querySelector('meta[name="google-site-verification"]');
       if (!gVerify) {
         gVerify = document.createElement("meta");
         gVerify.setAttribute("name", "google-site-verification");
         document.head.appendChild(gVerify);
       }
       gVerify.setAttribute("content", seo.google_search_console_id);
+    } else if (gVerify) {
+      gVerify.remove();
     }
 
     // 3. Inject Structured Data (JSON-LD Schemas)

@@ -102,10 +102,8 @@ export default function CustomerLogin() {
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", sessionUser?.id || "")
-          .maybeSingle();
-
-        const isAdmin = roleData?.role === "admin" || roleData?.role === "manager";
+        const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
+        const isAdmin = STAFF_ROLES.includes(roleData?.role || "");
 
         if (isAdmin && sessionUser) {
           // Auto-create customer profile for admin/manager so they can test/shop
