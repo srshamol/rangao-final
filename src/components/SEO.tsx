@@ -74,7 +74,7 @@ export default function SEO({
   const finalKeywords = keywords || seo?.default_keywords || "ইসলামিক ডেকোর, ক্যালিগ্রাফি";
   
   // Use default branded OG image if none provided
-  const finalImage = image || seo?.og_image || store?.logo_url || "/brand/rangao-og-default.jpg";
+  const finalImage = image || seo?.og_image || store?.logo_url || "/brand/rangao-og-default.png";
 
   // Use the useMeta hook for DOM metadata modifications
   useMeta({

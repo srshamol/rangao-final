@@ -72,7 +72,7 @@ export function useMeta({
     updateOrCreateMeta("og:url", currentUrl, true);
     updateOrCreateMeta("og:type", type, true);
 
-    const defaultImage = "/brand/rangao-og-default.jpg";
+    const defaultImage = "/brand/rangao-og-default.png";
     const finalImage = image || defaultImage;
     const absoluteImage = finalImage.startsWith("/")
       ? `${window.location.origin}${finalImage}`
