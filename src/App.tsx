@@ -83,8 +83,6 @@ const queryClient = new QueryClient({
   },
 });
 
-import CookieConsent from "@/components/CookieConsent";
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -94,7 +92,6 @@ const App = () => (
           <Sonner />
           <SettingsSync />
           <StorageInitializer />
-          <CookieConsent />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <TrackingProvider />
