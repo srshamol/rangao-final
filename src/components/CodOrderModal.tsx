@@ -42,15 +42,40 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     return () => clearTimeout(saveTimer.current);
   }, []);
 
-  // Reset form state when modal is re-opened
+  const saveCodDraft = (updates: Record<string, any>) => {
+    try {
+      const saved = localStorage.getItem("cod_modal_form_draft");
+      const current = saved ? JSON.parse(saved) : {};
+      localStorage.setItem("cod_modal_form_draft", JSON.stringify({ ...current, ...updates }));
+    } catch (err) {
+      console.error("Error saving COD draft:", err);
+    }
+  };
+
+  // Load form state from draft when modal is opened
   useEffect(() => {
     if (open) {
-      setName("");
-      setPhone("");
-      setAddress("");
-      setShipping("dhaka");
-      setPayment("cod");
-      setOrderNote("");
+      try {
+        const saved = localStorage.getItem("cod_modal_form_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setName(parsed.name || "");
+          setPhone(parsed.phone || "");
+          setAddress(parsed.address || "");
+          setShipping(parsed.shipping || "dhaka");
+          setPayment(parsed.payment || "cod");
+          setOrderNote(parsed.orderNote || "");
+        } else {
+          setName("");
+          setPhone("");
+          setAddress("");
+          setShipping("dhaka");
+          setPayment("cod");
+          setOrderNote("");
+        }
+      } catch (err) {
+        console.error("Error loading COD draft:", err);
+      }
     }
   }, [open]);
 
@@ -268,6 +293,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
       }
 
       await markConverted(order.id);
+      localStorage.removeItem("cod_modal_form_draft");
       onOpenChange(false);
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
       navigate(`/order-success/${order.order_number}`, {
@@ -321,7 +347,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={name} onChange={(e) => { setName(e.target.value); debouncedSave(e.target.value, phone); }} placeholder="আপনার নাম" className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm" />
+              <Input value={name} onChange={(e) => { setName(e.target.value); debouncedSave(e.target.value, phone); saveCodDraft({ name: e.target.value }); }} placeholder="আপনার নাম" className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm" />
             </div>
           </div>
 
@@ -332,7 +358,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={phone} onChange={(e) => { setPhone(e.target.value); debouncedSave(name, e.target.value); }} placeholder="ফোন নাম্বার" className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm" type="tel" />
+              <Input value={phone} onChange={(e) => { setPhone(e.target.value); debouncedSave(name, e.target.value); saveCodDraft({ phone: e.target.value }); }} placeholder="ফোন নাম্বার" className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm" type="tel" />
             </div>
           </div>
 
@@ -345,7 +371,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
               <MapPin className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <textarea
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(e) => { setAddress(e.target.value); saveCodDraft({ address: e.target.value }); }}
                 placeholder="এড্রেস"
                 className="flex min-h-[50px] sm:min-h-[60px] w-full rounded-xl border border-input bg-background pl-9 sm:pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
@@ -355,7 +381,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           {/* Order Note */}
           <div className="space-y-1">
             <label className="font-bengali text-xs sm:text-sm font-semibold text-foreground">অর্ডার নোট (ঐচ্ছিক)</label>
-            <Input value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder="অর্ডার সম্পর্কে কোনো বিশেষ তথ্য বা নির্দেশনা থাকলে এখানে লিখুন..." className="rounded-xl h-9 sm:h-10 text-sm" />
+            <Input value={orderNote} onChange={(e) => { setOrderNote(e.target.value); saveCodDraft({ orderNote: e.target.value }); }} placeholder="অর্ডার সম্পর্কে কোনো বিশেষ তথ্য বা নির্দেশনা থাকলে এখানে লিখুন..." className="rounded-xl h-9 sm:h-10 text-sm" />
           </div>
 
           {/* Shipping Method */}
@@ -378,7 +404,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
                     <span className="font-bengali text-xs sm:text-sm text-foreground">{opt.label}</span>
                   </div>
                   <span className="font-display text-xs sm:text-sm font-bold text-foreground">Tk {opt.price.toFixed(2)}</span>
-                  <input type="radio" name="shipping" className="sr-only" checked={shipping === opt.id} onChange={() => setShipping(opt.id)} />
+                  <input type="radio" name="shipping" className="sr-only" checked={shipping === opt.id} onChange={() => { setShipping(opt.id); saveCodDraft({ shipping: opt.id }); }} />
                 </label>
               ))}
             </div>
@@ -396,7 +422,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setPayment(id)}
+                  onClick={() => { setPayment(id); saveCodDraft({ payment: id }); }}
                   className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all flex-1 min-w-[100px] max-w-[140px] ${
                     payment === id
                       ? "border-accent bg-accent/5 text-foreground"

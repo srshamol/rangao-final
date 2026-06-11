@@ -122,7 +122,7 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
   const markConverted = useCallback(async (orderId?: string) => {
     if (!incompleteIdRef.current) return;
     try {
-      const update: Record<string, any> = { status: "converted" };
+      const update: Record<string, any> = { status: "recovered" };
       if (orderId) update.converted_order_id = orderId;
       await supabase
         .from("incomplete_orders" as any)

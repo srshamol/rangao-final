@@ -94,10 +94,14 @@ export default function IncompleteOrders() {
   };
 
   const handleDismiss = async (id: string) => {
-    await supabase.from("incomplete_orders" as any).update({ status: "dismissed" }).eq("id", id);
-    toast.success("ডিসমিস করা হয়েছে");
-    queryClient.invalidateQueries({ queryKey: ["incomplete-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["admin-sidebar-order-counts"] });
+    const { error } = await supabase.from("incomplete_orders" as any).delete().eq("id", id);
+    if (error) {
+      toast.error("ডিসমিস ব্যর্থ হয়েছে: " + error.message);
+    } else {
+      toast.success("ডিসমিস করা হয়েছে");
+      queryClient.invalidateQueries({ queryKey: ["incomplete-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-sidebar-order-counts"] });
+    }
     setDismissTarget(null);
   };
 

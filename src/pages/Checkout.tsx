@@ -75,6 +75,28 @@ const Checkout = () => {
     }
   }, [profile]);
 
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("checkout_form_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm(f => ({
+          ...f,
+          name: parsed.name || f.name,
+          phone: parsed.phone || f.phone,
+          email: parsed.email || f.email,
+          division: parsed.division || f.division,
+          district: parsed.district || f.district,
+          thana: parsed.thana || f.thana,
+          address: parsed.address || f.address,
+        }));
+      }
+    } catch (err) {
+      console.error("Error loading checkout form draft:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (items.length > 0) {
       analytics.beginCheckout(items, total);
@@ -123,19 +145,18 @@ const Checkout = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const newForm = { ...form, [e.target.name]: e.target.value };
     setForm(newForm);
+    localStorage.setItem("checkout_form_draft", JSON.stringify(newForm));
 
-    // Debounced save for incomplete tracking
-    if (e.target.name === "name" || e.target.name === "phone" || e.target.name === "email") {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        saveIncomplete({
-          name: newForm.name,
-          phone: newForm.phone,
-          email: newForm.email,
-          formData: { division: newForm.division, address: newForm.address },
-        });
-      }, 2000);
-    }
+    // Debounced save for incomplete tracking on any field change
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveIncomplete({
+        name: newForm.name,
+        phone: newForm.phone,
+        email: newForm.email,
+        formData: { division: newForm.division, address: newForm.address },
+      });
+    }, 2000);
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -259,6 +280,7 @@ const Checkout = () => {
 
       // 4. Success — pass full order data to success page
       clearCart();
+      localStorage.removeItem("checkout_form_draft");
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
       navigate(`/order-success/${order.order_number}`, {
         state: {
