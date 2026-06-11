@@ -136,11 +136,6 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
               </motion.div>
             </div>
 
-            {product.originalPrice && product.price && (
-              <span className="absolute left-3 top-3 rounded-full bg-destructive px-3 py-1 text-[11px] font-bold text-destructive-foreground shadow-md">
-                {Math.round((1 - product.price / product.originalPrice) * 100)}% ছাড়
-              </span>
-            )}
             <div className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm backdrop-blur-md ${
               product.stock === 0
                 ? "bg-purple-600 text-white"
@@ -169,10 +164,15 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
             <h3 className="font-display text-sm md:text-base font-bold leading-snug text-foreground dark:text-foreground/90 line-clamp-2 min-h-[2.5rem] md:min-h-[2.75rem]">{product.name}</h3>
             <p className="mt-1 text-xs md:text-sm leading-relaxed text-foreground/70 dark:text-foreground/60 line-clamp-1 md:line-clamp-2">{product.shortDescription}</p>
 
-            <div className="mt-3 flex items-baseline gap-2">
+            <div className="mt-3 flex items-center gap-2">
               <span className="font-display text-lg md:text-xl font-extrabold text-foreground">{formatPrice(product.price)}</span>
               {product.originalPrice && (
-                <span className="text-[10px] md:text-xs text-muted-foreground/70 line-through">{formatPrice(product.originalPrice)}</span>
+                <>
+                  <span className="text-[10px] md:text-xs text-muted-foreground/70 line-through">{formatPrice(product.originalPrice)}</span>
+                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                    {Math.round((1 - product.price / product.originalPrice) * 100)}% ছাড়
+                  </span>
+                </>
               )}
             </div>
           </div>

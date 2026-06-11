@@ -88,18 +88,18 @@ const FlashSaleSection = () => {
               >
                 <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-secondary/30">
                   <RangaoImage src={img} alt={product.name} width={256} height={256} className="transition-transform duration-700 ease-out hover:scale-110" />
-                  <span className="absolute left-3 top-3 rounded-full bg-destructive px-3 py-1.5 text-[11px] font-bold text-destructive-foreground shadow-md">
-                    {Math.round((1 - price / original) * 100)}% ছাড়
-                  </span>
                   <span className="absolute right-3 top-3 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold text-accent-foreground shadow-[0_0_15px_-3px_hsl(var(--accent)/0.5)]">
                     সেভ ৳{(original - price).toLocaleString("bn-BD")}
                   </span>
                 </div>
                 <div className="p-5">
                   <h3 className="font-display text-sm font-bold text-card-foreground line-clamp-1">{product.name}</h3>
-                  <div className="mt-2.5 flex items-baseline gap-2">
+                  <div className="mt-2.5 flex items-center gap-2">
                     <span className="font-display text-xl font-extrabold text-foreground">{formatPrice(price)}</span>
                     <span className="text-xs text-muted-foreground/60 line-through">{formatPrice(original)}</span>
+                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                      {Math.round((1 - price / original) * 100)}% ছাড়
+                    </span>
                   </div>
                 </div>
               </motion.div>
