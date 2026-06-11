@@ -95,12 +95,16 @@ export default async function handler(req: any, res: any) {
     if (!response.ok || !result.ok) {
       console.error("Telegram API error:", result);
       if (orderId) {
-        await supabase.from("order_history" as any).insert({
-          order_id: orderId,
-          action: "telegram_notification",
-          details: `Telegram notification failed: ${result.description || "Unknown error"}`,
-          staff_name: "System",
-        }).catch((e: any) => console.error("Failed to write to order_history on error:", e));
+        try {
+          await supabase.from("order_history" as any).insert({
+            order_id: orderId,
+            action: "telegram_notification",
+            details: `Telegram notification failed: ${result.description || "Unknown error"}`,
+            staff_name: "System",
+          });
+        } catch (e: any) {
+          console.error("Failed to write to order_history on error:", e);
+        }
       }
       return res.status(502).json({
         error: "Failed to send message via Telegram API",
@@ -109,12 +113,16 @@ export default async function handler(req: any, res: any) {
     }
 
     if (orderId) {
-      await supabase.from("order_history" as any).insert({
-        order_id: orderId,
-        action: "telegram_notification",
-        details: "Telegram notification sent successfully via Vercel serverless relay",
-        staff_name: "System",
-      }).catch((e: any) => console.error("Failed to write to order_history on success:", e));
+      try {
+        await supabase.from("order_history" as any).insert({
+          order_id: orderId,
+          action: "telegram_notification",
+          details: "Telegram notification sent successfully via Vercel serverless relay",
+          staff_name: "System",
+        });
+      } catch (e: any) {
+        console.error("Failed to write to order_history on success:", e);
+      }
     }
 
     return res.status(200).json({ status: "success", telegram_response: result });

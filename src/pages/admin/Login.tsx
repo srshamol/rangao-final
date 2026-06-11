@@ -44,7 +44,15 @@ export default function AdminLogin() {
           { p_username: loginEmail }
         );
         
-        if (rpcError) throw rpcError;
+        if (rpcError) {
+          // If the RPC function doesn't exist in Supabase yet, give a clear instruction
+          if (rpcError.message?.includes("Could not find the function")) {
+            throw new Error(
+              "ইউজারনেম লগইন ডাটাবেজে কনফিগার করা নেই। অনুগ্রহ করে আপনার ইমেইল এড্রেস (যেমন: bdinfosky@gmail.com) দিয়ে লগইন করুন অথবা ডাটাবেজ মাইগ্রেশন রান করুন।"
+            );
+          }
+          throw rpcError;
+        }
         if (!resolvedEmail) {
           throw new Error("ইউজারনেমটি খুঁজে পাওয়া যায়নি অথবা ব্যবহারকারী স্টাফ নন।");
         }
