@@ -3,6 +3,7 @@ import { blogPosts } from "@/data/blog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import { motion } from "framer-motion";
 import { Clock, ArrowRight, BookOpen, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
