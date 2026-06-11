@@ -27,7 +27,8 @@ export function useAdminRealtime() {
       .channel("admin-realtime-hub")
 
       // ── Orders ───────────────────────────────────────────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+        console.log("[AdminRealtime] 📦 Orders changed:", payload.eventType, payload.new, payload.old);
         qc.invalidateQueries({ queryKey: ["admin-orders"] });
         qc.invalidateQueries({ queryKey: ["admin-order"] }); // covers ["admin-order", id] in OrderDetail
         qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
@@ -42,51 +43,59 @@ export function useAdminRealtime() {
       })
 
       // ── Order Items (affects top products, finance) ───────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, (payload) => {
+        console.log("[AdminRealtime] 🛍️ Order Items changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-top-products"] });
         qc.invalidateQueries({ queryKey: ["admin-finance"] });
       })
 
       // ── Incomplete Orders ─────────────────────────────────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "incomplete_orders" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "incomplete_orders" }, (payload) => {
+        console.log("[AdminRealtime] ⏳ Incomplete Orders changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["incomplete-orders"] });
         qc.invalidateQueries({ queryKey: ["admin-sidebar-order-counts"] });
       })
 
       // ── Products / Inventory ──────────────────────────────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, (payload) => {
+        console.log("[AdminRealtime] 🏷️ Products changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-products"] });
         qc.invalidateQueries({ queryKey: ["admin-stats"] });
         qc.invalidateQueries({ queryKey: ["admin-low-stock"] });
         // Note: customer-facing product keys are invalidated by useCustomerRealtime
       })
 
-      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_log" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_log" }, (payload) => {
+        console.log("[AdminRealtime] 📦 Inventory log changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-inventory"] }); // matches ["admin-inventory", "stats"] and ["admin-inventory", "logs"]
         qc.invalidateQueries({ queryKey: ["admin-stats"] });
         qc.invalidateQueries({ queryKey: ["admin-low-stock"] });
       })
 
       // ── Coupons ───────────────────────────────────────────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "coupons" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "coupons" }, (payload) => {
+        console.log("[AdminRealtime] 🎟️ Coupons changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-coupons"] });
         qc.invalidateQueries({ queryKey: ["coupons"] });
       })
 
       // ── Order History & Notes ─────────────────────────────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_history" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_history" }, (payload) => {
+        console.log("[AdminRealtime] 📜 Order History changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-orders"] });
         qc.invalidateQueries({ queryKey: ["order-history"] });
       })
 
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_notes" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_notes" }, (payload) => {
+        console.log("[AdminRealtime] 📝 Order Notes changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["admin-orders"] });
         qc.invalidateQueries({ queryKey: ["admin-order"] }); // covers detail view notes
         qc.invalidateQueries({ queryKey: ["order-notes"] });
       })
 
       // ── Store Settings (for multi-tab admin scenarios) ────────────────────
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_settings" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_settings" }, (payload) => {
+        console.log("[AdminRealtime] ⚙️ Store Settings changed:", payload.eventType, payload.new);
         qc.invalidateQueries({ queryKey: ["store-settings-all"] });
       })
 

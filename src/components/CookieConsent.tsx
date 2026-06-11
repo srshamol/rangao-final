@@ -43,7 +43,7 @@ export default function CookieConsent() {
         >
           {/* Dismiss X — absolute top-right corner */}
           <button
-            onClick={handleDecline}
+            onClick={handleAccept}
             aria-label="বন্ধ করুন"
             className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >

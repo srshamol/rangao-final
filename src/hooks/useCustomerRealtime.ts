@@ -43,7 +43,8 @@ export function useCustomerRealtime(userId?: string) {
           table: "orders",
           ...(userId ? { filter: `user_id=eq.${userId}` } : {}),
         },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] 📦 Orders changed:", payload.eventType, payload.new, payload.old);
           qc.invalidateQueries({ queryKey: ["my-orders"] });
           qc.invalidateQueries({ queryKey: ["customer-order"] }); // covers ["customer-order", id]
           qc.invalidateQueries({ queryKey: ["customer-order-items"] }); // covers ["customer-order-items", id]
@@ -54,7 +55,8 @@ export function useCustomerRealtime(userId?: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "store_settings" },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] ⚙️ Store Settings changed:", payload.eventType, payload.new);
           qc.invalidateQueries({ queryKey: ["store-settings-all"] });
         }
       )
@@ -63,7 +65,8 @@ export function useCustomerRealtime(userId?: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "products" },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] 🏷️ Products changed:", payload.eventType, payload.new);
           qc.invalidateQueries({ queryKey: ["homepage-products"] });
           qc.invalidateQueries({ queryKey: ["shop-products"] });
           qc.invalidateQueries({ queryKey: ["product-detail"] }); // covers ["product-detail", id]
@@ -76,7 +79,8 @@ export function useCustomerRealtime(userId?: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "categories" },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] 🗂️ Categories changed:", payload.eventType, payload.new);
           qc.invalidateQueries({ queryKey: ["homepage-categories"] });
           qc.invalidateQueries({ queryKey: ["shop-categories"] });
           qc.invalidateQueries({ queryKey: ["product-count-by-category"] });
@@ -87,7 +91,8 @@ export function useCustomerRealtime(userId?: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "testimonials" },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] 💬 Testimonials changed:", payload.eventType, payload.new);
           qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
           qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
         }
@@ -97,7 +102,8 @@ export function useCustomerRealtime(userId?: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "brands" },
-        () => {
+        (payload) => {
+          console.log("[CustomerRealtime] 🏷️ Brands changed:", payload.eventType, payload.new);
           qc.invalidateQueries({ queryKey: ["homepage-brands"] });
         }
       )
