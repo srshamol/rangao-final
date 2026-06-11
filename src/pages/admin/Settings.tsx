@@ -1851,6 +1851,16 @@ export default function AdminSettings() {
                   <p className="text-[10px] text-muted-foreground">গুগল সার্চ কনসোলে ওয়েবসাইট ভেরিফাই করতে এই কী-টি ব্যবহার করুন।</p>
                 </div>
 
+                <div className="space-y-2">
+                  <Label>ফেসবুক অ্যাপ আইডি (Facebook App ID / fb:app_id)</Label>
+                  <Input 
+                    value={seoSettings.fb_app_id || ""} 
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, fb_app_id: e.target.value }))} 
+                    placeholder="যেমন: 123456789012345" 
+                  />
+                  <p className="text-[10px] text-muted-foreground">ফেসবুক ডোমেইন ভেরিফিকেশন ও শেয়ারিং অ্যানালিটিক্স-এর জন্য ফেসবুক অ্যাপ আইডি দিন।</p>
+                </div>
+
                 <Separator />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
