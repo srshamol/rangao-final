@@ -43,11 +43,11 @@ export function slugify(text: string): string {
     .replace(/-+$/, ""); // Trim hyphens from end
 }
 
-export function getProductUrl(product: { id: string; name: string; category?: string }) {
+export function getProductUrl(product: { id: string; name: string; sku?: string; category?: string }) {
   const categorySlug = product.category ? slugify(product.category) : "";
-  const nameSlug = slugify(product.name);
-  if (categorySlug && nameSlug) {
-    return `/${categorySlug}/${nameSlug}`;
+  const skuSlug = product.sku ? slugify(product.sku) : slugify(product.name);
+  if (categorySlug && skuSlug) {
+    return `/${categorySlug}/${skuSlug}`;
   }
   return `/product/${product.id}`;
 }

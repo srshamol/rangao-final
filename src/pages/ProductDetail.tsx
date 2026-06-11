@@ -237,7 +237,7 @@ const ProductDetail = () => {
           .eq("status", "active");
         if (error) throw error;
         
-        const found = allProducts?.find((p) => slugify(p.name) === id);
+        const found = allProducts?.find((p) => slugify(p.sku || "") === id || slugify(p.name) === id);
         return found || null;
       }
     },
@@ -252,7 +252,7 @@ const ProductDetail = () => {
       });
       for (const [_, data] of cachedQueries) {
         if (Array.isArray(data)) {
-          const found = data.find((p: any) => p.id === id || slugify(p.name) === id);
+          const found = data.find((p: any) => p.id === id || slugify(p.sku || "") === id || slugify(p.name) === id);
           if (found) return found;
         }
       }
@@ -260,12 +260,12 @@ const ProductDetail = () => {
       if (shopProducts?.pages) {
         for (const page of shopProducts.pages) {
           if (page?.data) {
-            const found = page.data.find((p: any) => p.id === id || slugify(p.name) === id);
+            const found = page.data.find((p: any) => p.id === id || slugify(p.sku || "") === id || slugify(p.name) === id);
             if (found) return found;
           }
         }
       } else if (Array.isArray(shopProducts)) {
-        const found = shopProducts.find((p: any) => p.id === id || slugify(p.name) === id);
+        const found = shopProducts.find((p: any) => p.id === id || slugify(p.sku || "") === id || slugify(p.name) === id);
         if (found) return found;
       }
       return undefined;

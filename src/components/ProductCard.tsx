@@ -18,6 +18,7 @@ import { getProductUrl } from "@/lib/utils";
 export interface CardProduct {
   id: string;
   name: string;
+  sku?: string;
   shortDescription: string;
   price: number;
   originalPrice?: number;
@@ -34,6 +35,7 @@ export function dbToCard(p: DBProduct): CardProduct {
   return {
     id: p.id,
     name: p.name,
+    sku: p.sku || "",
     shortDescription: p.description?.slice(0, 120) || "",
     price: p.sale_price ?? p.regular_price,
     originalPrice: p.sale_price ? p.regular_price : undefined,

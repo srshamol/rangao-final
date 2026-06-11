@@ -120,7 +120,7 @@ const BlogPost = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, sale_price, regular_price, images, category")
+        .select("id, name, sku, sale_price, regular_price, images, category")
         .eq("status", "active")
         .limit(3);
       return data || [];
