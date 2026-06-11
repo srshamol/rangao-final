@@ -400,6 +400,23 @@ export default function ProductForm() {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      // Check for duplicate canonical URL before saving
+      if (seoForm.canonical_url?.trim()) {
+        const canonical = seoForm.canonical_url.trim();
+        const currentSeoKey = isEdit ? `product_seo_${id}` : `product_seo_new_product_placeholder`;
+        const { data: duplicateCheck, error: checkError } = await supabase
+          .from("store_settings" as any)
+          .select("key")
+          .neq("key", currentSeoKey)
+          .eq("value->>canonical_url", canonical);
+          
+        if (checkError) {
+          console.error("Error checking duplicate URL:", checkError);
+        } else if (duplicateCheck && duplicateCheck.length > 0) {
+          throw new Error("এই প্রোডাক্ট URL (ক্যানোনিকাল URL) টি ইতিমধ্যেই অন্য একটি প্রোডাক্টে ব্যবহৃত হচ্ছে। অনুগ্রহ করে একটি ইউনিক URL বা SKU ব্যবহার করুন।");
+        }
+      }
+
       const payload = {
         ...form,
         specifications: specs.filter((s) => s.label && s.value) as any,
