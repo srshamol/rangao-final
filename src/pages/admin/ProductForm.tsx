@@ -11,10 +11,139 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, X, Upload, Image as ImageIcon, GripVertical, Star, Trash2, Save, Eye, Loader2 } from "lucide-react";
+import { 
+  ArrowLeft, Plus, X, Upload, Image as ImageIcon, GripVertical, Star, Trash2, 
+  Save, Eye, Loader2, Bold, Highlighter, Link, List, ListOrdered, Palette 
+} from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
 
 import { mediaService } from "@/lib/mediaService";
+
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/[^\u0980-\u09FFa-z0-9-]/g, "") // Keep Bengali characters, English alphanumeric and hyphens
+    .replace(/\-\-+/g, "-") // Replace multiple hyphens with single hyphen
+    .replace(/^-+/, "") // Trim hyphens from start
+    .replace(/-+$/, ""); // Trim hyphens from end
+}
+
+const FormattingToolbar = ({ 
+  onInsert 
+}: { 
+  onInsert: (type: "bold" | "highlight" | "link" | "ul" | "ol" | "color", value?: string) => void 
+}) => {
+  const [showColors, setShowColors] = useState(false);
+  
+  const colors = [
+    { label: "লাল", value: "#EF4444", class: "bg-red-500" },
+    { label: "সবুজ", value: "#10B981", class: "bg-emerald-500" },
+    { label: "নীল", value: "#3B82F6", class: "bg-blue-500" },
+    { label: "সোনালী", value: "#C5A85C", class: "bg-[#C5A85C]" },
+    { label: "বেগুনি", value: "#8B5CF6", class: "bg-purple-500" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 p-1 bg-secondary/35 rounded-lg border mb-1.5 w-fit">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+        title="বোল্ড (Bold)"
+        onClick={() => onInsert("bold")}
+      >
+        <Bold className="h-4 w-4" />
+      </Button>
+      
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+        title="হাইলাইট (Highlight)"
+        onClick={() => onInsert("highlight")}
+      >
+        <Highlighter className="h-4 w-4" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+        title="লিংক"
+        onClick={() => onInsert("link")}
+      >
+        <Link className="h-4 w-4" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+        title="বুলেট লিস্ট"
+        onClick={() => onInsert("ul")}
+      >
+        <List className="h-4 w-4" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+        title="নম্বর লিস্ট"
+        onClick={() => onInsert("ol")}
+      >
+        <ListOrdered className="h-4 w-4" />
+      </Button>
+
+      <div className="relative">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={`h-8 w-8 p-0 rounded-md hover:text-foreground ${showColors ? "text-primary bg-secondary/80" : "text-muted-foreground"}`}
+          title="রং"
+          onClick={() => setShowColors(!showColors)}
+        >
+          <Palette className="h-4 w-4" />
+        </Button>
+        {showColors && (
+          <div className="absolute left-0 top-9 z-[100] flex items-center gap-1.5 p-2 bg-popover text-popover-foreground rounded-lg border shadow-lg animate-in fade-in slide-in-from-top-1">
+            {colors.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                className={`h-5 w-5 rounded-full ${c.class} hover:scale-110 transition-transform active:scale-95 shrink-0`}
+                title={c.label}
+                onClick={() => {
+                  onInsert("color", c.value);
+                  setShowColors(false);
+                }}
+              />
+            ))}
+            <div className="h-4 w-[1px] bg-border mx-1 shrink-0" />
+            <input
+              type="color"
+              className="h-5 w-5 p-0 bg-transparent border-0 cursor-pointer rounded-full shrink-0"
+              title="কাস্টম কালার"
+              onChange={(e) => {
+                onInsert("color", e.target.value);
+                setShowColors(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface SpecItem {
   label: string;
@@ -28,6 +157,67 @@ export default function ProductForm() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const shortDescriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertFormatting = (
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    type: "bold" | "highlight" | "link" | "ul" | "ol" | "color",
+    colorValue?: string
+  ) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+
+    let replacement = "";
+    switch (type) {
+      case "bold":
+        replacement = `**${selectedText || "bold text"}**`;
+        break;
+      case "highlight":
+        replacement = `==${selectedText || "highlighted text"}==`;
+        break;
+      case "link":
+        replacement = `[${selectedText || "Link text"}](https://example.com)`;
+        break;
+      case "ul":
+        replacement = selectedText
+          ? selectedText
+              .split("\n")
+              .map((line) => (line.trim().startsWith("-") ? line : `- ${line}`))
+              .join("\n")
+          : "- Item";
+        break;
+      case "ol":
+        replacement = selectedText
+          ? selectedText
+              .split("\n")
+              .map((line, idx) => (line.trim().match(/^\d+\./) ? line : `${idx + 1}. ${line}`))
+              .join("\n")
+          : "1. Item";
+        break;
+      case "color":
+        replacement = `{color:${colorValue || "red"}}(${selectedText || "colored text"})`;
+        break;
+    }
+
+    const newText = text.substring(0, start) + replacement + text.substring(end);
+    
+    if (textareaRef === descriptionRef) {
+      setForm((f) => ({ ...f, description: newText }));
+    } else {
+      setForm((f) => ({ ...f, short_description: newText }));
+    }
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+    }, 0);
+  };
 
   const [form, setForm] = useState({
     name: "",
@@ -57,6 +247,7 @@ export default function ProductForm() {
     description: "",
     canonical_url: "",
   });
+  const [isUrlEdited, setIsUrlEdited] = useState(false);
   const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>([{ question: "", answer: "" }]);
 
   // Load SEO & FAQ settings
@@ -75,6 +266,9 @@ export default function ProductForm() {
           description: val.seo_description || "",
           canonical_url: val.canonical_url || "",
         });
+        if (val.canonical_url) {
+          setIsUrlEdited(true);
+        }
         setFaqs(val.faqs && val.faqs.length > 0 ? val.faqs : [{ question: "", answer: "" }]);
       }
     };
@@ -307,10 +501,45 @@ export default function ProductForm() {
               <label className="text-sm font-medium">প্রোডাক্ট নাম *</label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setForm((f) => ({ ...f, name }));
+                  if (!isUrlEdited) {
+                    const slug = slugify(name);
+                    setSeoForm((prev) => ({
+                      ...prev,
+                      canonical_url: slug ? `https://www.rangao.bd/product/${slug}` : "",
+                    }));
+                  }
+                }}
                 placeholder="যেমন: সূরা ইখলাস উডেন ক্যালিগ্রাফি"
                 className="mt-1"
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">প্রোডাক্ট URL (ক্যানোনিকাল URL) *</label>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-xs text-muted-foreground bg-muted px-2.5 py-2 rounded-lg border font-mono shrink-0">
+                  https://www.rangao.bd/product/
+                </span>
+                <Input
+                  value={seoForm.canonical_url.replace(/^https:\/\/www\.rangao\.bd\/product\//, "")}
+                  onChange={(e) => {
+                    const slug = e.target.value
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")
+                      .replace(/[^\u0980-\u09FFa-z0-9-]/g, "");
+                    setSeoForm((prev) => ({
+                      ...prev,
+                      canonical_url: slug ? `https://www.rangao.bd/product/${slug}` : "",
+                    }));
+                    setIsUrlEdited(true);
+                  }}
+                  placeholder="wooden-calligraphy"
+                  className="font-mono"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">সার্চ ইঞ্জিন ফ্রেন্ডলি ইউনিক URL (অটো-সাজেস্টেড কিন্তু পরিবর্তনযোগ্য)</p>
             </div>
             <div>
               <label className="text-sm font-medium">SKU (স্টক কিপিং ইউনিট)</label>
@@ -602,8 +831,10 @@ export default function ProductForm() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium">সংক্ষিপ্ত বিবরণ</label>
+            <label className="text-sm font-medium block mb-1">সংক্ষিপ্ত বিবরণ</label>
+            <FormattingToolbar onInsert={(type, val) => insertFormatting(shortDescriptionRef, type, val)} />
             <Textarea
+              ref={shortDescriptionRef}
               value={form.short_description}
               onChange={(e) => setForm((f) => ({ ...f, short_description: e.target.value }))}
               rows={3}
@@ -612,8 +843,10 @@ export default function ProductForm() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">পূর্ণাঙ্গ বিবরণ</label>
+            <label className="text-sm font-medium block mb-1">পূর্ণাঙ্গ বিবরণ</label>
+            <FormattingToolbar onInsert={(type, val) => insertFormatting(descriptionRef, type, val)} />
             <Textarea
+              ref={descriptionRef}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={6}
@@ -675,7 +908,10 @@ export default function ProductForm() {
               <label className="text-sm font-medium">কাস্টম ক্যানোনিকাল URL</label>
               <Input
                 value={seoForm.canonical_url}
-                onChange={(e) => setSeoForm((prev) => ({ ...prev, canonical_url: e.target.value }))}
+                onChange={(e) => {
+                  setSeoForm((prev) => ({ ...prev, canonical_url: e.target.value }));
+                  setIsUrlEdited(true);
+                }}
                 placeholder="যেমন: https://www.rangao.bd/product/wooden-calligraphy"
                 className="mt-1"
               />

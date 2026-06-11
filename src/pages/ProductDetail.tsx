@@ -62,49 +62,115 @@ const FaqItem = ({ question, answer }: { question: string; answer: string }) => 
 };
 
 
+const parseInlineStyles = (lineText: string): React.ReactNode[] => {
+  const regex = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|==[^=]+==|\{color:[^}]+\}\([^)]+\))/g;
+  const parts = lineText.split(regex);
+  return parts.map((part, index) => {
+    if (index % 2 === 0) {
+      return part;
+    }
+    
+    // Bold: **text**
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={index} className="font-bold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    
+    // Highlight: ==text==
+    if (part.startsWith("==") && part.endsWith("==")) {
+      return (
+        <mark key={index} className="bg-yellow-200 dark:bg-yellow-500/30 text-foreground px-1 py-0.5 rounded font-medium">
+          {part.slice(2, -2)}
+        </mark>
+      );
+    }
+    
+    // Link: [text](url)
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={index}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline font-semibold inline-flex items-center gap-0.5"
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
+    
+    // Color: {color:red}(text)
+    const colorMatch = part.match(/^\{color:([^}]+)\}\(([^)]+)\)$/);
+    if (colorMatch) {
+      const colorVal = colorMatch[1];
+      const textVal = colorMatch[2];
+      return (
+        <span key={index} style={{ color: colorVal }}>
+          {textVal}
+        </span>
+      );
+    }
+    
+    return part;
+  });
+};
+
 const renderFormattedDescription = (text: string) => {
   if (!text) return null;
 
   const lines = text.split(/\r?\n/);
   const formattedElements: React.ReactNode[] = [];
-  let currentListItems: React.ReactNode[] = [];
-  let inList = false;
-
-  const parseInlineStyles = (lineText: string) => {
-    const parts = lineText.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={index} className="font-bold text-foreground">{part.slice(2, -2)}</strong>;
-      }
-      return part;
-    });
+  
+  let currentUnorderedItems: React.ReactNode[] = [];
+  let currentOrderedItems: React.ReactNode[] = [];
+  
+  const flushLists = (key: string | number) => {
+    if (currentUnorderedItems.length > 0) {
+      formattedElements.push(
+        <ul key={`ul-${key}`} className="my-3 list-disc pl-5 space-y-1.5">
+          {currentUnorderedItems}
+        </ul>
+      );
+      currentUnorderedItems = [];
+    }
+    if (currentOrderedItems.length > 0) {
+      formattedElements.push(
+        <ol key={`ol-${key}`} className="my-3 list-decimal pl-5 space-y-1.5">
+          {currentOrderedItems}
+        </ol>
+      );
+      currentOrderedItems = [];
+    }
   };
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
-    const listMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    
+    const ulMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
 
-    if (listMatch) {
-      if (!inList) {
-        inList = true;
-        currentListItems = [];
-      }
-      currentListItems.push(
-        <li key={`li-${index}`} className="mb-1.5 list-disc ml-5 font-bengali text-sm md:text-base leading-relaxed text-foreground/80">
-          {parseInlineStyles(listMatch[1])}
+    if (ulMatch) {
+      flushLists(`pre-ul-${index}`);
+      currentUnorderedItems.push(
+        <li key={`li-ul-${index}`} className="mb-1.5 font-bengali text-sm md:text-base leading-relaxed text-foreground/80">
+          {parseInlineStyles(ulMatch[1])}
+        </li>
+      );
+    } else if (olMatch) {
+      flushLists(`pre-ol-${index}`);
+      currentOrderedItems.push(
+        <li key={`li-ol-${index}`} className="mb-1.5 font-bengali text-sm md:text-base leading-relaxed text-foreground/80">
+          {parseInlineStyles(olMatch[2])}
         </li>
       );
     } else {
-      if (inList) {
-        formattedElements.push(
-          <ul key={`ul-${index}`} className="my-3 list-disc pl-5 space-y-1">
-            {currentListItems}
-          </ul>
-        );
-        inList = false;
-        currentListItems = [];
-      }
-
+      flushLists(index);
+      
       if (trimmed === "") {
         formattedElements.push(<div key={`br-${index}`} className="h-3.5" />);
       } else {
@@ -117,13 +183,7 @@ const renderFormattedDescription = (text: string) => {
     }
   });
 
-  if (inList && currentListItems.length > 0) {
-    formattedElements.push(
-      <ul key="ul-end" className="my-3 list-disc pl-5 space-y-1">
-        {currentListItems}
-      </ul>
-    );
-  }
+  flushLists("end");
 
   return <div className="space-y-1">{formattedElements}</div>;
 };
