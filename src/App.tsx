@@ -84,6 +84,7 @@ const queryClient = new QueryClient({
 });
 
 import CookieConsent from "@/components/CookieConsent";
+import CustomerRealtime from "@/components/CustomerRealtime";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -93,6 +94,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <SettingsSync />
+          <CustomerRealtime />
           <StorageInitializer />
           <CookieConsent />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

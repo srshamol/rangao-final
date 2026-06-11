@@ -58,7 +58,7 @@ export function useAdminRealtime() {
         qc.invalidateQueries({ queryKey: ["admin-products"] });
         qc.invalidateQueries({ queryKey: ["admin-stats"] });
         qc.invalidateQueries({ queryKey: ["admin-low-stock"] });
-        qc.invalidateQueries({ queryKey: ["products"] });
+        // Note: customer-facing product keys are invalidated by useCustomerRealtime
       })
 
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_log" }, () => {
@@ -83,6 +83,11 @@ export function useAdminRealtime() {
         qc.invalidateQueries({ queryKey: ["admin-orders"] });
         qc.invalidateQueries({ queryKey: ["admin-order"] }); // covers detail view notes
         qc.invalidateQueries({ queryKey: ["order-notes"] });
+      })
+
+      // ── Store Settings (for multi-tab admin scenarios) ────────────────────
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_settings" }, () => {
+        qc.invalidateQueries({ queryKey: ["store-settings-all"] });
       })
 
       .subscribe((status) => {
