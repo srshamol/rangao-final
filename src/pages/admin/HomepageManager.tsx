@@ -418,7 +418,6 @@ export default function HomepageManager() {
             { id: "categories", label: "ক্যাটাগরি" },
             { id: "products", label: "প্রোডাক্ট" },
             { id: "offer", label: "অফার ব্যানার" },
-            { id: "trust", label: "ট্রাস্ট ফিচার" },
             { id: "stats", label: "পরিসংখ্যান" },
             { id: "newsletter", label: "ইসলামিক বাণী" },
             { id: "gallery", label: "গ্যালারি / ইন্সপিরেশন" },
@@ -1537,57 +1536,7 @@ export default function HomepageManager() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="trust" className="mt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">ট্রাস্ট ফিচার আইটেম</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">"কেন রাঙাও বেছে নেবেন" সেকশনের আইটেম</p>
-            </div>
-            <Button size="sm" variant="outline" onClick={addTrustItem}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> আইটেম যোগ করুন
-            </Button>
-          </div>
 
-          {trustItems.map((item, i) => (
-            <Card key={item.id}>
-              <CardContent className="pt-5 pb-5">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">আইকন</label>
-                    <Select value={item.icon} onValueChange={(v) => updateTrustItem(i, { icon: v })}>
-                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ICON_OPTIONS.map((ic) => <SelectItem key={ic} value={ic}>{ic}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">শিরোনাম</label>
-                    <Input value={item.title} onChange={(e) => updateTrustItem(i, { title: e.target.value })} className="mt-1 h-8 text-sm" />
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-xs font-medium text-muted-foreground">বিবরণ</label>
-                      <Input value={item.desc} onChange={(e) => updateTrustItem(i, { desc: e.target.value })} className="mt-1 h-8 text-sm" />
-                    </div>
-                    <button
-                      onClick={() => removeTrustItem(i)}
-                      className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {trustItems.length === 0 && (
-            <div className="rounded-2xl border-2 border-dashed border-border/40 py-12 text-center text-sm text-muted-foreground">
-              কোনো আইটেম নেই। উপরে "আইটেম যোগ করুন" ক্লিক করুন।
-            </div>
-          )}
-        </TabsContent>
 
         {/* ── NEWSLETTER TAB ── */}
         <TabsContent value="newsletter" className="mt-6 space-y-6">
