@@ -5,11 +5,28 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 
+const Tiktok = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <g transform="scale(0.85) translate(2, 2)">
+      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+    </g>
+  </svg>
+);
+
 const socialIconMap: Record<string, React.ElementType> = {
   facebook: Facebook,
   facebook_group: Users,
   instagram: Instagram,
-  tiktok: Music,
+  tiktok: Tiktok,
   youtube: Youtube,
   linkedin: Linkedin,
   twitter: Twitter,
