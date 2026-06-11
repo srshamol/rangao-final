@@ -528,16 +528,7 @@ export default function ProductForm() {
               <Input
                 value={form.name}
                 onChange={(e) => {
-                  const name = e.target.value;
-                  setForm((f) => ({ ...f, name }));
-                  if (!isUrlEdited) {
-                    const slug = slugify(name);
-                    const catSlug = form.category ? slugify(form.category) : "category";
-                    setSeoForm((prev) => ({
-                      ...prev,
-                      canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
-                    }));
-                  }
+                  setForm((f) => ({ ...f, name: e.target.value }));
                 }}
                 placeholder="যেমন: সূরা ইখলাস উডেন ক্যালিগ্রাফি"
                 className="mt-1"
@@ -570,7 +561,18 @@ export default function ProductForm() {
               <label className="text-sm font-medium">SKU (স্টক কিপিং ইউনিট)</label>
               <Input
                 value={form.sku}
-                onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
+                onChange={(e) => {
+                  const sku = e.target.value;
+                  setForm((f) => ({ ...f, sku }));
+                  if (!isUrlEdited) {
+                    const slug = slugify(sku);
+                    const catSlug = form.category ? slugify(form.category) : "category";
+                    setSeoForm((prev) => ({
+                      ...prev,
+                      canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
+                    }));
+                  }
+                }}
                 placeholder="যেমন: RG-DEC-001"
                 className="mt-1 font-mono"
               />
@@ -781,8 +783,8 @@ export default function ProductForm() {
                   value={form.category} 
                   onValueChange={(v) => {
                     setForm((f) => ({ ...f, category: v }));
-                    if (!isUrlEdited && form.name) {
-                      const slug = slugify(form.name);
+                    if (!isUrlEdited && form.sku) {
+                      const slug = slugify(form.sku);
                       const catSlug = v ? slugify(v) : "category";
                       setSeoForm((prev) => ({
                         ...prev,
@@ -804,8 +806,8 @@ export default function ProductForm() {
                   onChange={(e) => {
                     const catVal = e.target.value;
                     setForm((f) => ({ ...f, category: catVal }));
-                    if (!isUrlEdited && form.name) {
-                      const slug = slugify(form.name);
+                    if (!isUrlEdited && form.sku) {
+                      const slug = slugify(form.sku);
                       const catSlug = catVal ? slugify(catVal) : "category";
                       setSeoForm((prev) => ({
                         ...prev,
