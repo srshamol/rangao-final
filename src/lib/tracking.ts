@@ -601,6 +601,8 @@ export function trackPurchase(
       })),
       value: total,
       currency: "BDT"
+    }, {
+      event_id: orderId
     });
   }
 

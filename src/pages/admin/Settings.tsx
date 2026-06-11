@@ -1633,13 +1633,31 @@ export default function AdminSettings() {
                     <div className="p-3 rounded-xl border bg-secondary/10 text-center">
                       <span className="text-[10px] text-muted-foreground block">Server-Side CAPI Connection</span>
                       {(() => {
-                        const isActive = tracking.global_enabled &&
+                        const isMetaActive = tracking.global_enabled &&
                           tracking.meta_capi_enabled &&
                           isValidTrackingId('meta', tracking.meta_pixel_id) &&
                           tracking.meta_access_token?.trim();
+                        const isTiktokActive = tracking.global_enabled &&
+                          tracking.tiktok_enabled &&
+                          isValidTrackingId('tiktok', tracking.tiktok_pixel_id) &&
+                          tracking.tiktok_access_token?.trim();
+                        
+                        let statusText = "Disabled 🔴";
+                        let statusColor = "text-red-500";
+                        if (isMetaActive && isTiktokActive) {
+                          statusText = "Meta & TikTok Active 🟢";
+                          statusColor = "text-green-500";
+                        } else if (isMetaActive) {
+                          statusText = "Meta Active 🟢";
+                          statusColor = "text-blue-500";
+                        } else if (isTiktokActive) {
+                          statusText = "TikTok Active 🟢";
+                          statusColor = "text-purple-500";
+                        }
+                        
                         return (
-                          <span className={`font-bold text-sm block mt-1 ${isActive ? "text-blue-500" : "text-red-500"}`}>
-                            {isActive ? "Active (Vercel Node) 🟢" : "Disabled 🔴"}
+                          <span className={`font-bold text-xs block mt-1 ${statusColor}`}>
+                            {statusText}
                           </span>
                         );
                       })()}
@@ -1647,15 +1665,30 @@ export default function AdminSettings() {
                     <div className="p-3 rounded-xl border bg-secondary/10 text-center">
                       <span className="text-[10px] text-muted-foreground block">Deduplication Matching</span>
                       {(() => {
-                        const hasPixel = tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id);
-                        const hasCAPI = tracking.meta_capi_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) && tracking.meta_access_token?.trim();
-                        const isVerified = tracking.global_enabled && hasPixel && hasCAPI;
+                        const hasMetaPixel = tracking.meta_pixel_enabled && isValidTrackingId('meta', tracking.meta_pixel_id);
+                        const hasMetaCAPI = tracking.meta_capi_enabled && isValidTrackingId('meta', tracking.meta_pixel_id) && tracking.meta_access_token?.trim();
+                        const metaVerified = tracking.global_enabled && hasMetaPixel && hasMetaCAPI;
+
+                        const hasTiktokPixel = tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id);
+                        const hasTiktokCAPI = tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id) && tracking.tiktok_access_token?.trim();
+                        const tiktokVerified = tracking.global_enabled && hasTiktokPixel && hasTiktokCAPI;
+
+                        let statusText = "Inactive 🔴";
+                        let statusColor = "text-red-500";
+
+                        if ((metaVerified || (!hasMetaPixel && !hasMetaCAPI)) && (tiktokVerified || (!hasTiktokPixel && !hasTiktokCAPI))) {
+                          if (metaVerified || tiktokVerified) {
+                            statusText = "Verified (100% Match) 🟢";
+                            statusColor = "text-green-500";
+                          }
+                        } else {
+                          statusText = "Single-Channel 🟡";
+                          statusColor = "text-yellow-500";
+                        }
                         
                         return (
-                          <span className={`font-bold text-sm block mt-1 ${isVerified ? "text-green-500" : ((hasPixel || hasCAPI) ? "text-yellow-500" : "text-red-500")}`}>
-                            {isVerified 
-                              ? "Verified (100% Match) 🟢" 
-                              : ((hasPixel || hasCAPI) ? "N/A (Single-Channel) 🟡" : "Inactive 🔴")}
+                          <span className={`font-bold text-xs block mt-1 ${statusColor}`}>
+                            {statusText}
                           </span>
                         );
                       })()}
