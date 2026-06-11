@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Search, Edit, Eye, Image as ImageIcon, Package } from "lucide-react";
+import { Plus, Trash2, Search, Edit, Eye, Image as ImageIcon, Package, Copy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -82,6 +82,40 @@ export default function AdminProducts() {
       setSelected([]);
       toast({ title: "সফল", description: "প্রোডাক্ট ডিলিট হয়েছে" });
     },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (product: any) => {
+      const { id, created_at, updated_at, ...cleanProduct } = product;
+      const suffix = Math.floor(100 + Math.random() * 900);
+      const newSku = product.sku ? `${product.sku}-COPY-${suffix}` : `RG-SKU-${suffix}`;
+      
+      const payload = {
+        ...cleanProduct,
+        name: `${product.name} (Copy)`,
+        sku: newSku,
+        status: "draft"
+      };
+
+      const { data, error } = await supabase
+        .from("products")
+        .insert(payload as any)
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "সফল", description: "প্রোডাক্ট ডুপ্লিকেট করা হয়েছে। এডিট পেজে রিডাইরেক্ট করা হচ্ছে..." });
+      if (data?.id) {
+        navigate(`/admin/products/${data.id}`);
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "ত্রুটি", description: "ডুপ্লিকেট করতে ব্যর্থ হয়েছে: " + err.message, variant: "destructive" });
+    }
   });
 
   const toggleAll = () => {
@@ -256,6 +290,16 @@ export default function AdminProducts() {
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/admin/products/${p.id}`)}>
                             <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => duplicateMutation.mutate(p)}
+                            disabled={duplicateMutation.isPending}
+                            title="ডুপ্লিকেট করুন"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost"
