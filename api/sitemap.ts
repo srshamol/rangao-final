@@ -30,8 +30,22 @@ export default async function handler(req: any, res: any) {
     // 3. Fetch products
     const { data: products } = await supabase
       .from("products")
-      .select("id, updated_at")
+      .select("id, name, category, updated_at")
       .eq("status", "active");
+
+    // Helper to generate slug
+    const slugify = (text: string): string => {
+      if (!text) return "";
+      return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^\u0980-\u09FFa-z0-9-]/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+    };
 
     // 4. Generate XML
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -73,8 +87,12 @@ export default async function handler(req: any, res: any) {
     if (products) {
       products.forEach((prod) => {
         const lastmod = prod.updated_at ? new Date(prod.updated_at).toISOString().split("T")[0] : currentDate;
+        const categorySlug = prod.category ? slugify(prod.category) : "";
+        const nameSlug = prod.name ? slugify(prod.name) : "";
+        const productPath = (categorySlug && nameSlug) ? `/${categorySlug}/${nameSlug}` : `/product/${prod.id}`;
+        
         xml += `  <url>\n`;
-        xml += `    <loc>${domain}/product/${encodeURIComponent(prod.id)}</loc>\n`;
+        xml += `    <loc>${domain}${productPath}</loc>\n`;
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>daily</changefreq>\n`;
         xml += `    <priority>0.8</priority>\n`;
@@ -86,10 +104,14 @@ export default async function handler(req: any, res: any) {
     const generateSlug = (text: string): string => {
       if (!text) return "";
       return text
+        .toString()
         .toLowerCase()
         .trim()
-        .replace(/[^a-zA-Z0-9\u0980-\u09FF]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
     };
 
     // Fetch and append blog posts

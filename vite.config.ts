@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import compression from "vite-plugin-compression";
+import { execSync } from "child_process";
+
 
 // Custom plugin to replace %BUILD_TIMESTAMP% in index.html
 const htmlPlugin = () => {

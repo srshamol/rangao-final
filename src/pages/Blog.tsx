@@ -8,7 +8,14 @@ import { Clock, ArrowRight, BookOpen, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import SEO from "@/components/SEO";
-import Breadcrumbs from "@/components/Breadcrumbs";
+function generateSlug(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-zA-Z0-9\u0980-\u09FF]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 const Blog = () => {
   const { data: posts, isLoading } = useQuery({
@@ -72,7 +79,7 @@ const Blog = () => {
                   transition={{ delay: i * 0.08 }}
                 >
                   <Link
-                    to={`/blog/${post.id}`}
+                    to={`/blog/${generateSlug(post.title)}`}
                     className="group flex h-full flex-col overflow-hidden rounded-2xl border bg-card shadow-premium transition-all hover:shadow-premium-lg"
                   >
                     <div className="relative aspect-[16/10] overflow-hidden bg-muted">

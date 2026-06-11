@@ -11,6 +11,7 @@ import CodOrderModal from "@/components/CodOrderModal";
 import type { DBProduct } from "@/hooks/useHomepageData";
 import RangaoImage from "@/components/ui/RangaoImage";
 import { analytics } from "@/services/analytics";
+import { getProductUrl } from "@/lib/utils";
 
 
 // Unified product shape accepted by the card
@@ -69,7 +70,7 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
   const [isCodOpen, setIsCodOpen] = useState(false);
   const stock = getStockLabel(product.stock);
 
-  const handleClick = () => navigate(`/product/${product.id}`);
+  const handleClick = () => navigate(getProductUrl(product));
 
   const handleMouseEnter = () => {
     queryClient.prefetchQuery({
@@ -113,7 +114,7 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none" />
 
         {/* Link wrapper for crawlers */}
-        <Link to={`/product/${product.id}`} className="block text-inherit no-underline">
+        <Link to={getProductUrl(product)} className="block text-inherit no-underline">
           {/* Image */}
           <div className="relative aspect-[4/3.5] overflow-hidden bg-gradient-to-br from-secondary to-secondary/30">
             <RangaoImage

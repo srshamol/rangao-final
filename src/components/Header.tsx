@@ -13,6 +13,7 @@ import MobileDrawer from "./mobile/MobileDrawer";
 import MobileSearch from "./mobile/MobileSearch";
 import MobileBottomBar from "./mobile/MobileBottomBar";
 import AnnouncementBar from "./AnnouncementBar";
+import { getProductUrl } from "@/lib/utils";
 
 const iconMap: Record<string, React.ElementType> = { Image, Key, Sparkles, Heart, Layers, Lightbulb, Gift, Palette };
 
@@ -156,8 +157,8 @@ const Header = () => {
     });
   }, [searchQuery, categories]);
 
-  const handleSearchSelect = (productId: string) => {
-    navigate(`/product/${productId}`);
+  const handleSearchSelect = (p: any) => {
+    navigate(getProductUrl(p));
     setSearchQuery("");
     setSearchOpen(false);
   };
@@ -307,7 +308,7 @@ const Header = () => {
                           {products.filter(p => p.featured).slice(0, 3).map((p) => (
                             <a
                               key={p.id}
-                              href={`/product/${p.id}`}
+                              href={getProductUrl(p)}
                               className="flex items-center gap-3 rounded-xl bg-card border p-2 transition-all duration-200 hover:shadow-sm"
                             >
                               <img src={p.images?.[0] || ""} alt={p.name} className="h-12 w-12 rounded-lg object-cover" />
@@ -464,7 +465,7 @@ const Header = () => {
                             <button
                               key={p.id}
                               type="button"
-                              onClick={() => handleSearchSelect(p.id)}
+                              onClick={() => handleSearchSelect(p)}
                               className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-secondary"
                             >
                               <img src={p.images?.[0] || ""} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
@@ -556,7 +557,7 @@ const Header = () => {
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => { handleSearchSelect(p.id); setMobileOpen(false); }}
+                          onClick={() => { handleSearchSelect(p); setMobileOpen(false); }}
                           className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-primary-foreground hover:bg-primary-foreground/5"
                         >
                           <img src={p.images?.[0] || ""} alt={p.name} className="h-8 w-8 rounded-lg object-cover" />

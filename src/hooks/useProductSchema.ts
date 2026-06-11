@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ProductSchema } from "@/types/schema";
+import { getProductUrl } from "@/lib/utils";
 
 export interface SchemaProductInput {
   id: string;
@@ -21,7 +22,7 @@ export function useProductSchema(product: SchemaProductInput | null): ProductSch
     const nextYear = new Date().getFullYear() + 1;
     const priceValidUntil = `${nextYear}-12-31`;
 
-    const productUrl = `${window.location.origin}/product/${product.id}`;
+    const productUrl = `${window.location.origin}${getProductUrl(product)}`;
 
     return {
       "@context": "https://schema.org",

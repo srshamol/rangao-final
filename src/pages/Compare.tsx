@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Star, X, GitCompareArrows } from "lucide-react";
 import { motion } from "framer-motion";
+import { getProductUrl } from "@/lib/utils";
 
 const Compare = () => {
   const { items, removeFromCompare } = useCompare();
@@ -58,12 +59,12 @@ const Compare = () => {
                   {items.map((product) => (
                     <th key={product.id} className="relative p-4 text-center">
                       <button
-                        onClick={() => removeFromCompare(product.id)}
+                         onClick={() => removeFromCompare(product.id)}
                         className="absolute right-2 top-2 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       >
                         <X className="h-4 w-4" />
                       </button>
-                      <Link to={`/product/${product.id}`} className="group">
+                      <Link to={getProductUrl(product as any)} className="group">
                         <img
                           src={product.images[0]}
                           alt={product.name}
@@ -148,7 +149,7 @@ const Compare = () => {
                   {items.map((p) => (
                     <td key={p.id} className="p-4 text-center">
                       <Button asChild size="sm" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Link to={`/product/${p.id}`}>ডিটেলস দেখুন</Link>
+                        <Link to={getProductUrl(p as any)}>ডিটেলস দেখুন</Link>
                       </Button>
                     </td>
                   ))}

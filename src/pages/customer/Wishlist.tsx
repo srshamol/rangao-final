@@ -10,6 +10,7 @@ import { ArrowLeft, Heart, Trash2, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { analytics } from "@/services/analytics";
+import { getProductUrl } from "@/lib/utils";
 
 export default function CustomerWishlist() {
   const { user } = useCustomer();
@@ -68,12 +69,12 @@ export default function CustomerWishlist() {
                   <CardContent className="p-0">
                     <div className="flex gap-3 p-3">
                       {product.images?.[0] && (
-                        <Link to={`/product/${product.id}`}>
+                        <Link to={getProductUrl(product)}>
                           <img src={product.images[0]} alt={product.name} className="h-20 w-20 rounded-lg object-cover" />
                         </Link>
                       )}
                       <div className="flex-1 min-w-0">
-                        <Link to={`/product/${product.id}`}>
+                        <Link to={getProductUrl(product)}>
                           <p className="text-sm font-semibold line-clamp-2 hover:text-accent">{product.name}</p>
                         </Link>
                         <p className="mt-1 font-display text-base font-extrabold">৳{Number(price).toLocaleString()}</p>

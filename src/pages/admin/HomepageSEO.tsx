@@ -248,6 +248,7 @@ export default function AdminHomepageSEO() {
               </div>
             </CardContent>
           </Card>
+        </div>
       </div>
       {activePickerField && (
         <MediaPicker

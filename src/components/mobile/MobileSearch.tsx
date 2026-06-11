@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { getProductUrl } from "@/lib/utils";
+
 
 interface Props {
   isOpen: boolean;
@@ -86,10 +88,10 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
     });
   }, [query, categories]);
 
-  const handleSelectProduct = (id: string) => {
+  const handleSelectProduct = (product: any) => {
     setQuery("");
     onClose();
-    navigate(`/product/${id}`);
+    navigate(getProductUrl(product));
   };
 
   const handleSelectCategory = (slug: string) => {
@@ -201,7 +203,7 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
                       {searchResults.map((p) => (
                         <button
                           key={p.id}
-                          onClick={() => handleSelectProduct(p.id)}
+                          onClick={() => handleSelectProduct(p)}
                           className="flex w-full items-center gap-3.5 p-3 text-left hover:bg-secondary/40"
                         >
                           <img

@@ -11,6 +11,7 @@ import { useMemo, useEffect } from "react";
 import SEO from "@/components/SEO";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { getProductUrl } from "@/lib/utils";
 
 // Utility to generate slug
 function generateSlug(text: string): string {
@@ -119,7 +120,7 @@ const BlogPost = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, sale_price, regular_price, images")
+        .select("id, name, sale_price, regular_price, images, category")
         .eq("status", "active")
         .limit(3);
       return data || [];
@@ -175,10 +176,10 @@ const BlogPost = () => {
       "datePublished": displayPost.date,
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": `${baseDomain}/blog/${id}`
+        "@id": `${baseDomain}/blog/${generateSlug(displayPost.title)}`
       }
     };
-  }, [displayPost, id]);
+  }, [displayPost, settings?.storeInfo?.website_url]);
 
   if (isPostLoading) {
     return (
@@ -351,7 +352,7 @@ const BlogPost = () => {
                     const originalPrice = prod.sale_price ? prod.regular_price : undefined;
                     const img = prod.images?.[0] || "https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80";
                     return (
-                      <Link key={prod.id} to={`/product/${prod.id}`} className="group flex flex-col gap-2 rounded-xl bg-card border p-3 hover:shadow-premium transition-all">
+                      <Link key={prod.id} to={getProductUrl(prod as any)} className="group flex flex-col gap-2 rounded-xl bg-card border p-3 hover:shadow-premium transition-all">
                         <img src={img} alt={prod.name} className="aspect-square w-full rounded-lg object-cover bg-muted" />
                         <h4 className="font-display text-xs font-bold text-card-foreground group-hover:text-accent line-clamp-2 transition-colors">{prod.name}</h4>
                         <div className="mt-auto flex items-baseline gap-2">
@@ -376,7 +377,7 @@ const BlogPost = () => {
                 {displayOtherPosts.map((p) => (
                   <Link
                     key={p.id}
-                    to={`/blog/${p.id}`}
+                    to={`/blog/${generateSlug(p.title)}`}
                     className="group flex gap-4 rounded-xl border bg-card p-4 transition-all hover:shadow-premium"
                   >
                     {p.image ? (

@@ -7,6 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { dbToCard } from "./ProductCard";
 import { analytics } from "@/services/analytics";
+import { getProductUrl } from "@/lib/utils";
 
 interface Props {
   title?: string;
@@ -106,7 +107,7 @@ const IslamicCollection = ({
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -8 }}
-                onClick={() => navigate(`/product/${p.id}`)}
+                onClick={() => navigate(getProductUrl(p))}
                 className="group relative overflow-hidden rounded-2xl border border-primary-foreground/15 bg-primary-foreground/[0.05] p-5 shadow-premium-soft transition-all duration-300 hover:border-accent/40 cursor-pointer"
               >
                 <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary/10">

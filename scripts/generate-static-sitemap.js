@@ -61,7 +61,7 @@ async function generate() {
     // Fetch products
     const { data: products } = await supabase
       .from("products")
-      .select("id, updated_at")
+      .select("id, name, category, updated_at")
       .eq("status", "active");
 
     // Fetch blog posts
@@ -74,10 +74,14 @@ async function generate() {
     const generateSlug = (text) => {
       if (!text) return "";
       return text
+        .toString()
         .toLowerCase()
         .trim()
-        .replace(/[^a-zA-Z0-9\u0980-\u09FF]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
     };
 
     const currentDate = new Date().toISOString().split("T")[0];
@@ -120,8 +124,13 @@ async function generate() {
     if (products) {
       products.forEach((prod) => {
         const lastmod = prod.updated_at ? new Date(prod.updated_at).toISOString().split("T")[0] : currentDate;
+        const categorySlug = prod.category ? generateSlug(prod.category) : "";
+        const nameSlug = generateSlug(prod.name);
+        const prodUrl = categorySlug && nameSlug 
+          ? `${domain}/${categorySlug}/${nameSlug}` 
+          : `${domain}/product/${prod.id}`;
         xml += `  <url>\n`;
-        xml += `    <loc>${domain}/product/${encodeURIComponent(prod.id)}</loc>\n`;
+        xml += `    <loc>${prodUrl}</loc>\n`;
         xml += `    <lastmod>${lastmod}</lastmod>\n`;
         xml += `    <changefreq>daily</changefreq>\n`;
         xml += `    <priority>0.8</priority>\n`;

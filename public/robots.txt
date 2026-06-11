@@ -6,4 +6,9 @@ Disallow: /api/
 Disallow: /cart
 Disallow: /checkout
 Disallow: /account
+Disallow: /account/*
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
 Sitemap: https://www.rangao.bd/sitemap.xml

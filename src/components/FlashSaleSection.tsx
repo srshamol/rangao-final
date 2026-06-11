@@ -5,6 +5,7 @@ import { Flame, Clock, ArrowRight, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useHomepageData";
 import RangaoImage from "@/components/ui/RangaoImage";
+import { getProductUrl } from "@/lib/utils";
 
 const FlashSaleSection = () => {
   const navigate = useNavigate();
@@ -83,7 +84,7 @@ const FlashSaleSection = () => {
                 whileHover={{ y: -6 }}
                 className="w-64 shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card shadow-[0_2px_20px_-4px_hsl(var(--foreground)/0.08)] transition-all duration-500 hover:shadow-[0_12px_40px_-8px_hsl(var(--foreground)/0.2)] hover:border-accent/20"
                 style={{ scrollSnapAlign: "start" }}
-                onClick={() => navigate(`/product/${product.id}`)}
+                onClick={() => navigate(getProductUrl(product as any))}
               >
                 <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-secondary/30">
                   <RangaoImage src={img} alt={product.name} width={256} height={256} className="transition-transform duration-700 ease-out hover:scale-110" />

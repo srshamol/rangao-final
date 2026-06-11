@@ -26,6 +26,8 @@ import SEO from "@/components/SEO";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import QueryErrorBoundary from "@/components/QueryErrorBoundary";
 import { analytics } from "@/services/analytics";
+import { slugify, getProductUrl } from "@/lib/utils";
+import ProductCard, { dbToCard } from "@/components/ProductCard";
 const FaqItem = ({ question, answer }: { question: string; answer: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -190,7 +192,8 @@ const renderFormattedDescription = (text: string) => {
 
 
 const ProductDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId, categorySlug, productSlug } = useParams<{ id?: string; categorySlug?: string; productSlug?: string }>();
+  const id = routeId || productSlug;
   const navigate = useNavigate();
   const { data: settings } = useStoreSettings();
   const queryClient = useQueryClient();
@@ -212,29 +215,44 @@ const ProductDetail = () => {
   const { data: dbProduct, isLoading, refetch: refetchProduct } = useQuery({
     queryKey: ["product-detail", id],
     queryFn: async () => {
-      if (!isUuid) return null;
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          testimonials:testimonials (*)
-        `)
-        .eq("id", id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (!id) return null;
+      if (isUuid) {
+        const { data, error } = await supabase
+          .from("products")
+          .select(`
+            *,
+            testimonials:testimonials (*)
+          `)
+          .eq("id", id)
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      } else {
+        const { data: allProducts, error } = await supabase
+          .from("products")
+          .select(`
+            *,
+            testimonials:testimonials (*)
+          `)
+          .eq("status", "active");
+        if (error) throw error;
+        
+        const found = allProducts?.find((p) => slugify(p.name) === id);
+        return found || null;
+      }
     },
-    enabled: isUuid,
+    enabled: !!id,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
     gcTime: 1000 * 60 * 10, // 10 minutes cache
     initialData: () => {
+      if (!id) return undefined;
       // Find the product in the homepage products cache or shop-products cache
       const cachedQueries = queryClient.getQueriesData<any[]>({
         queryKey: ["homepage-products"]
       });
       for (const [_, data] of cachedQueries) {
         if (Array.isArray(data)) {
-          const found = data.find((p: any) => p.id === id);
+          const found = data.find((p: any) => p.id === id || slugify(p.name) === id);
           if (found) return found;
         }
       }
@@ -242,12 +260,12 @@ const ProductDetail = () => {
       if (shopProducts?.pages) {
         for (const page of shopProducts.pages) {
           if (page?.data) {
-            const found = page.data.find((p: any) => p.id === id);
+            const found = page.data.find((p: any) => p.id === id || slugify(p.name) === id);
             if (found) return found;
           }
         }
       } else if (Array.isArray(shopProducts)) {
-        const found = shopProducts.find((p: any) => p.id === id);
+        const found = shopProducts.find((p: any) => p.id === id || slugify(p.name) === id);
         if (found) return found;
       }
       return undefined;
@@ -335,6 +353,7 @@ const ProductDetail = () => {
     return dbRelatedProducts.map((rp) => ({
       id: rp.id,
       name: rp.name,
+      category: rp.category,
       price: rp.sale_price ?? rp.regular_price,
       originalPrice: rp.sale_price ? rp.regular_price : undefined,
       images: rp.images?.length ? rp.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
@@ -432,14 +451,15 @@ const ProductDetail = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
+  const productId = dbProduct?.id;
   const { data: seoData } = useQuery({
-    queryKey: ["product-seo-details", id],
+    queryKey: ["product-seo-details", productId],
     queryFn: async () => {
-      if (!isUuid) return null;
-      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${id}`).maybeSingle();
+      if (!productId) return null;
+      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${productId}`).maybeSingle();
       return data?.value || null;
     },
-    enabled: isUuid
+    enabled: !!productId
   });
 
   const productKeywords = useMemo(() => {
@@ -474,7 +494,7 @@ const ProductDetail = () => {
       },
       "offers": {
         "@type": "Offer",
-        "url": `${baseDomain}/product/${product.id}`,
+        "url": `${baseDomain}${getProductUrl(product)}`,
         "priceCurrency": "BDT",
         "price": product.price,
         "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -575,7 +595,7 @@ const ProductDetail = () => {
       <SEO 
         title={(seoData as any)?.seo_title || product.name} 
         description={(seoData as any)?.seo_description || product.shortDescription}
-        canonical={(seoData as any)?.canonical_url}
+        canonical={(seoData as any)?.canonical_url || getProductUrl(product)}
         keywords={productKeywords}
         image={product.images[0]}
         type="product"
@@ -1194,21 +1214,14 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide" style={{ scrollSnapType: "x mandatory" }}>
-                  {relatedProducts.map((rp, i) => (
-                    <motion.div
+                  {dbRelatedProducts.map((rp, i) => (
+                    <div
                       key={rp.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.1 }}
+                      className="w-56 shrink-0 md:w-64"
+                      style={{ scrollSnapAlign: "start" }}
                     >
-                      <Link
-                        to={`/product/${rp.id}`}
-                        className="group flex w-56 shrink-0 flex-col overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm transition-all hover:border-accent/20 hover:shadow-premium-lg md:w-64"
-                        style={{ scrollSnapAlign: "start" }}
-                      >
-                      </Link>
-                    </motion.div>
+                      <ProductCard product={dbToCard(rp as any)} index={i} />
+                    </div>
                   ))}
                 </div>
               </div>

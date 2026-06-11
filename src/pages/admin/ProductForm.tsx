@@ -20,12 +20,38 @@ import MediaPicker from "@/components/MediaPicker";
 import { mediaService } from "@/lib/mediaService";
 
 function slugify(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
+  if (!text) return "";
+  
+  const textStr = text.toString().toLowerCase().trim();
+  
+  // Transliteration map for Bengali category slugs/names to English
+  const transliteMap: Record<string, string> = {
+    "উডেন-ডেকোর-আইটেম": "wooden-decor",
+    "উডেন ডেকোর আইটেম": "wooden-decor",
+    "উডেন-ডেকোর": "wooden-decor",
+    "এক্রেলিক-ডেকোর-আইটেম": "acrylic-decor",
+    "এক্রেলিক ডেকোর আইটেম": "acrylic-decor",
+    "এক্রেলিক-ডেকোর": "acrylic-decor",
+    "3d-বর্ডার-ওয়াল-ক্যানভাস": "3d-border-wall-canvas",
+    "3d বর্ডার ওয়াল ক্যানভাস": "3d-border-wall-canvas",
+    "দোয়া-স্টিকার": "dua-stickers",
+    "দোয়া স্টিকার": "dua-stickers",
+    "ডেকোরেটিভ-লাইটস": "decorative-lights",
+    "ডেকোরেটিভ লাইটস": "decorative-lights",
+    "ইসলামিক-এক্সাসরিজ": "islamic-accessories",
+    "ইসলামিক এক্সাসরিজ": "islamic-accessories",
+    "গ্লাস-ফ্রেম": "glass-frames",
+    "গ্লাস ফ্রেম": "glass-frames",
+  };
+
+  const key = textStr.replace(/\s+/g, "-");
+  if (transliteMap[key]) {
+    return transliteMap[key];
+  }
+
+  return textStr
     .replace(/\s+/g, "-") // Replace spaces with -
-    .replace(/[^\u0980-\u09FFa-z0-9-]/g, "") // Keep Bengali characters, English alphanumeric and hyphens
+    .replace(/[^a-z0-9-]/g, "") // Keep only English alphanumeric and hyphens
     .replace(/\-\-+/g, "-") // Replace multiple hyphens with single hyphen
     .replace(/^-+/, "") // Trim hyphens from start
     .replace(/-+$/, ""); // Trim hyphens from end
@@ -506,9 +532,10 @@ export default function ProductForm() {
                   setForm((f) => ({ ...f, name }));
                   if (!isUrlEdited) {
                     const slug = slugify(name);
+                    const catSlug = form.category ? slugify(form.category) : "category";
                     setSeoForm((prev) => ({
                       ...prev,
-                      canonical_url: slug ? `https://www.rangao.bd/product/${slug}` : "",
+                      canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
                     }));
                   }
                 }}
@@ -520,18 +547,16 @@ export default function ProductForm() {
               <label className="text-sm font-medium">প্রোডাক্ট URL (ক্যানোনিকাল URL) *</label>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="text-xs text-muted-foreground bg-muted px-2.5 py-2 rounded-lg border font-mono shrink-0">
-                  https://www.rangao.bd/product/
+                  {`https://www.rangao.bd/${form.category ? slugify(form.category) : "category"}/`}
                 </span>
                 <Input
-                  value={seoForm.canonical_url.replace(/^https:\/\/www\.rangao\.bd\/product\//, "")}
+                  value={seoForm.canonical_url.split("/").pop() || ""}
                   onChange={(e) => {
-                    const slug = e.target.value
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")
-                      .replace(/[^\u0980-\u09FFa-z0-9-]/g, "");
+                    const slug = slugify(e.target.value);
+                    const catSlug = form.category ? slugify(form.category) : "category";
                     setSeoForm((prev) => ({
                       ...prev,
-                      canonical_url: slug ? `https://www.rangao.bd/product/${slug}` : "",
+                      canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
                     }));
                     setIsUrlEdited(true);
                   }}
@@ -752,7 +777,20 @@ export default function ProductForm() {
             <div>
               <label className="text-sm font-medium">ক্যাটাগরি</label>
               {categories && categories.length > 0 ? (
-                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
+                <Select 
+                  value={form.category} 
+                  onValueChange={(v) => {
+                    setForm((f) => ({ ...f, category: v }));
+                    if (!isUrlEdited && form.name) {
+                      const slug = slugify(form.name);
+                      const catSlug = v ? slugify(v) : "category";
+                      setSeoForm((prev) => ({
+                        ...prev,
+                        canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
+                      }));
+                    }
+                  }}
+                >
                   <SelectTrigger className="mt-1"><SelectValue placeholder="ক্যাটাগরি নির্বাচন করুন" /></SelectTrigger>
                   <SelectContent>
                     {categories.map((c: any) => (
@@ -763,7 +801,18 @@ export default function ProductForm() {
               ) : (
                 <Input
                   value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                  onChange={(e) => {
+                    const catVal = e.target.value;
+                    setForm((f) => ({ ...f, category: catVal }));
+                    if (!isUrlEdited && form.name) {
+                      const slug = slugify(form.name);
+                      const catSlug = catVal ? slugify(catVal) : "category";
+                      setSeoForm((prev) => ({
+                        ...prev,
+                        canonical_url: slug ? `https://www.rangao.bd/${catSlug}/${slug}` : "",
+                      }));
+                    }
+                  }}
                   placeholder="ক্যাটাগরি লিখুন"
                   className="mt-1"
                 />
@@ -894,25 +943,13 @@ export default function ProductForm() {
           <CardDescription>এই প্রোডাক্ট পেইজের কাস্টম SEO মেটা ট্যাগ এবং FAQ প্রশ্ন-উত্তর সেট করুন</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="text-sm font-medium">কাস্টম SEO টাইটেল</label>
               <Input
                 value={seoForm.title}
                 onChange={(e) => setSeoForm((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="যেমন: সেরা উডেন ক্যালিগ্রাফি ফ্রেম"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">কাস্টম ক্যানোনিকাল URL</label>
-              <Input
-                value={seoForm.canonical_url}
-                onChange={(e) => {
-                  setSeoForm((prev) => ({ ...prev, canonical_url: e.target.value }));
-                  setIsUrlEdited(true);
-                }}
-                placeholder="যেমন: https://www.rangao.bd/product/wooden-calligraphy"
                 className="mt-1"
               />
             </div>
