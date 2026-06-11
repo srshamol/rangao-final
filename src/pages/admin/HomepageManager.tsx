@@ -446,7 +446,7 @@ export default function HomepageManager() {
             </CardHeader>
             <CardContent className="space-y-3">
               {sectionOrder.map((section, i) => {
-                const hasConfig = ["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery"].includes(section.id);
+                const hasConfig = ["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery", "why_choose"].includes(section.id);
                 return (
                   <SectionRow
                     key={section.id}
@@ -521,7 +521,7 @@ export default function HomepageManager() {
                       {hasConfig && (
                         <div className="grid grid-cols-2 gap-3 pt-2">
                           {/* Common Title/Subtitle for most sections */}
-                          {["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery"].includes(section.id) && (
+                          {["categories", "featured", "islamic_collection", "new_arrivals", "best_sellers", "flash_sale", "testimonials", "brands", "footer_promo", "gallery", "why_choose"].includes(section.id) && (
                             <>
                               <div>
                                 <label className="text-xs font-medium text-muted-foreground">সেকশন শিরোনাম</label>
@@ -722,6 +722,60 @@ export default function HomepageManager() {
                                   <SelectItem value="grid">গ্রিড (Grid)</SelectItem>
                                 </SelectContent>
                               </Select>
+                            </div>
+                          )}
+
+                          {/* ── Why Choose Us items config ── */}
+                          {section.id === "why_choose" && (
+                            <div className="col-span-2 space-y-4 border-t border-border/20 pt-4 mt-2">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-xs font-semibold text-foreground">কেন রাঙাও বেছে নেবেন আইটেমসমূহ</label>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">হোমপেজে প্রদর্শনের জন্য বৈশিষ্ট্য কার্ড যোগ/সম্পাদনা করুন</p>
+                                </div>
+                                <Button size="sm" variant="outline" type="button" onClick={addTrustItem} className="h-7 text-xs px-2.5">
+                                  <Plus className="mr-1 h-3 w-3" /> আইটেম যোগ করুন
+                                </Button>
+                              </div>
+
+                              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                                {trustItems.map((item, idx) => (
+                                  <div key={item.id} className="grid grid-cols-12 gap-2 p-3 rounded-xl border border-border/40 bg-muted/20 items-start">
+                                    <div className="col-span-3">
+                                      <label className="text-[10px] font-medium text-muted-foreground">আইকন</label>
+                                      <Select value={item.icon} onValueChange={(v) => updateTrustItem(idx, { icon: v })}>
+                                        <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                          {ICON_OPTIONS.map((ic) => <SelectItem key={ic} value={ic} className="text-xs">{ic}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="col-span-4">
+                                      <label className="text-[10px] font-medium text-muted-foreground">শিরোনাম</label>
+                                      <Input value={item.title} onChange={(e) => updateTrustItem(idx, { title: e.target.value })} className="mt-1 h-8 text-xs" />
+                                    </div>
+                                    <div className="col-span-4">
+                                      <label className="text-[10px] font-medium text-muted-foreground">বিবরণ</label>
+                                      <Input value={item.desc} onChange={(e) => updateTrustItem(idx, { desc: e.target.value })} className="mt-1 h-8 text-xs" />
+                                    </div>
+                                    <div className="col-span-1 flex justify-center pt-5">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTrustItem(idx)}
+                                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {trustItems.length === 0 && (
+                                  <div className="rounded-xl border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
+                                    কোনো আইটেম নেই। উপরে "আইটেম যোগ করুন" ক্লিক করুন।
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>

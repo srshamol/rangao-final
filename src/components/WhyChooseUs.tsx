@@ -11,7 +11,15 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Package, Star, Gift, Zap, Heart, Clock,
 };
 
-const WhyChooseUs = () => {
+interface WhyChooseUsProps {
+  title?: string;
+  subtitle?: string;
+}
+
+const WhyChooseUs = ({
+  title = "কেন আমরাই সেরা কালেকশন",
+  subtitle = "কেন রাঙাও সেরা?"
+}: WhyChooseUsProps) => {
   const { data: settings } = useStoreSettings();
   const items = settings?.trustFeatures || [];
 
@@ -24,28 +32,32 @@ const WhyChooseUs = () => {
 
       <div className="container relative">
         <div className="mx-auto mb-16 max-w-xl text-center">
-          <motion.span
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="inline-block rounded-full bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-accent"
-          >
-            কেন রাঙাও সেরা?
-          </motion.span>
+          {subtitle && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="inline-block rounded-full bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-accent"
+            >
+              {subtitle}
+            </motion.span>
+          )}
           <div className="mx-auto mt-4 flex items-center justify-center gap-3">
             <div className="h-px w-12 bg-gradient-to-r from-transparent to-accent/30" />
             <div className="h-1.5 w-1.5 rounded-full bg-accent/40" />
             <div className="h-px w-12 bg-gradient-to-l from-transparent to-accent/30" />
           </div>
-          <motion.h2
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="mt-5 font-display text-3xl font-extrabold text-foreground md:text-4xl"
-          >
-            কেন আমরাই সেরা কালেকশন
-          </motion.h2>
+          {title && (
+            <motion.h2
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="mt-5 font-display text-3xl font-extrabold text-foreground md:text-4xl"
+            >
+              {title}
+            </motion.h2>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">

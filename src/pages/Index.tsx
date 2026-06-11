@@ -141,7 +141,12 @@ const Index = () => {
         break;
 
       case "why_choose":
-        sectionContent = <WhyChooseUs />;
+        sectionContent = (
+          <WhyChooseUs
+            title={config.title}
+            subtitle={config.subtitle}
+          />
+        );
         break;
 
       case "statistics":
