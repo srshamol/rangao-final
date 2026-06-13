@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -6,7 +6,7 @@ import SEO from "@/components/SEO";
 import { analytics } from "@/services/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckCircle, Home, ShoppingBag, MapPin, Phone, User, CreditCard, Truck, Package, Clock, Search } from "lucide-react";
+import { CheckCircle, Home, ShoppingBag, MapPin, Phone, User, CreditCard, Truck, Package, Clock, Search, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatPrice } from "@/data/products";
 import { supabase } from "@/integrations/supabase/client";
@@ -166,7 +166,228 @@ const OrderSuccess = () => {
   const { orderNumber } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const order = location.state as OrderState | null;
+  const [searchParams] = useSearchParams();
+  const invoiceId = searchParams.get("invoice_id");
+  const [verifying, setVerifying] = useState(!!invoiceId);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [localOrder, setLocalOrder] = useState<OrderState | null>(null);
+
+  const order = (location.state as OrderState | null) || localOrder;
+
+  useEffect(() => {
+    const verifyAndLoad = async () => {
+      if (!invoiceId || !orderNumber) return;
+      try {
+        setVerifying(true);
+        const res = await fetch("/api/uddoktapay/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invoiceId }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok || contentType.includes("text/html")) {
+          throw new Error("Serverless verify function unavailable");
+        }
+
+        const data = await res.json();
+        
+        if (data.verified) {
+          const { data: dbOrder, error: orderErr } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", orderNumber)
+            .maybeSingle();
+
+          if (orderErr || !dbOrder) throw new Error("অর্ডার লোড করতে সমস্যা হয়েছে");
+
+          const { data: dbItems, error: itemsErr } = await supabase
+            .from("order_items")
+            .select("*")
+            .eq("order_id", dbOrder.id);
+
+          if (itemsErr || !dbItems) throw new Error("অর্ডারের পণ্যসমূহ লোড করতে সমস্যা হয়েছে");
+
+          setLocalOrder({
+            id: dbOrder.id,
+            orderNumber: dbOrder.order_number,
+            customerName: dbOrder.customer_name,
+            customerPhone: dbOrder.customer_phone,
+            customerEmail: dbOrder.customer_email || "",
+            shippingAddress: (dbOrder.shipping_address as any) || {
+              division: "",
+              district: "",
+              thana: "",
+              address: "",
+            },
+            paymentMethod: dbOrder.payment_method || "",
+            items: dbItems.map((item: any) => ({
+              name: item.product_name,
+              image: "",
+              quantity: item.quantity,
+              unitPrice: Number(item.unit_price),
+              totalPrice: Number(item.total_price),
+            })),
+            subtotal: Number(dbOrder.subtotal || 0),
+            deliveryCharge: Number(dbOrder.delivery_charge || 0),
+            total: Number(dbOrder.total_amount),
+          });
+        } else {
+          throw new Error(data.message || "পেমেন্ট ভেরিফিকেশন সম্পন্ন হয়নি");
+        }
+      } catch (err: any) {
+        console.warn("UddoktaPay serverless verification function unavailable, attempting direct client-side fallback:", err);
+        try {
+          // Fetch settings
+          const { data: row, error: settingsError } = await supabase
+            .from("store_settings" as any)
+            .select("value")
+            .eq("key", "payment_methods")
+            .maybeSingle();
+
+          if (settingsError || !row || !row.value) {
+            throw new Error("Payment settings not found.");
+          }
+
+          const { uddoktapay_api_key, uddoktapay_base_url } = row.value as any;
+          if (!uddoktapay_api_key || !uddoktapay_base_url) {
+            throw new Error("UddoktaPay credentials not configured.");
+          }
+
+          let baseUrl = uddoktapay_base_url.trim().replace(/\/$/, "");
+          if (baseUrl.endsWith("/api")) {
+            baseUrl = baseUrl.slice(0, -4).replace(/\/$/, "");
+          }
+          const apiKey = uddoktapay_api_key.trim();
+
+          const verifyResponse = await fetch(`${baseUrl}/api/verify-payment`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "accept": "application/json",
+              "RT-UDDOKTAPAY-API-KEY": apiKey,
+            },
+            body: JSON.stringify({ invoice_id: invoiceId }),
+          });
+
+          if (!verifyResponse.ok) {
+            throw new Error(`UddoktaPay API returned HTTP status ${verifyResponse.status}`);
+          }
+
+          const result = await verifyResponse.json();
+          if (result.status === "COMPLETED") {
+            const orderId = result.metadata?.order_id;
+            if (orderId) {
+              // Fetch order to verify
+              const { data: dbOrder, error: orderErr } = await supabase
+                .from("orders")
+                .select("*")
+                .eq("id", orderId)
+                .single();
+
+              if (orderErr || !dbOrder) {
+                throw new Error("অর্ডার লোড করতে সমস্যা হয়েছে");
+              }
+
+              if (dbOrder.payment_status !== "completed") {
+                // Update order status and payment status in database
+                await supabase
+                  .from("orders")
+                  .update({
+                    payment_status: "completed",
+                    order_status: "confirmed",
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("id", orderId);
+
+
+
+                // Send Telegram Notification (optional client-side fallback)
+                try {
+                  const { data: tgRow } = await supabase
+                    .from("store_settings" as any)
+                    .select("value")
+                    .eq("key", "telegram_settings")
+                    .maybeSingle();
+
+                  if (tgRow && tgRow.value) {
+                    const { bot_token, chat_id, enabled, notify_new_order } = tgRow.value;
+                    if (enabled && notify_new_order && bot_token && chat_id) {
+                      const tgMessage = `✅ <b>পেমেন্ট সম্পন্ন হয়েছে (UddoktaPay Client Fallback)!</b>\n\n` +
+                        `<b>অর্ডার নং:</b> #${dbOrder.order_number || "N/A"}\n` +
+                        `<b>গ্রাহকের নাম:</b> ${dbOrder.customer_name || "N/A"}\n` +
+                        `<b>পেমেন্ট মেথড:</b> ${result.payment_method || "Online"}\n` +
+                        `<b>ট্রানজেকশন আইডি:</b> <code>${result.transaction_id || "N/A"}</code>\n` +
+                        `<b>টাকার পরিমাণ:</b> ৳${result.amount || dbOrder.total_amount}`;
+
+                      const telegramUrl = `https://api.telegram.org/bot${bot_token}/sendMessage`;
+                      await fetch(telegramUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          chat_id: chat_id,
+                          text: tgMessage,
+                          parse_mode: "HTML",
+                          disable_web_page_preview: true,
+                        }),
+                      });
+                    }
+                  }
+                } catch (tgErr) {
+                  console.error("Failed to send telegram notification from client fallback:", tgErr);
+                }
+              }
+
+              const { data: dbItems, error: itemsErr } = await supabase
+                .from("order_items")
+                .select("*")
+                .eq("order_id", dbOrder.id);
+
+              if (itemsErr || !dbItems) throw new Error("অর্ডারের পণ্যসমূহ লোড করতে সমস্যা হয়েছে");
+
+              setLocalOrder({
+                id: dbOrder.id,
+                orderNumber: dbOrder.order_number,
+                customerName: dbOrder.customer_name,
+                customerPhone: dbOrder.customer_phone,
+                customerEmail: dbOrder.customer_email || "",
+                shippingAddress: (dbOrder.shipping_address as any) || {
+                  division: "",
+                  district: "",
+                  thana: "",
+                  address: "",
+                },
+                paymentMethod: dbOrder.payment_method || "",
+                items: dbItems.map((item: any) => ({
+                  name: item.product_name,
+                  image: "",
+                  quantity: item.quantity,
+                  unitPrice: Number(item.unit_price),
+                  totalPrice: Number(item.total_price),
+                })),
+                subtotal: Number(dbOrder.subtotal || 0),
+                deliveryCharge: Number(dbOrder.delivery_charge || 0),
+                total: Number(dbOrder.total_amount),
+              });
+            } else {
+              throw new Error("মেটাডেটাতে অর্ডার আইডি পাওয়া যায়নি");
+            }
+          } else {
+            throw new Error(result.message || `পেমেন্ট স্ট্যাটাস: ${result.status}`);
+          }
+        } catch (fallbackErr: any) {
+          console.error("UddoktaPay client-side verification fallback failed:", fallbackErr);
+          setVerificationError(fallbackErr.message || "পেমেন্ট ভেরিফাই করতে সমস্যা হয়েছে");
+        }
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    if (invoiceId) {
+      verifyAndLoad();
+    }
+  }, [invoiceId, orderNumber]);
 
   useEffect(() => {
     if (order) {
@@ -189,22 +410,25 @@ const OrderSuccess = () => {
           const isStrict = config?.meta_strict_purchase_mode !== false;
 
           if (isStrict) {
-            const trackedOrdersStr = localStorage.getItem("fb_tracked_orders") || "[]";
-            let trackedOrders: string[] = [];
-            try {
-              trackedOrders = JSON.parse(trackedOrdersStr);
-            } catch {
-              trackedOrders = [];
-            }
-
-            if (trackedOrders.includes(order.orderNumber)) {
-              console.log("[Strict Purchase Mode] Duplicate purchase tracking prevented for:", order.orderNumber);
-              return;
-            }
-
-            trackedOrders.push(order.orderNumber);
-            localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
+            console.log("[Strict Purchase Mode] Purchase event will only be fired on admin confirmation.");
+            return;
           }
+
+          const trackedOrdersStr = localStorage.getItem("fb_tracked_orders") || "[]";
+          let trackedOrders: string[] = [];
+          try {
+            trackedOrders = JSON.parse(trackedOrdersStr);
+          } catch {
+            trackedOrders = [];
+          }
+
+          if (trackedOrders.includes(order.orderNumber)) {
+            console.log("Duplicate purchase tracking prevented for:", order.orderNumber);
+            return;
+          }
+
+          trackedOrders.push(order.orderNumber);
+          localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
 
           // Map items properly
           const mappedItems = order.items.map((i) => ({
@@ -229,23 +453,6 @@ const OrderSuccess = () => {
           }
         } catch (e) {
           console.error("Error checking strict purchase mode:", e);
-          const mappedItems = order.items.map((i) => ({
-            name: i.name,
-            unitPrice: i.unitPrice,
-            quantity: i.quantity
-          }));
-
-          analytics.purchase({
-            orderNumber: order.orderNumber,
-            total: order.total,
-            items: mappedItems
-          });
-
-          if (order.id) {
-            supabase.functions.invoke("fb-capi", {
-              body: { order_id: order.id, event_name: "Purchase" }
-            }).catch(err => console.error("Error in fallback CAPI trigger:", err));
-          }
         }
       };
 
@@ -328,137 +535,156 @@ const OrderSuccess = () => {
             </p>
           </motion.div>
 
-          {order ? (
-            <div className="mt-8 space-y-6">
-              {/* Delivery Estimate */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="flex items-center gap-4 rounded-2xl border bg-card p-5"
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-                  <Truck className="h-6 w-6 text-accent" />
-                </div>
-                <div>
-                  <p className="font-semibold text-card-foreground">আনুমানিক ডেলিভারি সময়</p>
-                  <p className="text-sm text-muted-foreground">
-                    {deliveryEstimate} ({isDhaka ? "ঢাকার ভিতরে" : "ঢাকার বাইরে"})
-                  </p>
-                </div>
-                <div className="ml-auto">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </motion.div>
+          {verifying && (
+            <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border bg-card mt-8">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <h2 className="font-display text-xl font-bold text-foreground">অনলাইন পেমেন্ট যাচাই করা হচ্ছে...</h2>
+              <p className="text-muted-foreground mt-1 text-sm">অনুগ্রহ করে ব্রাউজার রিফ্রেশ বা ব্যাক করবেন না।</p>
+            </div>
+          )}
 
-              {/* Order Items */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="rounded-2xl border bg-card p-5"
-              >
-                <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
-                  <Package className="h-5 w-5 text-accent" /> অর্ডারকৃত প্রোডাক্ট
-                </h2>
-                <div className="space-y-3">
-                  {order.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-14 w-14 rounded-lg object-cover"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-card-foreground line-clamp-1">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.quantity}x {formatPrice(item.unitPrice)}
+          {verificationError && (
+            <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-destructive/20 bg-destructive/5 mt-8">
+              <span className="text-destructive text-3xl mb-3">⚠️</span>
+              <h2 className="font-display text-lg font-bold text-destructive">পেমেন্ট ভেরিফিকেশন ব্যর্থ</h2>
+              <p className="text-muted-foreground mt-1 text-sm max-w-md">{verificationError}</p>
+            </div>
+          )}
+
+          {!verifying && !verificationError && (
+            order ? (
+              <div className="mt-8 space-y-6">
+                {/* Delivery Estimate */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-center gap-4 rounded-2xl border bg-card p-5"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+                    <Truck className="h-6 w-6 text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-card-foreground">আনুমানিক ডেলিভারি সময়</p>
+                    <p className="text-sm text-muted-foreground">
+                      {deliveryEstimate} ({isDhaka ? "ঢাকার ভিতরে" : "ঢাকার বাইরে"})
+                    </p>
+                  </div>
+                  <div className="ml-auto">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </motion.div>
+
+                {/* Order Items */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="rounded-2xl border bg-card p-5"
+                >
+                  <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
+                    <Package className="h-5 w-5 text-accent" /> অর্ডারকৃত প্রোডাক্ট
+                  </h2>
+                  <div className="space-y-3">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="h-14 w-14 rounded-lg object-cover"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-card-foreground line-clamp-1">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.quantity}x {formatPrice(item.unitPrice)}
+                          </p>
+                        </div>
+                        <p className="font-display text-sm font-bold text-foreground whitespace-nowrap">
+                          {formatPrice(item.totalPrice)}
                         </p>
                       </div>
-                      <p className="font-display text-sm font-bold text-foreground whitespace-nowrap">
-                        {formatPrice(item.totalPrice)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                {/* Price Breakdown */}
-                <div className="mt-4 space-y-2 border-t pt-4">
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>সাবটোটাল</span>
-                    <span className="font-semibold text-foreground">{formatPrice(order.subtotal)}</span>
+                  {/* Price Breakdown */}
+                  <div className="mt-4 space-y-2 border-t pt-4">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>সাবটোটাল</span>
+                      <span className="font-semibold text-foreground">{formatPrice(order.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>ডেলিভারি চার্জ</span>
+                      <span className={`font-semibold ${order.deliveryCharge === 0 ? "text-success" : "text-foreground"}`}>
+                        {order.deliveryCharge === 0 ? "ফ্রি" : formatPrice(order.deliveryCharge)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-3">
+                      <span className="text-base font-bold text-foreground">মোট</span>
+                      <span className="font-display text-2xl font-extrabold text-foreground">
+                        {formatPrice(order.total)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>ডেলিভারি চার্জ</span>
-                    <span className={`font-semibold ${order.deliveryCharge === 0 ? "text-success" : "text-foreground"}`}>
-                      {order.deliveryCharge === 0 ? "ফ্রি" : formatPrice(order.deliveryCharge)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t pt-3">
-                    <span className="text-base font-bold text-foreground">মোট</span>
-                    <span className="font-display text-2xl font-extrabold text-foreground">
-                      {formatPrice(order.total)}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
+                </motion.div>
 
-              {/* Customer & Delivery Info Grid */}
-              <div className="grid gap-6 sm:grid-cols-2">
-                {/* Customer Info */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="rounded-2xl border bg-card p-5"
-                >
-                  <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
-                    <User className="h-5 w-5 text-accent" /> কাস্টমার তথ্য
-                  </h2>
-                  <div className="space-y-2.5 text-sm">
-                    <div className="flex items-start gap-2">
-                      <User className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-foreground">{order.customerName}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Phone className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-foreground">{order.customerPhone}</span>
-                    </div>
-                    {order.customerEmail && (
+                {/* Customer & Delivery Info Grid */}
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {/* Customer Info */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="rounded-2xl border bg-card p-5"
+                  >
+                    <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
+                      <User className="h-5 w-5 text-accent" /> কাস্টমার তথ্য
+                    </h2>
+                    <div className="space-y-2.5 text-sm">
                       <div className="flex items-start gap-2">
-                        <span className="mt-0.5 text-muted-foreground shrink-0">✉️</span>
-                        <span className="text-foreground">{order.customerEmail}</span>
+                        <User className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-foreground">{order.customerName}</span>
                       </div>
-                    )}
-                    <div className="flex items-start gap-2">
-                      <CreditCard className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-foreground">{order.paymentMethod}</span>
+                      <div className="flex items-start gap-2">
+                        <Phone className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-foreground">{order.customerPhone}</span>
+                      </div>
+                      {order.customerEmail && (
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 text-muted-foreground shrink-0">✉️</span>
+                          <span className="text-foreground">{order.customerEmail}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <CreditCard className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-foreground">{order.paymentMethod}</span>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
 
-                {/* Delivery Address */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45 }}
-                  className="rounded-2xl border bg-card p-5"
-                >
-                  <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
-                    <MapPin className="h-5 w-5 text-accent" /> ডেলিভারি ঠিকানা
-                  </h2>
-                  <div className="space-y-1.5 text-sm text-foreground">
-                    <p>{order.shippingAddress.address}</p>
-                    {order.shippingAddress.thana && <p>{order.shippingAddress.thana}</p>}
-                    {order.shippingAddress.district && <p>{order.shippingAddress.district}</p>}
-                    <p className="font-medium">{order.shippingAddress.division}</p>
-                  </div>
-                </motion.div>
+                  {/* Delivery Address */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="rounded-2xl border bg-card p-5"
+                  >
+                    <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-card-foreground">
+                      <MapPin className="h-5 w-5 text-accent" /> ডেলিভারি ঠিকানা
+                    </h2>
+                    <div className="space-y-1.5 text-sm text-foreground">
+                      <p>{order.shippingAddress.address}</p>
+                      {order.shippingAddress.thana && <p>{order.shippingAddress.thana}</p>}
+                      {order.shippingAddress.district && <p>{order.shippingAddress.district}</p>}
+                      <p className="font-medium">{order.shippingAddress.division}</p>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
-            </div>
-          ) : (
-            /* Fallback: Order tracking by order number */
-            <OrderTracker orderNumber={orderNumber} />
+            ) : (
+              <OrderTracker orderNumber={orderNumber} />
+            )
           )}
 
           {/* Action Buttons */}

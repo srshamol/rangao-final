@@ -35,7 +35,11 @@ export default function OrderConfirmModal({
         <div className="space-y-3">
           <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
             <p><strong>{order.order_number}</strong> — {order.customer_name}</p>
-            <p>৳{Number(order.total_amount).toLocaleString()} • <Badge variant="outline" className="text-xs">{order.payment_method}</Badge></p>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <span>৳{Number(order.total_amount).toLocaleString()}</span>
+              <span className="mx-1">•</span>
+              <Badge variant="outline" className="text-xs">{order.payment_method}</Badge>
+            </div>
           </div>
 
           <Textarea

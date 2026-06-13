@@ -387,6 +387,9 @@ export default function AdminOrders() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, status, note }: { orderId: string; status: string; note?: string }) => {
+      const orderObj = data?.orders?.find((o: any) => o.id === orderId);
+      const wasPending = orderObj?.order_status === "pending";
+
       const { error } = await supabase.from("orders").update({ order_status: status as any }).eq("id", orderId);
       if (error) throw error;
       if (note) {
@@ -396,6 +399,25 @@ export default function AdminOrders() {
         order_id: orderId, action: "status_changed",
         details: `স্ট্যাটাস পরিবর্তন: ${status}${note ? ` — ${note}` : ""}`, staff_name: "Admin"
       });
+
+      // Send Facebook CAPI event for confirmed orders if Strict Purchase Mode is enabled
+      if (status === "confirmed" && wasPending) {
+        try {
+          const { data: trackingRow } = await supabase
+            .from("store_settings" as any)
+            .select("value")
+            .eq("key", "tracking_settings")
+            .maybeSingle();
+          const trackingConfig = trackingRow?.value as any;
+          if (trackingConfig?.meta_strict_purchase_mode === true) {
+            await supabase.functions.invoke("fb-capi", {
+              body: { order_id: orderId, event_name: "Purchase" },
+            });
+          }
+        } catch (fbErr) {
+          console.error("FB CAPI error (non-blocking):", fbErr);
+        }
+      }
     },
     onSuccess: (resData, variables) => {
       qc.invalidateQueries({ queryKey: ["admin-orders"] });

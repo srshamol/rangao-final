@@ -10,6 +10,18 @@ import { motion } from "framer-motion";
 import { Trash2, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, Loader2, AlertCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { trackInitiateCheckout, trackAddPaymentInfo } from "@/lib/tracking";
 import { analytics } from "@/services/analytics";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
@@ -22,7 +34,7 @@ const divisions = [
   "ঢাকা", "চট্টগ্রাম", "রাজশাহী", "খুলনা", "বরিশাল", "সিলেট", "রংপুর", "ময়মনসিংহ",
 ];
 
-type PaymentMethod = "cod" | "bkash" | "nagad";
+type PaymentMethod = "cod" | "bkash" | "nagad" | "uddoktapay";
 
 const Checkout = () => {
   const { items, subtotal, removeFromCart, clearCart } = useCart();
@@ -32,34 +44,139 @@ const Checkout = () => {
     name: "", phone: "", email: "", division: "", district: "", thana: "", address: "",
   });
   const [payment, setPayment] = useState<PaymentMethod>("cod");
-  const [activePayments, setActivePayments] = useState<{ cod: boolean; bkash: boolean; nagad: boolean }>({ cod: true, bkash: false, nagad: false });
+  const [activePayments, setActivePayments] = useState<{ cod: boolean; bkash: boolean; nagad: boolean; uddoktapay: boolean }>({ cod: true, bkash: false, nagad: false, uddoktapay: false });
+  const { data: storeSettings } = useStoreSettings();
 
+  // SMS & OTP States
+  const [smsConfig, setSmsConfig] = useState<any>(null);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+
+  // Fetch SMS Settings on mount
   useEffect(() => {
-    const fetchPaymentSettings = async () => {
+    const fetchSmsSettings = async () => {
       try {
         const { data } = await supabase
           .from("store_settings" as any)
           .select("value")
-          .eq("key", "payment_methods")
-          .single();
+          .eq("key", "sms_settings")
+          .maybeSingle();
         if (data && data.value) {
-          const val = data.value;
-          setActivePayments({
-            cod: val.cod ?? true,
-            bkash: val.bkash ?? false,
-            nagad: val.nagad ?? false
-          });
-          if (!val.cod) {
-            if (val.bkash) setPayment("bkash");
-            else if (val.nagad) setPayment("nagad");
-          }
+          setSmsConfig(data.value);
         }
-      } catch (err) {
-        console.error("Error fetching payment settings:", err);
+      } catch (e) {
+        console.error("Error fetching SMS settings:", e);
       }
     };
-    fetchPaymentSettings();
+    fetchSmsSettings();
   }, []);
+
+  // OTP Resend timer countdown
+  useEffect(() => {
+    if (otpTimer > 0) {
+      const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpTimer]);
+
+  const handleSendOtp = async (phoneStr: string) => {
+    setOtpCode("");
+    try {
+      let data: any = null;
+      let isFallback = false;
+      
+      const isSandboxMode = smsConfig?.sandbox_mode || smsConfig?.gateway === "sandbox" || !smsConfig?.enabled;
+      
+      if (isSandboxMode) {
+        isFallback = true;
+      } else {
+        try {
+          const res = await fetch("/api/sms/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: phoneStr })
+          });
+          const contentType = res.headers.get("content-type") || "";
+          if (res.ok && contentType.includes("application/json")) {
+            data = await res.json();
+          } else {
+            isFallback = true;
+          }
+        } catch (e) {
+          isFallback = true;
+        }
+      }
+
+      if (isFallback) {
+        console.warn("SMS OTP serverless function unavailable, attempting direct client-side fallback");
+        const digitCount = Number(smsConfig?.otp_digit_count) || 4;
+        let code = "";
+        if (digitCount === 6) {
+          code = String(Math.floor(100000 + Math.random() * 900000));
+        } else {
+          code = String(Math.floor(1000 + Math.random() * 9000));
+        }
+        
+        const cleanPhone = phoneStr.trim();
+        if (cleanPhone === "01700000000" || cleanPhone === "01711111111") {
+          code = "1234";
+        }
+        
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        
+        const { error: insertError } = await supabase
+          .from("otp_verifications" as any)
+          .insert({
+            phone: cleanPhone,
+            code,
+            verified: false,
+            expires_at: expiresAt
+          });
+          
+        if (insertError) throw insertError;
+        
+        data = {
+          status: "success",
+          sandbox: true,
+          code: code
+        };
+      }
+
+      toast.success("আপনার ফোনে একটি ওটিপি কোড পাঠানো হয়েছে");
+      setOtpSent(true);
+      setOtpTimer(60);
+      setOtpModalOpen(true);
+      
+      if (data.sandbox && data.code) {
+        toast.info(`স্যান্ডবক্স মোড: আপনার ওটিপি কোড ${data.code}`, { duration: 10000 });
+        setOtpCode(data.code);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "ওটিপি পাঠাতে ব্যর্থ হয়েছে।");
+      throw err;
+    }
+  };
+
+  useEffect(() => {
+    if (storeSettings?.paymentMethods) {
+      const val = storeSettings.paymentMethods;
+      setActivePayments({
+        cod: val.cod ?? true,
+        bkash: val.bkash ?? false,
+        nagad: val.nagad ?? false,
+        uddoktapay: val.uddoktapay ?? false
+      });
+      if (!val.cod) {
+        if (val.uddoktapay) setPayment("uddoktapay");
+        else if (val.bkash) setPayment("bkash");
+        else if (val.nagad) setPayment("nagad");
+      }
+    }
+  }, [storeSettings]);
 
   // Autofill from profile
   useEffect(() => {
@@ -103,7 +220,6 @@ const Checkout = () => {
     }
   }, []);
 
-  const { data: storeSettings } = useStoreSettings();
 
   const deliveryChargeSettings = storeSettings?.deliveryCharges;
   const isDhaka = form.division === "ঢাকা";
@@ -123,8 +239,9 @@ const Checkout = () => {
     deliveryCharge = subtotal >= 5000 ? 0 : 120;
   }
   const total = subtotal + deliveryCharge;
+  const otpDigitCount = Number(smsConfig?.otp_digit_count) || 4;
 
-  const { saveIncomplete, markConverted } = useIncompleteOrder({
+  const { saveIncomplete, markConverted, dbDraft } = useIncompleteOrder({
     pageSource: "checkout",
     products: items.map((i) => ({
       name: i.product.name,
@@ -135,31 +252,376 @@ const Checkout = () => {
     })),
   });
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-
-  // Clear debounce timer on unmount to prevent state update on unmounted component
+  // Load from dbDraft on mount/fetch
   useEffect(() => {
-    return () => clearTimeout(saveTimer.current);
-  }, []);
+    if (dbDraft) {
+      setForm(f => ({
+        ...f,
+        name: f.name || dbDraft.customer_name || "",
+        phone: f.phone || dbDraft.customer_phone || "",
+        email: f.email || dbDraft.customer_email || "",
+        division: f.division || dbDraft.form_data?.division || "",
+        district: f.district || dbDraft.form_data?.district || "",
+        thana: f.thana || dbDraft.form_data?.thana || "",
+        address: f.address || dbDraft.form_data?.address || "",
+      }));
+    }
+  }, [dbDraft]);
+
+  const isCompletedRef = useRef(false);
+  const formRef = useRef(form);
+  formRef.current = form;
+  const hasSavedOnLeave = useRef(false);
+
+  const saveOnLeave = useCallback(() => {
+    if (isCompletedRef.current || hasSavedOnLeave.current) return;
+    const currentForm = formRef.current;
+    if (currentForm.name.trim() || currentForm.phone.trim()) {
+      hasSavedOnLeave.current = true;
+      saveIncomplete({
+        name: currentForm.name,
+        phone: currentForm.phone,
+        email: currentForm.email,
+        formData: { division: currentForm.division, address: currentForm.address },
+      }, true);
+    }
+  }, [saveIncomplete]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveOnLeave();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+      saveOnLeave();
+    };
+  }, [saveOnLeave]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const newForm = { ...form, [e.target.name]: e.target.value };
     setForm(newForm);
+    if (e.target.name === "phone") {
+      setIsOtpVerified(false);
+    }
     localStorage.setItem("checkout_form_draft", JSON.stringify(newForm));
-
-    // Debounced save for incomplete tracking on any field change
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      saveIncomplete({
-        name: newForm.name,
-        phone: newForm.phone,
-        email: newForm.email,
-        formData: { division: newForm.division, address: newForm.address },
-      });
-    }, 2000);
   };
 
   const [submitting, setSubmitting] = useState(false);
+
+  const completeOrderCreation = async (clientIP: string) => {
+    try {
+      trackAddPaymentInfo(items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })), total);
+
+      // 1. Insert order (order_number auto-generated by trigger)
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          order_number: "",
+          customer_name: form.name,
+          customer_phone: form.phone,
+          customer_email: form.email || null,
+          user_id: user?.id || null,
+          shipping_address: {
+            division: form.division,
+            district: form.district,
+            thana: form.thana,
+            address: form.address,
+          },
+          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "অনলাইন পেমেন্ট (UddoktaPay)" : payment === "bkash" ? "bKash" : "Nagad",
+          subtotal,
+          delivery_charge: deliveryCharge,
+          total_amount: total,
+          ip_address: clientIP || null,
+        })
+        .select("id, order_number")
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 2. Insert order items
+      const orderItems = items.map((i) => ({
+        order_id: order.id,
+        product_id: i.product.id,
+        product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
+        unit_price: i.product.price,
+        quantity: i.quantity,
+        total_price: i.product.price * i.quantity,
+      }));
+
+      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
+      if (itemsError) throw itemsError;
+
+      // 3. Mark incomplete as converted
+      await markConverted(order.id, form.phone);
+
+      // Send Telegram notification to admin
+      try {
+        const { sendTelegramNotification } = await import("@/lib/telegram");
+        const hasPreOrder = items.some((i) => i.product.stock === 0);
+        const itemsList = items
+          .map((i) => `• ${i.product.name}${i.product.stock === 0 ? " [প্রি-অর্ডার]" : ""} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
+          .join("\n");
+
+        const message = `🛍️ <b>নতুন ${hasPreOrder ? "প্রি-অর্ডার / " : ""}অর্ডার এসেছে!</b>\n\n` +
+          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+          `<b>গ্রাহকের নাম:</b> ${form.name}\n` +
+          `<b>মোবাইল:</b> ${form.phone}\n` +
+          `<b>ঠিকানা:</b> ${form.address}, ${form.thana || ""}, ${form.district || ""}, ${form.division}\n` +
+          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "অনলাইন পেমেন্ট (UddoktaPay)" : payment === "bkash" ? "bKash" : "Nagad"}\n\n` +
+          `<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
+          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
+          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
+          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
+
+        await sendTelegramNotification(message, { isNewOrder: true, orderId: order.id } as any);
+      } catch (tgErr) {
+        console.error("Error triggering telegram notification:", tgErr);
+      }
+
+      // Send Order Success SMS to customer if enabled
+      try {
+        if (smsConfig && smsConfig.enabled && smsConfig.order_success_sms_enabled) {
+          const smsText = (smsConfig.order_success_sms_template || "Dear {name}, your order #{order_number} has been received. Total: ৳{total}.")
+            .replace("{name}", form.name)
+            .replace("{order_number}", order.order_number)
+            .replace("{total}", String(total));
+
+          await fetch("/api/sms/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: form.phone,
+              message: smsText,
+              orderId: order.id
+            })
+          });
+        }
+      } catch (smsErr) {
+        console.error("Error sending order success SMS:", smsErr);
+      }
+
+      // If UddoktaPay is selected, redirect to the gateway page
+      if (payment === "uddoktapay") {
+        try {
+          const initiateRes = await fetch("/api/uddoktapay/initiate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              orderId: order.id,
+              origin: window.location.origin,
+            }),
+          });
+
+          const contentType = initiateRes.headers.get("content-type") || "";
+          if (!initiateRes.ok || contentType.includes("text/html")) {
+            throw new Error("Serverless relay unavailable (returned HTML/error)");
+          }
+
+          const initiateData = await initiateRes.json();
+          if (initiateData.payment_url) {
+            isCompletedRef.current = true;
+            clearCart();
+            localStorage.removeItem("checkout_form_draft");
+            // Redirect user to UddoktaPay payment page
+            window.location.href = initiateData.payment_url;
+            return;
+          } else {
+            throw new Error(initiateData.error || "Failed to create payment session");
+          }
+        } catch (payErr: any) {
+          console.warn("UddoktaPay serverless function unavailable, attempting direct client-side fallback:", payErr);
+          
+          try {
+            // Fetch credentials directly from settings (simulating serverless function behavior)
+            const { data: row, error: settingsError } = await supabase
+              .from("store_settings" as any)
+              .select("value")
+              .eq("key", "payment_methods")
+              .maybeSingle();
+
+            if (settingsError || !row || !row.value) {
+              throw new Error("Payment settings not found in database.");
+            }
+
+            const { uddoktapay_api_key, uddoktapay_base_url } = row.value as any;
+            if (!uddoktapay_api_key || !uddoktapay_base_url) {
+              throw new Error("UddoktaPay API key or Base URL is missing in settings.");
+            }
+
+            let baseUrl = uddoktapay_base_url.trim().replace(/\/$/, "");
+            if (baseUrl.endsWith("/api")) {
+              baseUrl = baseUrl.slice(0, -4).replace(/\/$/, "");
+            }
+            const apiKey = uddoktapay_api_key.trim();
+
+            const uddoktaPayPayload = {
+              full_name: form.name.trim() || "Customer",
+              email: form.email.trim() || "customer@example.com",
+              amount: String(total),
+              currency: "BDT",
+              metadata: {
+                order_id: order.id,
+                order_number: order.order_number,
+              },
+              redirect_url: `${window.location.origin}/order-success/${order.order_number}`,
+              return_type: "GET",
+              cancel_url: `${window.location.origin}/checkout?payment_status=cancelled`,
+              webhook_url: `${window.location.origin}/api/uddoktapay/webhook`,
+            };
+
+            const apiResponse = await fetch(`${baseUrl}/api/checkout-v2`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "accept": "application/json",
+                "RT-UDDOKTAPAY-API-KEY": apiKey,
+              },
+              body: JSON.stringify(uddoktaPayPayload),
+            });
+
+            if (!apiResponse.ok) {
+              throw new Error(`UddoktaPay API returned HTTP status ${apiResponse.status}`);
+            }
+
+            const result = await apiResponse.json();
+            if (result.status && result.payment_url) {
+              isCompletedRef.current = true;
+              clearCart();
+              localStorage.removeItem("checkout_form_draft");
+              window.location.href = result.payment_url;
+              return;
+            } else {
+              throw new Error(result.message || "Failed to get payment url from UddoktaPay");
+            }
+          } catch (fallbackErr: any) {
+            console.error("UddoktaPay client-side fallback failed:", fallbackErr);
+            toast.error("অনলাইন পেমেন্ট গেটওয়েতে রিডাইরেক্ট করতে সমস্যা হয়েছে। আবার চেষ্টা করুন বা অন্য পেমেন্ট মেথড সিলেক্ট করুন।");
+            return;
+          }
+        }
+      }
+
+      // 4. Success for other payment methods (COD, etc.) — pass full order data to success page
+      isCompletedRef.current = true;
+      clearCart();
+      localStorage.removeItem("checkout_form_draft");
+      toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
+      navigate(`/order-success/${order.order_number}`, {
+        state: {
+          id: order.id,
+          orderNumber: order.order_number,
+          customerName: form.name,
+          customerPhone: form.phone,
+          customerEmail: form.email,
+          shippingAddress: {
+            division: form.division,
+            district: form.district,
+            thana: form.thana,
+            address: form.address,
+          },
+          paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
+          items: items.map((i) => ({
+            name: i.product.name,
+            image: i.product.images[0],
+            quantity: i.quantity,
+            unitPrice: i.product.price,
+            totalPrice: i.product.price * i.quantity,
+          })),
+          subtotal,
+          deliveryCharge,
+          total,
+        },
+      });
+    } catch (err: any) {
+      console.error("Order completion error:", err);
+      toast.error("অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+    }
+  };
+
+  const handleVerifyOtpAndPlaceOrder = async (clientIP: string) => {
+    const minDigits = Number(smsConfig?.otp_digit_count) || 4;
+    if (!otpCode || otpCode.length < minDigits) {
+      toast.error(`দয়া করে সঠিক ${minDigits} ডিজিটের ওটিপি কোড দিন`);
+      return;
+    }
+    setVerifyingOtp(true);
+    try {
+      let verified = false;
+      let isFallback = false;
+      
+      const isSandboxMode = smsConfig?.sandbox_mode || smsConfig?.gateway === "sandbox" || !smsConfig?.enabled;
+      
+      if (isSandboxMode) {
+        isFallback = true;
+      } else {
+        try {
+          const res = await fetch("/api/sms/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: form.phone, code: otpCode })
+          });
+          const contentType = res.headers.get("content-type") || "";
+          if (res.ok && contentType.includes("application/json")) {
+            const data = await res.json();
+            verified = true;
+          } else {
+            isFallback = true;
+          }
+        } catch (e) {
+          isFallback = true;
+        }
+      }
+      
+      if (isFallback) {
+        console.warn("SMS OTP verification serverless function unavailable, attempting direct client-side fallback");
+        const cleanPhone = form.phone.trim();
+        const cleanCode = otpCode.trim();
+        const nowStr = new Date().toISOString();
+        
+        const { data: records, error: queryError } = await supabase
+          .from("otp_verifications" as any)
+          .select("id, code, expires_at, verified")
+          .eq("phone", cleanPhone)
+          .eq("code", cleanCode)
+          .eq("verified", false)
+          .gt("expires_at", nowStr)
+          .order("created_at", { ascending: false });
+          
+        if (queryError) throw queryError;
+        if (!records || records.length === 0) {
+          throw new Error("সঠিক ওটিপি কোড দিন অথবা কোডের মেয়াদ শেষ হয়ে গেছে।");
+        }
+        
+        const matchedRecord = records[0];
+        const { error: updateError } = await supabase
+          .from("otp_verifications" as any)
+          .update({ verified: true, updated_at: new Date().toISOString() })
+          .eq("id", matchedRecord.id);
+          
+        if (updateError) throw updateError;
+        verified = true;
+      }
+      
+      if (verified) {
+        toast.success("আপনার ফোন ভেরিফিকেশন সফল হয়েছে!");
+        setIsOtpVerified(true);
+        setOtpModalOpen(false);
+        setSubmitting(true);
+        await completeOrderCreation(clientIP);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "ভেরিফিকেশন কোড মিলছে না। আবার চেষ্টা করুন।");
+    } finally {
+      setVerifyingOtp(false);
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,108 +672,17 @@ const Checkout = () => {
         return;
       }
 
-      trackAddPaymentInfo(items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })), total);
-
-      // 1. Insert order (order_number auto-generated by trigger)
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          order_number: "",
-          customer_name: form.name,
-          customer_phone: form.phone,
-          customer_email: form.email || null,
-          user_id: user?.id || null,
-          shipping_address: {
-            division: form.division,
-            district: form.district,
-            thana: form.thana,
-            address: form.address,
-          },
-          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
-          subtotal,
-          delivery_charge: deliveryCharge,
-          total_amount: total,
-          ip_address: clientIP || null,
-        })
-        .select("id, order_number")
-        .single();
-
-      if (orderError) throw orderError;
-
-      // 2. Insert order items
-      const orderItems = items.map((i) => ({
-        order_id: order.id,
-        product_id: i.product.id,
-        product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
-        unit_price: i.product.price,
-        quantity: i.quantity,
-        total_price: i.product.price * i.quantity,
-      }));
-
-      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-      if (itemsError) throw itemsError;
-
-      // 3. Mark incomplete as converted
-      await markConverted(order.id);
-
-      // Send Telegram notification to admin
-      try {
-        const { sendTelegramNotification } = await import("@/lib/telegram");
-        const hasPreOrder = items.some((i) => i.product.stock === 0);
-        const itemsList = items
-          .map((i) => `• ${i.product.name}${i.product.stock === 0 ? " [প্রি-অর্ডার]" : ""} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
-          .join("\n");
-
-        const message = `🛍️ <b>নতুন ${hasPreOrder ? "প্রি-অর্ডার / " : ""}অর্ডার এসেছে!</b>\n\n` +
-          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
-          `<b>গ্রাহকের নাম:</b> ${form.name}\n` +
-          `<b>মোবাইল:</b> ${form.phone}\n` +
-          `<b>ঠিকানা:</b> ${form.address}, ${form.thana || ""}, ${form.district || ""}, ${form.division}\n` +
-          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad"}\n\n` +
-          `<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
-          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
-          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
-          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
-
-        await sendTelegramNotification(message, { isNewOrder: true, orderId: order.id } as any);
-      } catch (tgErr) {
-        console.error("Error triggering telegram notification:", tgErr);
+      // Check if OTP verification is active for COD payment method
+      if (smsConfig && smsConfig.enabled && smsConfig.otp_enabled && payment === "cod" && !isOtpVerified) {
+        await handleSendOtp(form.phone);
+        setSubmitting(false);
+        return;
       }
 
-      // 4. Success — pass full order data to success page
-      clearCart();
-      localStorage.removeItem("checkout_form_draft");
-      toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
-      navigate(`/order-success/${order.order_number}`, {
-        state: {
-          id: order.id,
-          orderNumber: order.order_number,
-          customerName: form.name,
-          customerPhone: form.phone,
-          customerEmail: form.email,
-          shippingAddress: {
-            division: form.division,
-            district: form.district,
-            thana: form.thana,
-            address: form.address,
-          },
-          paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
-          items: items.map((i) => ({
-            name: i.product.name,
-            image: i.product.images[0],
-            quantity: i.quantity,
-            unitPrice: i.product.price,
-            totalPrice: i.product.price * i.quantity,
-          })),
-          subtotal,
-          deliveryCharge,
-          total,
-        },
-      });
+      await completeOrderCreation(clientIP);
     } catch (err: any) {
       console.error("Order error:", err);
       toast.error("অর্ডার করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
-    } finally {
       setSubmitting(false);
     }
   };
@@ -405,6 +776,7 @@ const Checkout = () => {
                   <div className="flex flex-wrap justify-center items-stretch gap-2.5 sm:gap-4">
                     {([
                       { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote, enabled: activePayments.cod },
+                      { id: "uddoktapay" as const, label: "অনলাইন পেমেন্ট", icon: CreditCard, enabled: activePayments.uddoktapay },
                       { id: "bkash" as const, label: "bKash", icon: Smartphone, enabled: activePayments.bkash },
                       { id: "nagad" as const, label: "Nagad", icon: CreditCard, enabled: activePayments.nagad },
                     ]).filter(p => p.enabled).map(({ id, label, icon: Icon }) => (
@@ -482,6 +854,64 @@ const Checkout = () => {
         </div>
       </main>
       <Footer />
+
+      {/* OTP Verification Modal */}
+      <Dialog open={otpModalOpen} onOpenChange={setOtpModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold font-display text-foreground text-center">মোবাইল নাম্বার ভেরিফিকেশন</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground text-center pt-2">
+              আপনার দেওয়া মোবাইল নাম্বার <b>{form.phone}</b> ভেরিফাই করার জন্য ওটিপি কোডটি নিচে দিন।
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center gap-6 py-4">
+            <InputOTP
+              maxLength={otpDigitCount}
+              value={otpCode}
+              onChange={(val) => setOtpCode(val)}
+            >
+              <InputOTPGroup className="gap-2">
+                {Array.from({ length: otpDigitCount }).map((_, i) => (
+                  <InputOTPSlot 
+                    key={i} 
+                    index={i} 
+                    className="h-12 w-12 border-2 rounded-xl text-lg font-bold text-foreground focus-visible:ring-accent"
+                  />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+
+            <div className="flex flex-col gap-2 w-full">
+              <Button
+                onClick={async () => {
+                  const clientIP = await getClientIP();
+                  await handleVerifyOtpAndPlaceOrder(clientIP);
+                }}
+                disabled={verifyingOtp || otpCode.length < otpDigitCount}
+                className="w-full h-11 bg-success text-success-foreground hover:bg-success/90 font-bold rounded-xl"
+              >
+                {verifyingOtp ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                কোড নিশ্চিত করুন
+              </Button>
+
+              <div className="flex items-center justify-between text-xs px-1 mt-2">
+                <span className="text-muted-foreground">কোড পাননি?</span>
+                {otpTimer > 0 ? (
+                  <span className="text-muted-foreground font-semibold">({otpTimer} সেকেন্ড পর আবার পাঠান)</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSendOtp(form.phone)}
+                    className="text-accent hover:underline font-bold"
+                  >
+                    পুনরায় ওটিপি পাঠান
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

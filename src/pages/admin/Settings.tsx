@@ -38,6 +38,9 @@ interface PaymentMethods {
   nagad: boolean;
   bkash_number: string;
   nagad_number: string;
+  uddoktapay?: boolean;
+  uddoktapay_api_key?: string;
+  uddoktapay_base_url?: string;
 }
 
 interface CourierSettings {
@@ -105,7 +108,7 @@ export default function AdminSettings() {
     delivery_time_inside: "৩-৫ কার্যদিবস",
     delivery_time_outside: "৫-৭ কার্যদিবস"
   });
-  const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "" });
+  const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "", uddoktapay: false, uddoktapay_api_key: "", uddoktapay_base_url: "" });
   
   const [courier, setCourier] = useState<CourierSettings>({ 
     default_courier: "steadfast", 
@@ -195,6 +198,37 @@ export default function AdminSettings() {
     notify_low_stock: true
   });
   const [testingTelegram, setTestingTelegram] = useState(false);
+
+  const [smsSettings, setSmsSettings] = useState<any>({
+    enabled: false,
+    sandbox_mode: true,
+    otp_enabled: false,
+    otp_digit_count: 4,
+    gateway: "sandbox",
+    api_key: "",
+    sender_id: "",
+    api_url: "",
+    username: "",
+    password: "",
+    otp_template: "আপনার ভেরিফিকেশন কোড হলো: {otp}",
+    order_success_sms_enabled: false,
+    order_success_sms_template: "প্রিয় {name}, আপনার অর্ডার #{order_number} সফলভাবে সম্পন্ন হয়েছে। মোট: ৳{total}।",
+    status_update_sms_enabled: false,
+    status_update_sms_template: "প্রিয় {name}, আপনার অর্ডার #{order_number} এর বর্তমান স্ট্যাটাস: {status}।",
+  });
+
+
+  const [seoSettings, setSeoSettings] = useState<SEOSettings>({
+    site_title: "",
+    site_description: "",
+    title_format: "",
+    default_keywords: "",
+    robots_index: true,
+    robots_follow: true,
+    google_search_console_id: "",
+    fb_app_id: "",
+    og_image: "",
+  });
 
   const [localLogs, setLocalLogs] = useState<string[]>([
     `[SYSTEM] Unified tracking engine initialized successfully.`,
@@ -313,7 +347,12 @@ export default function AdminSettings() {
               delivery_time_outside: row.value.delivery_time_outside || "৫-৭ কার্যদিবস"
             }));
           }
-          if (row.key === "payment_methods") setPayment(row.value);
+          if (row.key === "payment_methods") {
+            setPayment(prev => ({
+              ...prev,
+              ...row.value
+            }));
+          }
           if (row.key === "courier_settings") {
             setCourier({
               default_courier: row.value.default_courier || "steadfast",
@@ -336,6 +375,18 @@ export default function AdminSettings() {
 
           if (row.key === "telegram_settings") {
             setTelegramSettings(prev => ({
+              ...prev,
+              ...row.value
+            }));
+          }
+          if (row.key === "sms_settings") {
+            setSmsSettings(prev => ({
+              ...prev,
+              ...row.value
+            }));
+          }
+          if (row.key === "seo_settings") {
+            setSeoSettings(prev => ({
               ...prev,
               ...row.value
             }));
@@ -619,6 +670,7 @@ export default function AdminSettings() {
           <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">🌐 ট্র্যাকিং ও অ্যানালিটিক্স</TabsTrigger>
           <TabsTrigger value="about" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📖 আমাদের সম্পর্কে</TabsTrigger>
           <TabsTrigger value="telegram" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">📢 টেলিগ্রাম নোটিফিকেশন</TabsTrigger>
+          <TabsTrigger value="sms" className="rounded-lg px-4 py-2 gap-1.5 flex items-center whitespace-nowrap transition-all duration-300">💬 এসএমএস ও ওটিপি</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Logo & Favicon Management */}
@@ -1181,6 +1233,28 @@ export default function AdminSettings() {
                     <div className="space-y-2 pl-3 border-l-2 border-accent">
                       <Label className="text-xs">নগদ মার্চেন্ট / পার্সোনাল নম্বর</Label>
                       <Input value={payment.nagad_number || ""} onChange={e => setPayment(p => ({ ...p, nagad_number: e.target.value }))} placeholder="01XXXXXXXXX" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-xl border bg-card space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm">UddoktaPay Payment Gateway</p>
+                      <p className="text-xs text-muted-foreground">UddoktaPay অনলাইন পেমেন্ট গেটওয়ে সেটিংস</p>
+                    </div>
+                    <Switch checked={payment.uddoktapay || false} onCheckedChange={v => setPayment(p => ({ ...p, uddoktapay: v }))} />
+                  </div>
+                  {(payment.uddoktapay) && (
+                    <div className="space-y-4 pl-3 border-l-2 border-accent">
+                      <div className="space-y-2">
+                        <Label className="text-xs">UddoktaPay Base URL (e.g. https://sandbox.uddoktapay.com or live URL)</Label>
+                        <Input value={payment.uddoktapay_base_url || ""} onChange={e => setPayment(p => ({ ...p, uddoktapay_base_url: e.target.value }))} placeholder="https://sandbox.uddoktapay.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">UddoktaPay API Key</Label>
+                        <Input type="password" value={payment.uddoktapay_api_key || ""} onChange={e => setPayment(p => ({ ...p, uddoktapay_api_key: e.target.value }))} placeholder="API Key" />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2242,6 +2316,236 @@ export default function AdminSettings() {
           </Card>
         </TabsContent>
 
+        {/* Tab 11: SMS & OTP */}
+        <TabsContent value="sms" className="space-y-6 outline-none">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-primary">💬 এসএমএস ও ওটিপি সেটিংস</CardTitle>
+              <CardDescription>গ্রাহকদের জন্য ওটিপি ভেরিফিকেশন এবং কনফার্মেশন/স্ট্যাটাস আপডেট এসএমএস কনফিগার করুন।</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await saveSetting("sms_settings", smsSettings);
+                }} 
+                className="space-y-6"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center justify-between p-4 rounded-xl border bg-secondary/10">
+                    <div className="space-y-0.5">
+                      <Label className="font-bold text-sm">এসএমএস গেটওয়ে চালু করুন</Label>
+                      <p className="text-[10px] text-muted-foreground">সব ধরণের এসএমএস পাঠানোর জন্য এটি চালু করুন</p>
+                    </div>
+                    <Switch 
+                      checked={smsSettings.enabled} 
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, enabled: v }))} 
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border bg-secondary/10">
+                    <div className="space-y-0.5">
+                      <Label className="font-bold text-sm">স্যান্ডবক্স মোড (Sandbox Mode)</Label>
+                      <p className="text-[10px] text-muted-foreground">ব্যালেন্স খরচ না করে ওটিপি টেস্ট করার জন্য</p>
+                    </div>
+                    <Switch 
+                      checked={smsSettings.sandbox_mode} 
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, sandbox_mode: v }))} 
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border bg-secondary/10">
+                    <div className="space-y-0.5">
+                      <Label className="font-bold text-sm">চেকআউটে ওটিপি ভেরিফিকেশন</Label>
+                      <p className="text-[10px] text-muted-foreground">ক্যাশ অন ডেলিভারি অর্ডারের আগে ওটিপি প্রয়োজন</p>
+                    </div>
+                    <Switch 
+                      checked={smsSettings.otp_enabled} 
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, otp_enabled: v }))} 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>এসএমএস গেটওয়ে (SMS Gateway)</Label>
+                    <Select value={smsSettings.gateway || "sandbox"} onValueChange={v => setSmsSettings((p: any) => ({ ...p, gateway: v }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox (Test Mode)</SelectItem>
+                        <SelectItem value="greenweb">Greenweb BD</SelectItem>
+                        <SelectItem value="elitbuzz">ElitBuzz BD</SelectItem>
+                        <SelectItem value="bulksmsbd">BulkSMSBD</SelectItem>
+                        <SelectItem value="mim_sms">Mim SMS</SelectItem>
+                        <SelectItem value="custom">Custom (HTTP Request)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>ওটিপি ডিজিট সংখ্যা (OTP Digit Count)</Label>
+                    <Select value={String(smsSettings.otp_digit_count || 4)} onValueChange={v => setSmsSettings((p: any) => ({ ...p, otp_digit_count: Number(v) }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4 Digits</SelectItem>
+                        <SelectItem value="6">6 Digits</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {smsSettings.gateway !== "sandbox" && (
+                  <>
+                    <Separator />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {smsSettings.gateway !== "custom" ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label>এপিআই কী (API Key / Token)</Label>
+                            <Input 
+                              type="password"
+                              value={smsSettings.api_key || ""} 
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_key: e.target.value }))} 
+                              placeholder="আপনার SMS গেটওয়ের API Key দিন" 
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>সেন্ডার আইডি (Sender ID / Masking - Optional)</Label>
+                            <Input 
+                              value={smsSettings.sender_id || ""} 
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, sender_id: e.target.value }))} 
+                              placeholder="অনুমোদিত সেন্ডার আইডি (যেমন: Rangao)" 
+                              className="rounded-xl"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="col-span-2 space-y-2">
+                            <Label>এপিআই ইউআরএল (API URL)</Label>
+                            <Input 
+                              value={smsSettings.api_url || ""} 
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_url: e.target.value }))} 
+                              placeholder="যেমন: https://api.example.com/send?apikey=KEY&to={to}&msg={msg}" 
+                              className="rounded-xl"
+                            />
+                            <p className="text-[10px] text-muted-foreground">ফোনের জন্য <code>{"{to}"}</code> এবং বার্তার জন্য <code>{"{msg}"}</code> প্লেসহোল্ডার ব্যবহার করুন।</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>HTTP Method</Label>
+                            <Select value={smsSettings.method || "GET"} onValueChange={v => setSmsSettings((p: any) => ({ ...p, method: v }))}>
+                              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="GET">GET</SelectItem>
+                                <SelectItem value="POST">POST</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Headers (JSON String - Optional)</Label>
+                            <Input 
+                              value={smsSettings.headers || ""} 
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, headers: e.target.value }))} 
+                              placeholder='যেমন: {"Authorization": "Bearer token"}' 
+                              className="rounded-xl"
+                            />
+                          </div>
+                          {smsSettings.method === "POST" && (
+                            <div className="col-span-2 space-y-2">
+                              <Label>Request Body Template (JSON / Text String)</Label>
+                              <Textarea 
+                                value={smsSettings.body_template || ""} 
+                                onChange={e => setSmsSettings((p: any) => ({ ...p, body_template: e.target.value }))} 
+                                placeholder='যেমন: {"mobile": "{to}", "text": "{msg}"}' 
+                                className="rounded-xl min-h-[80px]"
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h3 className="font-bold text-sm text-primary">এসএমএস টেমপ্লেট ও কনফিগারেশন</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">ওটিপি কোড টেমপ্লেট (OTP Code Template)</Label>
+                      <Input 
+                        value={smsSettings.otp_template || ""} 
+                        onChange={e => setSmsSettings((p: any) => ({ ...p, otp_template: e.target.value }))} 
+                        className="rounded-xl"
+                      />
+                      <p className="text-[10px] text-muted-foreground">অবশ্যই টেমপ্লেটে <code>{"{otp}"}</code> প্লেসহোল্ডারটি ব্যবহার করবেন।</p>
+                    </div>
+
+                    <div className="p-4 rounded-xl border bg-secondary/5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="font-bold text-xs">অর্ডার সফল হলে এসএমএস পাঠান</Label>
+                          <p className="text-[9px] text-muted-foreground">অর্ডার সফল হলে গ্রাহককে এসএমএস পাঠাবে</p>
+                        </div>
+                        <Switch 
+                          checked={smsSettings.order_success_sms_enabled} 
+                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, order_success_sms_enabled: v }))} 
+                        />
+                      </div>
+                      {smsSettings.order_success_sms_enabled && (
+                        <div className="space-y-2 pt-2">
+                          <Label className="text-xs">অর্ডার সফল এসএমএস টেমপ্লেট</Label>
+                          <Textarea 
+                            value={smsSettings.order_success_sms_template || ""} 
+                            onChange={e => setSmsSettings((p: any) => ({ ...p, order_success_sms_template: e.target.value }))} 
+                            className="rounded-xl min-h-[80px]"
+                          />
+                          <p className="text-[9px] text-muted-foreground">প্লেসহোল্ডারসমূহ: <code>{"{name}"}</code>, <code>{"{order_number}"}</code>, <code>{"{total}"}</code></p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 rounded-xl border bg-secondary/5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="font-bold text-xs">স্ট্যাটাস আপডেট এসএমএস</Label>
+                          <p className="text-[9px] text-muted-foreground">অর্ডার স্ট্যাটাস পরিবর্তিত হলে গ্রাহককে এসএমএস পাঠাবে</p>
+                        </div>
+                        <Switch 
+                          checked={smsSettings.status_update_sms_enabled} 
+                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, status_update_sms_enabled: v }))} 
+                        />
+                      </div>
+                      {smsSettings.status_update_sms_enabled && (
+                        <div className="space-y-2 pt-2">
+                          <Label className="text-xs">স্ট্যাটাস আপডেট এসএমএস টেমপ্লেট</Label>
+                          <Textarea 
+                            value={smsSettings.status_update_sms_template || ""} 
+                            onChange={e => setSmsSettings((p: any) => ({ ...p, status_update_sms_template: e.target.value }))} 
+                            className="rounded-xl min-h-[80px]"
+                          />
+                          <p className="text-[9px] text-muted-foreground">প্লেসহোল্ডারসমূহ: <code>{"{name}"}</code>, <code>{"{order_number}"}</code>, <code>{"{status}"}</code></p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button 
+                    type="submit"
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    disabled={saving === "sms_settings"}
+                  >
+                    {saving === "sms_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} সেটিংস সেভ করুন
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <MediaPicker 

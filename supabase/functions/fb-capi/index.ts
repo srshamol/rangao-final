@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
         fbResult = await fbResponse.json();
         fbSuccess = fbResponse.ok && !fbResult.error;
 
-        await supabase.from("order_history").insert({
+        await supabaseAdmin.from("order_history").insert({
           order_id: order_id,
           action: "fb_capi_sent",
           details: fbSuccess
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
         ttResult = await ttResponse.json();
         ttSuccess = ttResponse.ok && ttResult.code === 0;
 
-        await supabase.from("order_history").insert({
+        await supabaseAdmin.from("order_history").insert({
           order_id: order_id,
           action: "fb_capi_sent", // logged under the same action so it syncs to UI logs naturally
           details: ttSuccess

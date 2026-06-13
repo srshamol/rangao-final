@@ -107,12 +107,21 @@ export default function OrderDetail() {
         details: `স্ট্যাটাস পরিবর্তন: ${statusLabels[status] || status}${note ? ` — ${note}` : ""}`, staff_name: "Admin"
       });
 
-      // Send Facebook CAPI event for confirmed/delivered orders
-      if (status === "confirmed" || status === "delivered") {
+      // Send Facebook CAPI event for confirmed orders if Strict Purchase Mode is enabled
+      const wasPending = order?.order_status === "pending";
+      if (status === "confirmed" && wasPending) {
         try {
-          await supabase.functions.invoke("fb-capi", {
-            body: { order_id: id, event_name: "Purchase" },
-          });
+          const { data: trackingRow } = await supabase
+            .from("store_settings" as any)
+            .select("value")
+            .eq("key", "tracking_settings")
+            .maybeSingle();
+          const trackingConfig = trackingRow?.value as any;
+          if (trackingConfig?.meta_strict_purchase_mode === true) {
+            await supabase.functions.invoke("fb-capi", {
+              body: { order_id: id, event_name: "Purchase" },
+            });
+          }
         } catch (fbErr) {
           console.error("FB CAPI error (non-blocking):", fbErr);
         }
@@ -141,6 +150,37 @@ export default function OrderDetail() {
             await sendTelegramNotification(message, { isStatusUpdate: true });
           } catch (tgErr) {
             console.error("Error triggering telegram status update notification:", tgErr);
+          }
+        })();
+
+        // Send SMS notification
+        (async () => {
+          try {
+            const { data: smsRow } = await supabase
+              .from("store_settings" as any)
+              .select("value")
+              .eq("key", "sms_settings")
+              .maybeSingle();
+
+            if (smsRow && smsRow.value && smsRow.value.enabled && smsRow.value.status_update_sms_enabled) {
+              const bStatus = statusLabels[variables.status] || variables.status;
+              const smsText = (smsRow.value.status_update_sms_template || "Dear {name}, your order #{order_number} status has been updated to {status}.")
+                .replace("{name}", order.customer_name)
+                .replace("{order_number}", order.order_number)
+                .replace("{status}", bStatus);
+
+              await fetch("/api/sms/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  phone: order.customer_phone,
+                  message: smsText,
+                  orderId: order.id
+                })
+              });
+            }
+          } catch (smsErr) {
+            console.error("Error triggering status update SMS:", smsErr);
           }
         })();
       }

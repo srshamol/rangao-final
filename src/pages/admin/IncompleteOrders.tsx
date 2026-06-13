@@ -33,7 +33,7 @@ export default function IncompleteOrders() {
       const { data, error } = await supabase
         .from("incomplete_orders" as any)
         .select("*")
-        .in("status", ["abandoned", "contacted"])
+        .in("status", ["abandoned", "contacted", "converted", "recovered"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
@@ -43,7 +43,9 @@ export default function IncompleteOrders() {
   });
 
   const filtered = useMemo(() => {
-    let result = incompleteOrders;
+    let result = incompleteOrders.filter(
+      (o: any) => o.status === "abandoned" || o.status === "contacted"
+    );
 
     if (dateFilter === "today") {
       result = result.filter((o: any) => isToday(new Date(o.created_at)));
@@ -70,17 +72,20 @@ export default function IncompleteOrders() {
 
   const stats = useMemo(() => {
     const all = incompleteOrders;
-    const today = all.filter((o: any) => isToday(new Date(o.created_at)));
+    const active = all.filter((o: any) => o.status === "abandoned" || o.status === "contacted");
+    const today = active.filter((o: any) => isToday(new Date(o.created_at)));
     const weekAgo = subDays(new Date(), 7);
-    const week = all.filter((o: any) => isAfter(new Date(o.created_at), weekAgo));
-    const withPhone = all.filter((o: any) => o.customer_phone);
-    const contacted = all.filter((o: any) => o.status === "contacted");
+    const week = active.filter((o: any) => isAfter(new Date(o.created_at), weekAgo));
+    const withPhone = active.filter((o: any) => o.customer_phone);
+    const contacted = active.filter((o: any) => o.status === "contacted");
+    const converted = all.filter((o: any) => o.status === "recovered" || o.status === "converted");
     return {
-      total: all.length,
+      total: active.length,
       today: today.length,
       week: week.length,
       withPhone: withPhone.length,
       contacted: contacted.length,
+      converted: converted.length,
     };
   }, [incompleteOrders]);
 
@@ -151,13 +156,14 @@ export default function IncompleteOrders() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "মোট ইনকমপ্লিট", value: stats.total, icon: AlertTriangle, color: "text-yellow-500" },
           { label: "আজকে", value: stats.today, icon: AlertTriangle, color: "text-destructive" },
           { label: "এই সপ্তাহে", value: stats.week, icon: AlertTriangle, color: "text-orange-500" },
           { label: "ফোন আছে", value: stats.withPhone, icon: Phone, color: "text-green-500" },
           { label: "কন্টাক্টেড", value: stats.contacted, icon: PhoneCall, color: "text-blue-500" },
+          { label: "রিকভার্ড", value: stats.converted, icon: CheckCircle2, color: "text-success" },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border bg-card p-4">
             <div className="flex items-center gap-2">
@@ -385,18 +391,20 @@ export default function IncompleteOrders() {
                     <AlertTriangle className="h-5 w-5 text-yellow-500" />
                     ইনকমপ্লিট অর্ডার বিস্তারিত
                   </SheetTitle>
-                  <SheetDescription>
-                    <Badge
-                      variant="outline"
-                      className={`border-0 text-xs ${
-                        vIsContacted ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {vIsContacted ? "কন্টাক্টেড" : "অ্যাবান্ডনড"}
-                    </Badge>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {format(new Date(viewOrder.created_at), "dd MMM yyyy, HH:mm")}
-                    </span>
+                  <SheetDescription asChild>
+                    <div className="text-sm text-muted-foreground">
+                      <Badge
+                        variant="outline"
+                        className={`border-0 text-xs ${
+                          vIsContacted ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {vIsContacted ? "কন্টাক্টেড" : "অ্যাবান্ডনড"}
+                      </Badge>
+                      <span className="ml-2 text-xs">
+                        {format(new Date(viewOrder.created_at), "dd MMM yyyy, HH:mm")}
+                      </span>
+                    </div>
                   </SheetDescription>
                 </SheetHeader>
 

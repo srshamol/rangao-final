@@ -77,8 +77,8 @@ BEGIN
     )
   ) INTO v_res_id;
 
-  -- 4. Log to order history if order_id is provided
-  IF p_options ? 'orderId' THEN
+  -- 4. Log to order history if order_id is provided and not null
+  IF p_options->>'orderId' IS NOT NULL AND p_options->>'orderId' <> '' THEN
     INSERT INTO public.order_history (order_id, action, details, staff_name)
     VALUES (
       (p_options->>'orderId')::uuid,

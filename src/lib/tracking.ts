@@ -556,14 +556,29 @@ export function trackPurchase(
   total: number
 ) {
   if (!activeConfig || !activeConfig.global_enabled) return;
-  debugLog('general', "Purchase event triggered. Order:", orderId, "Total:", total);
+
+  // Ensure total is a valid clean number
+  const cleanTotal = typeof total === 'number' ? total : parseFloat(String(total));
+  const finalTotal = isNaN(cleanTotal) ? 0 : Number(cleanTotal.toFixed(2));
+
+  debugLog('general', "Purchase event triggered. Order:", orderId, "Total:", finalTotal);
 
   const contentIds = items.map(i => i.id);
 
   // Meta Pixel with Deduplication Event ID
   if (activeConfig.meta_pixel_enabled && window.fbq) {
+    debugLog('meta', "Sending Purchase event to fbq:", {
+      value: finalTotal,
+      currency: "BDT",
+      content_ids: contentIds,
+      content_type: "product",
+      order_id: orderId,
+    }, {
+      eventID: orderId
+    });
+
     window.fbq('track', 'Purchase', {
-      value: total,
+      value: finalTotal,
       currency: "BDT",
       content_ids: contentIds,
       content_type: "product",

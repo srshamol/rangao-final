@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ["@supabase/supabase-js"],
+    include: ["@supabase/supabase-js", "react", "react-dom"],
   },
   build: {
     target: "es2022",

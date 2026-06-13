@@ -336,17 +336,17 @@ const ProductDetail = () => {
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
-    queryKey: ["related-products", product?.category, id],
+    queryKey: ["related-products", product?.category, dbProduct?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
         .select("*")
         .eq("category", product!.category)
-        .neq("id", id)
+        .neq("id", dbProduct!.id)
         .limit(4);
       return data || [];
     },
-    enabled: !!product?.category
+    enabled: !!product?.category && !!dbProduct?.id
   });
 
   const relatedProducts = useMemo(() => {
@@ -529,9 +529,12 @@ const ProductDetail = () => {
     return [productSchema, faqSchema].filter(Boolean) as any[];
   }, [productSchema, faqSchema]);
 
+  const lastTrackedId = useRef<string | null>(null);
+
   useEffect(() => {
-    if (product) {
+    if (product && lastTrackedId.current !== product.id) {
       analytics.viewItem(product as any);
+      lastTrackedId.current = product.id;
     }
   }, [product]);
 

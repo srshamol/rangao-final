@@ -24,7 +24,7 @@ export async function sendTelegramNotification(
         isStatusUpdate: options.isStatusUpdate || false,
         isIncompleteOrder: options.isIncompleteOrder || false,
         isLowStock: options.isLowStock || false,
-        orderId: options.orderId || null
+        ...(options.orderId ? { orderId: options.orderId } : {})
       }
     });
 

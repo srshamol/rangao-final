@@ -1,13 +1,14 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "incomplete_order_session";
 
 function getSessionId() {
-  let id = sessionStorage.getItem(SESSION_KEY);
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem(SESSION_KEY);
   if (!id) {
     id = crypto.randomUUID();
-    sessionStorage.setItem(SESSION_KEY, id);
+    localStorage.setItem(SESSION_KEY, id);
   }
   return id;
 }
@@ -26,7 +27,10 @@ interface UseIncompleteOrderOptions {
 }
 
 export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderOptions) {
-  const incompleteIdRef = useRef<string | null>(null);
+  const storageKey = `active_incomplete_order_id_${pageSource}`;
+  const incompleteIdRef = useRef<string | null>(
+    typeof window !== "undefined" ? localStorage.getItem(storageKey) : null
+  );
   const sessionId = useRef(getSessionId());
   // Store latest products/pageSource in refs so saveIncomplete callback stays stable
   // (avoids dependency on the products array which is a new reference every render)
@@ -35,13 +39,77 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
   productsRef.current = products;
   pageSourceRef.current = pageSource;
 
+  const [dbDraft, setDbDraft] = useState<{
+    customer_name?: string;
+    customer_phone?: string;
+    customer_email?: string;
+    form_data?: Record<string, any>;
+  } | null>(null);
+
+  const notificationFiredRef = useRef(false);
   const customerInfoRef = useRef<{ name?: string; phone?: string; email?: string } | null>(null);
+  const isSavingRef = useRef(false);
+
+  // Load latest draft from DB on mount
+  useEffect(() => {
+    const fetchLatestIncomplete = async () => {
+      try {
+        let data = null;
+        const activeId = incompleteIdRef.current;
+        
+        // 1. Try by active ID first
+        if (activeId) {
+          const { data: byId } = await supabase
+            .from("incomplete_orders" as any)
+            .select("id, customer_name, customer_phone, customer_email, form_data")
+            .eq("id", activeId)
+            .eq("status", "abandoned")
+            .maybeSingle();
+          if (byId) {
+            data = byId;
+          }
+        }
+
+        // 2. If not found by active ID, try by session ID
+        if (!data && sessionId.current) {
+          const { data: bySession } = await supabase
+            .from("incomplete_orders" as any)
+            .select("id, customer_name, customer_phone, customer_email, form_data")
+            .eq("session_id", sessionId.current)
+            .eq("status", "abandoned")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (bySession) {
+            data = bySession;
+            incompleteIdRef.current = bySession.id;
+            localStorage.setItem(storageKey, bySession.id);
+          }
+        }
+
+        if (data) {
+          setDbDraft({
+            customer_name: data.customer_name || "",
+            customer_phone: data.customer_phone || "",
+            customer_email: data.customer_email || "",
+            form_data: data.form_data || {},
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching latest incomplete order:", err);
+      }
+    };
+
+    fetchLatestIncomplete();
+  }, [storageKey]);
 
   const fireNotification = useCallback(async () => {
+    if (notificationFiredRef.current) return;
     if (!incompleteIdRef.current || !customerInfoRef.current) return;
     const info = customerInfoRef.current;
     if (!info.name?.trim() && !info.phone?.trim()) return;
 
+    notificationFiredRef.current = true;
     try {
       const { sendTelegramNotification } = await import("@/lib/telegram");
       const itemsList = productsRef.current
@@ -74,10 +142,15 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
   }, [fireNotification]);
 
   const saveIncomplete = useCallback(
-    async (data: { name?: string; phone?: string; email?: string; formData?: Record<string, any> }) => {
+    async (data: { name?: string; phone?: string; email?: string; formData?: Record<string, any> }, fireNotificationAfterSave = false) => {
       const { name, phone, email, formData } = data;
       // Need at least name or phone
       if (!name?.trim() && !phone?.trim()) return;
+
+      if (isSavingRef.current && !incompleteIdRef.current) {
+        return;
+      }
+      isSavingRef.current = true;
 
       customerInfoRef.current = { name, phone, email };
 
@@ -109,43 +182,59 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
 
         if (error) throw error;
 
-        if (incompleteId && !incompleteIdRef.current) {
+        if (incompleteId) {
           incompleteIdRef.current = incompleteId;
+          localStorage.setItem(storageKey, incompleteId);
+          if (fireNotificationAfterSave) {
+            await fireNotification();
+          }
         }
       } catch (err) {
         console.error("Incomplete order save error:", err);
+      } finally {
+        isSavingRef.current = false;
       }
     },
-    [] // stable — reads latest values from refs, no deps needed
+    [storageKey, fireNotification] // stable — reads latest values from refs, but depends on storageKey
   );
 
-  const markConverted = useCallback(async (orderId?: string) => {
-    if (!incompleteIdRef.current) return;
+  const markConverted = useCallback(async (orderId?: string, customerPhone?: string) => {
     try {
-      const update: Record<string, any> = { status: "recovered" };
-      if (orderId) update.converted_order_id = orderId;
-      await supabase
-        .from("incomplete_orders" as any)
-        .update(update)
-        .eq("id", incompleteIdRef.current);
+      await supabase.rpc("delete_incomplete_orders", {
+        p_id: incompleteIdRef.current || null,
+        p_session_id: sessionId.current || null,
+        p_customer_phone: customerPhone?.trim() || null
+      });
+      
+      localStorage.removeItem(storageKey);
       incompleteIdRef.current = null;
     } catch (err) {
       console.error("Mark converted error:", err);
     }
-  }, []);
+  }, [storageKey]);
 
   const clearIncomplete = useCallback(async () => {
-    if (!incompleteIdRef.current) return;
     try {
-      await supabase
-        .from("incomplete_orders" as any)
-        .delete()
-        .eq("id", incompleteIdRef.current);
+      if (incompleteIdRef.current) {
+        await supabase
+          .from("incomplete_orders" as any)
+          .delete()
+          .eq("id", incompleteIdRef.current);
+      }
+
+      if (sessionId.current) {
+        await supabase
+          .from("incomplete_orders" as any)
+          .delete()
+          .eq("session_id", sessionId.current);
+      }
+
+      localStorage.removeItem(storageKey);
       incompleteIdRef.current = null;
     } catch (err) {
       console.error("Clear incomplete error:", err);
     }
-  }, []);
+  }, [storageKey]);
 
-  return { saveIncomplete, markConverted, clearIncomplete, fireAbandonedNotification };
+  return { saveIncomplete, markConverted, clearIncomplete, fireAbandonedNotification, dbDraft };
 }

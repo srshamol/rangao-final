@@ -264,6 +264,17 @@ export interface DeliveryCharges {
   delivery_time_outside?: string;
 }
 
+export interface PaymentMethods {
+  cod: boolean;
+  bkash: boolean;
+  nagad: boolean;
+  bkash_number: string;
+  nagad_number: string;
+  uddoktapay?: boolean;
+  uddoktapay_api_key?: string;
+  uddoktapay_base_url?: string;
+}
+
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
   { id: "hero", label: "হিরো ব্যানার", config: { enabled: true, desktop: true, mobile: true } },
   { id: "categories", label: "ক্যাটাগরি সেকশন", config: { enabled: true, desktop: true, mobile: true, category_mode: "auto", count: 8, desktop_cols: 4, tablet_cols: 3, mobile_cols: 2, show_image: true, show_count: true, title: "আমাদের কাস্টম ক্যাটাগরি কালেকশন", subtitle: "আপনার ঘরের দেয়াল রাঙিয়ে তুলুন" } },
@@ -327,6 +338,16 @@ const defaults = {
     delivery_time_inside: "৩-৫ কার্যদিবস",
     delivery_time_outside: "৫-৭ কার্যদিবস"
   } as DeliveryCharges,
+  payment_methods: {
+    cod: true,
+    bkash: false,
+    nagad: false,
+    bkash_number: "",
+    nagad_number: "",
+    uddoktapay: false,
+    uddoktapay_api_key: "",
+    uddoktapay_base_url: ""
+  } as PaymentMethods,
   homepage_sections: {
     show_categories: true,
     show_featured: true,
@@ -489,6 +510,7 @@ const defaultStoreSettingsData = {
   } as HeroBanner,
   contactInfo: defaults.contact_info,
   deliveryCharges: defaults.delivery_charges,
+  paymentMethods: defaults.payment_methods,
   homepageSections: defaults.homepage_sections,
   storeInfo: defaults.store_info,
   trustFeatures: defaults.trust_features,
@@ -561,6 +583,7 @@ export function useStoreSettings() {
         heroBanner,
         contactInfo: { ...defaults.contact_info, ...settings.contact_info } as ContactInfo,
         deliveryCharges: { ...defaults.delivery_charges, ...settings.delivery_charges } as DeliveryCharges,
+        paymentMethods: { ...defaults.payment_methods, ...settings.payment_methods } as PaymentMethods,
         homepageSections: { ...defaults.homepage_sections, ...settings.homepage_sections } as HomepageSections,
         storeInfo: { ...defaults.store_info, ...settings.store_info } as StoreInfo,
         trustFeatures: (settings.trust_features || defaults.trust_features) as TrustFeatureItem[],
@@ -580,5 +603,5 @@ export function useStoreSettings() {
   });
 }
 
-export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem, DeliveryCharges };
+export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem, DeliveryCharges, PaymentMethods };
 export { DEFAULT_SECTION_ORDER };
