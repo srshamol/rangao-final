@@ -374,6 +374,17 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     try {
       const shippingLabel = shippingOptions.find((s) => s.id === shipping)!.label;
 
+      let fbp = "";
+      let fbc = "";
+      try {
+        const { default: clientParamBuilder } = await import("meta-capi-param-builder-clientjs");
+        fbp = clientParamBuilder.getFbp() || "";
+        fbc = clientParamBuilder.getFbc() || "";
+      } catch (err) {
+        console.error("Error reading CAPI parameters:", err);
+      }
+      const userAgent = navigator.userAgent;
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -392,6 +403,9 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           total_amount: total,
           notes: orderNote.trim() || null,
           ip_address: clientIP || null,
+          user_agent: userAgent,
+          fbp: fbp || null,
+          fbc: fbc || null,
         })
         .select("id, order_number")
         .single();

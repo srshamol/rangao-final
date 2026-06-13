@@ -128,9 +128,15 @@ Deno.serve(async (req) => {
     let ttSuccess = false;
     let ttResult = null;
 
-    const userAgent = req.headers.get("user-agent") || "";
+    const fallbackUserAgent = req.headers.get("user-agent") || "";
     const rawIp = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
-    const clientIp = rawIp.split(",")[0].trim();
+    const fallbackIp = rawIp.split(",")[0].trim();
+
+    // Prioritize tracking details stored at checkout over admin browser headers
+    const finalIp = order.ip_address || fallbackIp;
+    const finalUserAgent = order.user_agent || fallbackUserAgent;
+    const fbpValue = order.fbp || null;
+    const fbcValue = order.fbc || null;
 
     // 1. Meta Conversions API (CAPI)
     if (metaCapiEnabled) {
@@ -148,11 +154,20 @@ Deno.serve(async (req) => {
           if (nameParts.length > 1) userData.ln = [await sha256(nameParts[nameParts.length - 1].toLowerCase())];
         }
         userData.country = [await sha256("bd")];
-        if (clientIp) {
-          userData.client_ip_address = clientIp;
+        if (finalIp) {
+          userData.client_ip_address = finalIp;
         }
-        if (userAgent) {
-          userData.client_user_agent = userAgent;
+        if (finalUserAgent) {
+          userData.client_user_agent = finalUserAgent;
+        }
+        if (fbpValue) {
+          userData.fbp = fbpValue;
+        }
+        if (fbcValue) {
+          userData.fbc = fbcValue;
+        }
+        if (order.id) {
+          userData.external_id = [await sha256(order.id)];
         }
 
         const contentIds = (items || []).map((i: any) => i.product_id || i.product_name);
@@ -235,6 +250,7 @@ Deno.serve(async (req) => {
           user: {
             phone_number: order.customer_phone ? await sha256(order.customer_phone.replace(/[^0-9]/g, "")) : undefined,
             email: order.customer_email ? await sha256(order.customer_email.toLowerCase().trim()) : undefined,
+            external_id: order.id ? await sha256(order.id) : undefined,
           },
           properties: {
             value: Number(order.total_amount),
@@ -243,8 +259,8 @@ Deno.serve(async (req) => {
             contents: ttContents
           },
           context: {
-            user_agent: userAgent || undefined,
-            ip: clientIp || undefined
+            user_agent: finalUserAgent || undefined,
+            ip: finalIp || undefined
           }
         };
 

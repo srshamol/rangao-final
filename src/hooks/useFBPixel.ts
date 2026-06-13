@@ -3,6 +3,8 @@ import { useLocation } from "react-router-dom";
 import { initFBPixel, trackPageView, trackTimeOnPage, trackPageScroll } from "@/lib/fbpixel";
 import { supabase } from "@/integrations/supabase/client";
 
+import clientParamBuilder from "meta-capi-param-builder-clientjs";
+
 export function useFBPixelInit() {
   const initialized = useRef(false);
 
@@ -22,6 +24,19 @@ export function useFBPixelInit() {
           initFBPixel(config.pixel_id);
         }
       });
+
+    // Initialize CAPI Parameter Builder
+    try {
+      clientParamBuilder.processAndCollectAllParams(window.location.href)
+        .then(() => {
+          console.log("[CAPI Param Builder] Parameters successfully collected.");
+        })
+        .catch((err) => {
+          console.error("[CAPI Param Builder] Processing error:", err);
+        });
+    } catch (e) {
+      console.error("[CAPI Param Builder] Initialization error:", e);
+    }
   }, []);
 }
 
