@@ -96,7 +96,13 @@ const Index = () => {
         break;
 
       case "flash_sale":
-        sectionContent = <FlashSaleSection />;
+        sectionContent = (
+          <FlashSaleSection
+            endDate={config.end_date}
+            showCountdown={config.show_countdown !== false}
+            couponCode={config.coupon_code}
+          />
+        );
         break;
 
       case "islamic_collection":

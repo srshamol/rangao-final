@@ -7,20 +7,36 @@ import { useProducts } from "@/hooks/useHomepageData";
 import RangaoImage from "@/components/ui/RangaoImage";
 import { getProductUrl } from "@/lib/utils";
 
-const FlashSaleSection = () => {
+interface FlashSaleSectionProps {
+  endDate?: string;
+  showCountdown?: boolean;
+  couponCode?: string;
+}
+
+const FlashSaleSection = ({ endDate, showCountdown = true, couponCode }: FlashSaleSectionProps) => {
   const navigate = useNavigate();
   const { data: saleProducts, isLoading } = useProducts({ filter: "sale", limit: 8 });
 
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const end = new Date(now);
-      end.setHours(23, 59, 59, 999);
+      let end: Date;
+      if (endDate) {
+        end = new Date(endDate);
+      } else {
+        end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+      }
       const diff = end.getTime() - now.getTime();
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
       setTimeLeft({
-        hours: Math.floor(diff / (1000 * 60 * 60)),
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
         minutes: Math.floor((diff / (1000 * 60)) % 60),
         seconds: Math.floor((diff / 1000) % 60),
       });
@@ -28,7 +44,7 @@ const FlashSaleSection = () => {
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [endDate]);
 
   if (isLoading || !saleProducts || saleProducts.length === 0) return null;
 
@@ -48,25 +64,30 @@ const FlashSaleSection = () => {
               </div>
               <h2 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">ফ্ল্যাশ সেল</h2>
             </div>
-            <p className="text-sm text-muted-foreground">সীমিত সময়ের জন্য বিশেষ ছাড়!</p>
+            <p className="text-sm text-muted-foreground">
+              {couponCode ? `সীমিত সময়ের জন্য বিশেষ ছাড়! কুপন কোড: ${couponCode}` : "সীমিত সময়ের জন্য বিশেষ ছাড়!"}
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">শেষ হতে বাকি:</span>
-            {[
-              { value: timeLeft.hours, label: "ঘণ্টা" },
-              { value: timeLeft.minutes, label: "মিনিট" },
-              { value: timeLeft.seconds, label: "সেকেন্ড" },
-            ].map(({ value, label }) => (
-              <div key={label} className="flex flex-col items-center">
-                <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-primary font-display text-xl font-extrabold text-primary-foreground shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)]">
-                  {String(value).padStart(2, "0")}
-                </span>
-                <span className="mt-1.5 text-[10px] font-medium text-muted-foreground">{label}</span>
-              </div>
-            ))}
-          </div>
+          {showCountdown && (
+            <div className="flex items-center gap-3">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">শেষ হতে বাকি:</span>
+              {[
+                ...(timeLeft.days > 0 ? [{ value: timeLeft.days, label: "দিন" }] : []),
+                { value: timeLeft.hours, label: "ঘণ্টা" },
+                { value: timeLeft.minutes, label: "মিনিট" },
+                { value: timeLeft.seconds, label: "সেকেন্ড" },
+              ].map(({ value, label }) => (
+                <div key={label} className="flex flex-col items-center">
+                  <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-primary font-display text-xl font-extrabold text-primary-foreground shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)]">
+                    {String(value).padStart(2, "0")}
+                  </span>
+                  <span className="mt-1.5 text-[10px] font-medium text-muted-foreground">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollSnapType: "x mandatory" }}>

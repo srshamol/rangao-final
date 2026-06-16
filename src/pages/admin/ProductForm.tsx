@@ -176,6 +176,25 @@ interface SpecItem {
   value: string;
 }
 
+const DEFAULT_FAQS = [
+  {
+    question: "ডেলিভারি চার্জ কত এবং কত সময় লাগবে?",
+    answer: "ঢাকা সিটির ভেতরে ডেলিভারি চার্জ ৬০ টাকা (১-২ দিন) এবং ঢাকা সিটির বাইরে ১৫০ টাকা (৩-৫ দিন)।"
+  },
+  {
+    question: "প্রোডাক্ট কি ক্যাশ অন ডেলিভারি পাওয়া যাবে?",
+    answer: "জি, সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (Cash on Delivery) সুবিধা রয়েছে। প্রোডাক্ট হাতে পেয়ে মূল্য পরিশোধ করতে পারবেন।"
+  },
+  {
+    question: "অর্ডার কনফার্ম করার জন্য কি অগ্রিম পেমেন্ট করতে হবে?",
+    answer: "না, কাস্টমাইজড প্রোডাক্ট ছাড়া সাধারণ প্রোডাক্ট অর্ডারের ক্ষেত্রে কোনো অগ্রিম পেমেন্ট করতে হবে না।"
+  },
+  {
+    question: "প্রোডাক্টে কোনো সমস্যা থাকলে কি রিটার্ন করা যাবে?",
+    answer: "জি, ডেলিভারি ম্যান থাকা অবস্থায় প্রোডাক্ট চেক করে দেখে নিতে পারবেন। কোনো ডিফেক্ট থাকলে সাথে সাথে রিটার্ন করতে পারবেন।"
+  }
+];
+
 export default function ProductForm() {
   const { id } = useParams();
   const isEdit = !!id && id !== "new" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -274,7 +293,9 @@ export default function ProductForm() {
     canonical_url: "",
   });
   const [isUrlEdited, setIsUrlEdited] = useState(false);
-  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>([{ question: "", answer: "" }]);
+  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>(
+    isEdit ? [{ question: "", answer: "" }] : DEFAULT_FAQS
+  );
 
   // Load SEO & FAQ settings
   useEffect(() => {
