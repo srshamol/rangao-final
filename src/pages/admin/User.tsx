@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Search, Phone, MessageCircle, Activity, Monitor, Clock, UserCheck, LogIn, Trash2, Ban, Unlock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -452,7 +453,7 @@ export default function UserManagement() {
                             )}
                             {c.phone && (
                               <a href={`https://wa.me/88${c.phone.replace(/^0/, "")}`} target="_blank" rel="noopener noreferrer">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:bg-green-50" title="হোয়াটসঅ্যাপ"><MessageCircle className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:bg-green-50" title="হোয়াটসঅ্যাপ"><WhatsAppIcon className="h-4 w-4" /></Button>
                               </a>
                             )}
                             

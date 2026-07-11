@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { checkOrderAllowed, getClientIP } from "@/lib/orderControl";
 
@@ -745,7 +746,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
                 }}
                 className="shrink-0 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#20ba56] transition-colors flex items-center gap-1.5"
               >
-                <MessageCircle className="h-3.5 w-3.5" />
+                <WhatsAppIcon className="h-3.5 w-3.5" />
                 WhatsApp
               </button>
             )}

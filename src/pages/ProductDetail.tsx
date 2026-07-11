@@ -16,6 +16,7 @@ import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import CodOrderModal from "@/components/CodOrderModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -870,7 +871,7 @@ const ProductDetail = () => {
                               className="group w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 py-6.5 text-sm font-bold text-white shadow-[0_4px_15px_-3px_rgba(16,185,129,0.35)] transition-all duration-300 hover:from-emerald-500 hover:to-green-500 hover:shadow-[0_8px_25px_-3px_rgba(16,185,129,0.55)] cursor-pointer"
                             >
                               <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
-                                <MessageCircle className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                                <WhatsAppIcon className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                                 {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার" : "WhatsApp এ অর্ডার"}
                               </a>
                             </Button>
@@ -1233,33 +1234,49 @@ const ProductDetail = () => {
 
           {/* Sticky Bottom CTA (Mobile) */}
           {!codModalOpen && (
-            <div className="mobile-sticky-cta fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
-              <div className="flex gap-2.5">
+            <div className="mobile-sticky-cta fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
+              <div className="flex items-center gap-2.5">
+                {/* Add to Cart Icon Button */}
                 <Button
-                  size="default"
-                  className={`h-11.5 flex-1 rounded-xl text-[10px] sm:text-xs font-bold border ${
+                  size="icon"
+                  className={`h-12 w-12 rounded-xl border shrink-0 [&_svg]:!size-[22px] ${
                     product.stock === 0
-                      ? "bg-purple-600 text-white border-purple-500/20 hover:bg-purple-700"
-                      : "bg-gradient-to-r from-accent to-accent/90 text-accent-foreground border-accent/10 hover:from-accent/95 hover:to-accent/85"
+                      ? "bg-purple-600/10 text-purple-600 border-purple-500/20 hover:bg-purple-600/20"
+                      : "bg-accent/15 text-accent border-accent/20 hover:bg-accent/25"
                   }`}
                   onClick={() => {
                     addToCart(product, quantity);
                     analytics.addToCart(product as any, quantity);
                     toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
                   }}
+                  title="কার্টে যোগ করুন"
                 >
-                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" /> {product.stock === 0 ? "কার্টে (প্রি-অর্ডার)" : "কার্টে যোগ করুন"}
+                  <ShoppingCart className="h-[22px] w-[22px]" />
                 </Button>
+
+                {/* Order Now (Highlighted) */}
                 <Button
                   size="default"
-                  className={`h-11.5 flex-[1.2] rounded-xl text-[10px] sm:text-xs font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] ${
+                  className={`h-12 flex-1 rounded-xl text-sm sm:text-base font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] [&_svg]:!size-[20px] ${
                     product.stock === 0
                       ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
                       : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54]"
                   }`}
                   onClick={() => setCodModalOpen(true)}
                 >
-                  <Banknote className="mr-1.5 h-4 w-4 shrink-0" /> {product.stock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
+                  <Banknote className="mr-2 h-[20px] w-[20px] shrink-0" /> {product.stock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
+                </Button>
+
+                {/* Order on WhatsApp Icon Button */}
+                <Button
+                  asChild
+                  size="icon"
+                  className="h-12 w-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_3px_15px_-3px_rgba(16,185,129,0.3)] shrink-0 cursor-pointer [&_svg]:!size-[22px]"
+                  title="WhatsApp এ অর্ডার করুন"
+                >
+                  <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                    <WhatsAppIcon className="h-[22px] w-[22px]" />
+                  </a>
                 </Button>
               </div>
             </div>

@@ -41,6 +41,7 @@ interface PaymentMethods {
   uddoktapay?: boolean;
   uddoktapay_api_key?: string;
   uddoktapay_base_url?: string;
+  uddoktapay_display_name?: string;
 }
 
 interface CourierSettings {
@@ -108,7 +109,7 @@ export default function AdminSettings() {
     delivery_time_inside: "৩-৫ কার্যদিবস",
     delivery_time_outside: "৫-৭ কার্যদিবস"
   });
-  const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "", uddoktapay: false, uddoktapay_api_key: "", uddoktapay_base_url: "" });
+  const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "", uddoktapay: false, uddoktapay_api_key: "", uddoktapay_base_url: "", uddoktapay_display_name: "" });
   
   const [courier, setCourier] = useState<CourierSettings>({ 
     default_courier: "steadfast", 
@@ -1247,6 +1248,10 @@ export default function AdminSettings() {
                   </div>
                   {(payment.uddoktapay) && (
                     <div className="space-y-4 pl-3 border-l-2 border-accent">
+                      <div className="space-y-2">
+                        <Label className="text-xs">UddoktaPay Display Name (গ্রাহক পেমেন্ট করার সময় যা দেখবে, যেমন: অনলাইন পেমেন্ট, Pay Now)</Label>
+                        <Input value={payment.uddoktapay_display_name || ""} onChange={e => setPayment(p => ({ ...p, uddoktapay_display_name: e.target.value }))} placeholder="অনলাইন পেমেন্ট (Pay Now)" />
+                      </div>
                       <div className="space-y-2">
                         <Label className="text-xs">UddoktaPay Base URL (e.g. https://sandbox.uddoktapay.com or live URL)</Label>
                         <Input value={payment.uddoktapay_base_url || ""} onChange={e => setPayment(p => ({ ...p, uddoktapay_base_url: e.target.value }))} placeholder="https://sandbox.uddoktapay.com" />

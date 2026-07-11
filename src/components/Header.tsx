@@ -14,6 +14,7 @@ import MobileSearch from "./mobile/MobileSearch";
 import MobileBottomBar from "./mobile/MobileBottomBar";
 import AnnouncementBar from "./AnnouncementBar";
 import { getProductUrl } from "@/lib/utils";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 
 const iconMap: Record<string, React.ElementType> = { Image, Key, Sparkles, Heart, Layers, Lightbulb, Gift, Palette };
 
@@ -644,7 +645,7 @@ const Header = () => {
                 <div className="mt-3 border-t border-primary-foreground/8 pt-4">
                   <Button asChild className="w-full rounded-full bg-success font-semibold text-success-foreground hover:bg-success/90">
                     <a href={getWhatsAppLink()} target="_blank" rel="noopener noreferrer">
-                      <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp এ যোগাযোগ করুন
+                      <WhatsAppIcon className="mr-2 h-4 w-4" /> WhatsApp এ যোগাযোগ করুন
                     </a>
                   </Button>
                 </div>

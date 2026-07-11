@@ -2,8 +2,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Phone, ShieldCheck, Truck } from "lucide-react";
+import { Phone, ShieldCheck, Truck } from "lucide-react";
 import { type Product, formatPrice, getStockLabel, getWhatsAppLink, PHONE_NUMBER } from "@/data/products";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 
 interface Props {
   product: Product | null;
@@ -91,7 +92,7 @@ const ProductDetailModal = ({ product, open, onClose }: Props) => {
               size="lg"
             >
               <a href={getWhatsAppLink(product.name, product.stock === 0)} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="mr-2 h-5 w-5" /> {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার করুন" : "WhatsApp এ অর্ডার করুন"}
+                <WhatsAppIcon className="mr-2 h-5 w-5" /> {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার করুন" : "WhatsApp এ অর্ডার করুন"}
               </a>
             </Button>
             <Button

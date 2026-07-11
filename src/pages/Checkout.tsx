@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { Trash2, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, Loader2, AlertCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import {
   Dialog,
   DialogContent,
@@ -342,7 +343,7 @@ const Checkout = () => {
             thana: form.thana,
             address: form.address,
           },
-          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "অনলাইন পেমেন্ট (UddoktaPay)" : payment === "bkash" ? "bKash" : "Nagad",
+          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? (storeSettings?.paymentMethods?.uddoktapay_display_name || "অনলাইন পেমেন্ট") : payment === "bkash" ? "bKash" : "Nagad",
           subtotal,
           delivery_charge: deliveryCharge,
           total_amount: total,
@@ -385,7 +386,7 @@ const Checkout = () => {
           `<b>গ্রাহকের নাম:</b> ${form.name}\n` +
           `<b>মোবাইল:</b> ${form.phone}\n` +
           `<b>ঠিকানা:</b> ${form.address}, ${form.thana || ""}, ${form.district || ""}, ${form.division}\n` +
-          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "অনলাইন পেমেন্ট (UddoktaPay)" : payment === "bkash" ? "bKash" : "Nagad"}\n\n` +
+          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? (storeSettings?.paymentMethods?.uddoktapay_display_name || "অনলাইন পেমেন্ট") : payment === "bkash" ? "bKash" : "Nagad"}\n\n` +
           `<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
           `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
           `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
@@ -676,7 +677,7 @@ const Checkout = () => {
                 }}
                 className="shrink-0 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#20ba56] transition-colors flex items-center gap-1.5"
               >
-                <MessageCircle className="h-3.5 w-3.5" />
+                <WhatsAppIcon className="h-3.5 w-3.5" />
                 WhatsApp
               </button>
             )}
@@ -790,7 +791,7 @@ const Checkout = () => {
                   <div className="flex flex-wrap justify-center items-stretch gap-2.5 sm:gap-4">
                     {([
                       { id: "cod" as const, label: "ক্যাশ অন ডেলিভারি", icon: Banknote, enabled: activePayments.cod },
-                      { id: "uddoktapay" as const, label: "অনলাইন পেমেন্ট", icon: CreditCard, enabled: activePayments.uddoktapay },
+                      { id: "uddoktapay" as const, label: storeSettings?.paymentMethods?.uddoktapay_display_name || "অনলাইন পেমেন্ট", icon: CreditCard, enabled: activePayments.uddoktapay },
                       { id: "bkash" as const, label: "bKash", icon: Smartphone, enabled: activePayments.bkash },
                       { id: "nagad" as const, label: "Nagad", icon: CreditCard, enabled: activePayments.nagad },
                     ]).filter(p => p.enabled).map(({ id, label, icon: Icon }) => (

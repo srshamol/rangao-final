@@ -273,6 +273,7 @@ export interface PaymentMethods {
   uddoktapay?: boolean;
   uddoktapay_api_key?: string;
   uddoktapay_base_url?: string;
+  uddoktapay_display_name?: string;
 }
 
 const DEFAULT_SECTION_ORDER: HomepageSectionOrder[] = [
@@ -346,7 +347,8 @@ const defaults = {
     nagad_number: "",
     uddoktapay: false,
     uddoktapay_api_key: "",
-    uddoktapay_base_url: ""
+    uddoktapay_base_url: "",
+    uddoktapay_display_name: "অনলাইন পেমেন্ট (Pay Now)"
   } as PaymentMethods,
   homepage_sections: {
     show_categories: true,

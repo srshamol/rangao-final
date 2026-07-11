@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Phone, MessageCircle, Mail, Pencil, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 
 interface Props { order: any; items: any[]; }
 
@@ -146,7 +147,7 @@ export default function OrderOverviewTab({ order, items }: Props) {
               </a>
               <a href={`https://wa.me/88${order.customer_phone.replace(/^0/, "")}`} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="gap-1.5 text-green-600">
-                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                  <WhatsAppIcon className="h-3.5 w-3.5" /> WhatsApp
                 </Button>
               </a>
               {order.customer_email && (
