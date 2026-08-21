@@ -412,6 +412,23 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
       );
     });
 
+    it("should trigger AddToWishlist event with product payload", () => {
+      const item = { id: "wish-1", sku: "RNG-WISH-01", name: "Ayatul Kursi Wood", price: 1200, category: "Islamic" };
+      const eventId = trackAddToWishlist(item);
+
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "AddToWishlist",
+        expect.objectContaining({
+          content_ids: ["RNG-WISH-01"],
+          content_name: "Ayatul Kursi Wood",
+          value: 1200,
+          currency: "BDT",
+        }),
+        { eventID: eventId }
+      );
+    });
+
     it("should trigger Contact and Custom events", () => {
       const contactEventId = trackContact("whatsapp");
       expect(window.fbq).toHaveBeenCalledWith(

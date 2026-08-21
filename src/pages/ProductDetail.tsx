@@ -697,6 +697,15 @@ const ProductDetail = () => {
                           whileTap={{ scale: 0.85 }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (!liked && product) {
+                              analytics.addToWishlist({
+                                id: product.id,
+                                sku: (product as any).sku || product.id,
+                                name: product.name,
+                                price: product.price,
+                                category: (product as any).categoryLabel || product.category || "General",
+                              });
+                            }
                             setLiked(!liked);
                             toast.success(liked ? "পছন্দ তালিকা থেকে সরানো হয়েছে" : "পছন্দ তালিকায় যোগ হয়েছে");
                           }}
@@ -891,7 +900,13 @@ const ProductDetail = () => {
                               size="lg"
                               className="group w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 py-6.5 text-sm font-bold text-white shadow-[0_4px_15px_-3px_rgba(16,185,129,0.35)] transition-all duration-300 hover:from-emerald-500 hover:to-green-500 hover:shadow-[0_8px_25px_-3px_rgba(16,185,129,0.55)] cursor-pointer"
                             >
-                              <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                              <a
+                                href={dynamicWhatsAppLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => analytics.contact("whatsapp")}
+                                className="flex items-center justify-center"
+                              >
                                 <WhatsAppIcon className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                                 {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার" : "WhatsApp এ অর্ডার"}
                               </a>
@@ -1295,7 +1310,13 @@ const ProductDetail = () => {
                   className="h-12 w-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_3px_15px_-3px_rgba(16,185,129,0.3)] shrink-0 cursor-pointer [&_svg]:!size-[22px]"
                   title="WhatsApp এ অর্ডার করুন"
                 >
-                  <a href={dynamicWhatsAppLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                  <a
+                    href={dynamicWhatsAppLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => analytics.contact("whatsapp")}
+                    className="flex items-center justify-center"
+                  >
                     <WhatsAppIcon className="h-[22px] w-[22px]" />
                   </a>
                 </Button>

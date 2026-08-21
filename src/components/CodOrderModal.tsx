@@ -13,6 +13,7 @@ import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { checkOrderAllowed, getClientIP } from "@/lib/orderControl";
 import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
+import { analytics } from "@/services/analytics";
 
 interface Props {
   open: boolean;
@@ -69,6 +70,30 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     };
     fetchSmsSettings();
   }, []);
+
+  // Track InitiateCheckout on modal open
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (open && product && !checkoutTracked.current) {
+      analytics.beginCheckout(
+        [
+          {
+            id: product.id,
+            sku: product.sku || product.id,
+            name: product.name,
+            price: product.price,
+            quantity: localQuantity,
+            category: (product as any).categoryLabel || product.category || "General",
+          },
+        ],
+        product.price * localQuantity
+      );
+      checkoutTracked.current = true;
+    }
+    if (!open) {
+      checkoutTracked.current = false;
+    }
+  }, [open, product, localQuantity]);
 
   // OTP Resend timer countdown
   useEffect(() => {
@@ -402,6 +427,22 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
       const normalizedPhone = normalizeBDPhone(phone);
 
+      // Track AddPaymentInfo event
+      analytics.addPaymentInfo(
+        [
+          {
+            id: product.id,
+            sku: product.sku || product.id,
+            name: product.name,
+            price: product.price,
+            quantity: localQuantity,
+            category: (product as any)?.categoryLabel || product.category || "General",
+          },
+        ],
+        total,
+        payment === "cod" ? "COD" : payment === "uddoktapay" ? "Online" : payment === "bkash" ? "bKash" : "Nagad"
+      );
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -723,6 +764,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
         toast.success("আপনার ফোন ভেরিফিকেশন সফল হয়েছে!");
         setIsOtpVerified(true);
         setOtpModalOpen(false);
+        analytics.completeRegistration("phone_otp", { phone, fullName: name });
         setSubmitting(true);
         await completeOrderCreation(clientIP);
       }

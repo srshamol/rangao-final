@@ -35,6 +35,11 @@ const FloatingWhatsApp = () => {
         href={link}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => {
+          import("@/services/analytics").then(({ analytics }) => {
+            analytics.contact("whatsapp");
+          });
+        }}
         className="flex h-14 w-14 items-center justify-center rounded-full bg-success text-success-foreground shadow-lg animate-pulse-glow transition-transform hover:scale-110 active:scale-95"
         aria-label="WhatsApp এ যোগাযোগ করুন"
       >

@@ -15,6 +15,7 @@ import MobileBottomBar from "./mobile/MobileBottomBar";
 import AnnouncementBar from "./AnnouncementBar";
 import { getProductUrl } from "@/lib/utils";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { analytics } from "@/services/analytics";
 
 const iconMap: Record<string, React.ElementType> = { Image, Key, Sparkles, Heart, Layers, Lightbulb, Gift, Palette };
 
@@ -117,17 +118,6 @@ const Header = () => {
   useEffect(() => {
     if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
-
-  useEffect(() => {
-    if (searchQuery.trim().length > 1) {
-      const delayDebounceFn = setTimeout(() => {
-        import("@/lib/tracking").then(({ trackSearch }) => {
-          trackSearch(searchQuery);
-        });
-      }, 1000); // Debounce to avoid flooding tracking events
-      return () => clearTimeout(delayDebounceFn);
-    }
-  }, [searchQuery]);
 
   const getCatCount = (slug: string) => products.filter(p => p.category === slug).length;
 
@@ -398,6 +388,7 @@ const Header = () => {
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (searchQuery.trim().length > 0) {
+                      analytics.search(searchQuery.trim());
                       navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
                       setSearchOpen(false);
                       setSearchQuery("");
@@ -512,6 +503,7 @@ const Header = () => {
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (searchQuery.trim().length > 0) {
+                      analytics.search(searchQuery.trim());
                       navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
                       setMobileOpen(false);
                       setSearchQuery("");

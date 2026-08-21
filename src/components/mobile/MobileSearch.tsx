@@ -3,7 +3,7 @@ import { Search, X, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProductUrl } from "@/lib/utils";
-
+import { analytics } from "@/services/analytics";
 
 interface Props {
   isOpen: boolean;
@@ -37,17 +37,6 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (query.trim().length > 1) {
-      const delayDebounceFn = setTimeout(() => {
-        import("@/lib/tracking").then(({ trackSearch }) => {
-          trackSearch(query);
-        });
-      }, 1000);
-      return () => clearTimeout(delayDebounceFn);
-    }
-  }, [query]);
 
   useEffect(() => {
     if (isOpen) {
@@ -102,6 +91,7 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
 
   const handleSearchSubmit = () => {
     if (query.trim().length > 0) {
+      analytics.search(query.trim());
       onClose();
       navigate(`/products?search=${encodeURIComponent(query.trim())}`);
     }
