@@ -85,12 +85,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.rangao.bd/3d/3d-subhanallahi-wabihamdihi-3d-bordered-islamic-wall-canvas</loc>
-    <lastmod>2026-08-21</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://www.rangao.bd/product/a24f03aa-5d4d-4a59-a18b-488efcb27a37</loc>
     <lastmod>2026-07-26</lastmod>
     <changefreq>daily</changefreq>
@@ -134,6 +128,12 @@
   </url>
   <url>
     <loc>https://www.rangao.bd/3d/3d-bismillah-3d-bordered-islamic-wall-canvas</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.rangao.bd/3d/3d-subhanallahi-wabihamdihi-3d-bordered-islamic-wall-canvas</loc>
     <lastmod>2026-08-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>

@@ -317,6 +317,8 @@ export function trackPurchase(
   if (!pixelSuccess) {
     console.error("[Meta Purchase] Failed to dispatch browser Meta Pixel Purchase event.");
     return "";
+  } else {
+    console.log("[Meta Purchase] Purchase event successfully handed to Meta Pixel queue (idempotency recorded).");
   }
 
   // 2. Relay to CAPI endpoint asynchronously

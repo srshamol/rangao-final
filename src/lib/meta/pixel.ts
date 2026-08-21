@@ -11,6 +11,21 @@ declare global {
 let activePixelId: string | null = null;
 let isLoaded = false;
 
+// 0. Ensure fbq queue is defined immediately at module load to prevent race conditions
+if (typeof window !== "undefined") {
+  const win = window as any;
+  if (!win.fbq) {
+    const n: any = (win.fbq = function () {
+      n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+    });
+    if (!win._fbq) win._fbq = n;
+    n.push = n;
+    n.loaded = true;
+    n.version = "2.0";
+    n.queue = [];
+  }
+}
+
 /**
  * Validates a Meta Pixel ID format (must be numeric, non-placeholder, not in invalid list).
  */
@@ -37,6 +52,7 @@ export function initMetaPixel(pixelId?: string, options?: { autoPageView?: boole
   const win = window as any;
   const doc = document;
 
+  // 1. Ensure queue exists (fallback)
   if (!win.fbq) {
     const n: any = (win.fbq = function () {
       n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
@@ -46,8 +62,13 @@ export function initMetaPixel(pixelId?: string, options?: { autoPageView?: boole
     n.loaded = true;
     n.version = "2.0";
     n.queue = [];
+  }
 
+  // 2. Inject script only once
+  const scriptId = "meta-pixel-script";
+  if (typeof doc.getElementById === "function" && !doc.getElementById(scriptId)) {
     const script = doc.createElement("script");
+    script.id = scriptId;
     script.async = true;
     script.src = "https://connect.facebook.net/en_US/fbevents.js";
     const firstScript = doc.getElementsByTagName("script")[0];
@@ -81,11 +102,6 @@ export function trackPixelEvent(
 ): boolean {
   if (typeof window === "undefined") return false;
   const win = window as any;
-
-  if (typeof win.fbq !== "function") {
-    console.warn(`[Meta Pixel] fbq not defined on window. Event ${eventName} skipped.`);
-    return false;
-  }
 
   try {
     const sanitizedParams: Record<string, any> = params ? { ...params } : {};
