@@ -92,52 +92,8 @@ export default function OptimizedImage({
     return { avif: null, webp: null, fallback: src, isOptimized: false };
   }, [src, metadata]);
 
-  // Inject preload hint synchronously (not in useEffect) so it fires before paint.
-  // IMPORTANT: The preload link's `href` must match the URL the browser actually downloads
-  // from the <picture><source> element, otherwise the browser warns "preloaded but not used".
-  // When imagesrcset is set, the browser picks a candidate based on viewport — we set href to
-  // the 1600w candidate (the most likely winner for full-width hero images) so it can match.
-  if (
-    typeof window !== "undefined" &&
-    loading === "eager" &&
-    fetchPriority === "high" &&
-    sources.fallback
-  ) {
-    // Key the dedup check on the src so each unique image gets exactly one preload
-    const existingPreload = document.querySelector(`link[rel="preload"][data-src="${sources.fallback}"]`);
-    if (!existingPreload) {
-      const link = document.createElement("link");
-      link.rel = "preload";
-      link.as = "image";
-      // Tag for dedup — avoids double-injecting for the same src on re-renders
-      link.setAttribute("data-src", sources.fallback);
-
-      if (sources.avif) {
-        // Extract the 1600w AVIF URL as the primary href so the browser can match it
-        const avifEntries = sources.avif.split(",").map((s) => s.trim());
-        const candidate1600 = avifEntries.find((s) => s.includes("1600w")) || avifEntries[avifEntries.length - 1];
-        const candidateUrl = candidate1600.split(" ")[0];
-        link.href = candidateUrl;
-        link.setAttribute("imagesrcset", sources.avif);
-        link.setAttribute("imagesizes", sizes as string);
-        link.setAttribute("type", "image/avif");
-      } else if (sources.webp) {
-        const webpEntries = sources.webp.split(",").map((s) => s.trim());
-        const candidate1600 = webpEntries.find((s) => s.includes("1600w")) || webpEntries[webpEntries.length - 1];
-        const candidateUrl = candidate1600.split(" ")[0];
-        link.href = candidateUrl;
-        link.setAttribute("imagesrcset", sources.webp);
-        link.setAttribute("imagesizes", sizes as string);
-        link.setAttribute("type", "image/webp");
-      } else {
-        link.href = sources.fallback;
-      }
-
-      link.setAttribute("fetchpriority", "high");
-      document.head.prepend(link); // prepend = highest priority
-    }
-  }
-
+  // Native <picture> + <img loading="eager" fetchPriority="high"> provides optimal LCP loading
+  // without creating mismatching DOM link preload warnings.
 
 
   // Handle visual properties to prevent layout shifts (CLS)

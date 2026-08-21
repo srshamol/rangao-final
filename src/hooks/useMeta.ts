@@ -114,25 +114,8 @@ export function useMeta({
       return originalUrl;
     };
 
-    // 7. Dynamic Preloading for Hero / LCP Images
-    let preloadLink: HTMLLinkElement | null = null;
-    if (preloadImage) {
-      preloadLink = document.createElement("link");
-      preloadLink.rel = "preload";
-      preloadLink.as = "image";
-      preloadLink.href = getProxyUrl(preloadImage, 1200);
-      preloadLink.setAttribute(
-        "imagesrcset",
-        `${getProxyUrl(preloadImage, 640)} 640w, ${getProxyUrl(preloadImage, 1200)} 1200w`
-      );
-      preloadLink.setAttribute("imagesizes", "100vw");
-      document.head.appendChild(preloadLink);
-    }
-
-    return () => {
-      if (preloadLink && preloadLink.parentNode) {
-        preloadLink.parentNode.removeChild(preloadLink);
-      }
-    };
+    // 7. Cleanup on unmount if needed
+    return () => {};
   }, [title, description, image, url, type, noindex, preloadImage, product]);
 }
+
