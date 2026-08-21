@@ -627,6 +627,8 @@ const OrderSuccess = () => {
         if (dispatchedEventId) {
           markPurchaseTracked(currentOrderNumber);
           console.log(`[Meta Purchase] Successfully dispatched & recorded idempotency for: ${currentOrderNumber} (${dispatchedEventId})`);
+        } else {
+          console.warn(`[Meta Purchase] Purchase event dispatch was skipped or failed validation for: ${currentOrderNumber}`);
         }
       } catch (err) {
         console.error("[Meta Purchase] Error during purchase tracking execution:", err);

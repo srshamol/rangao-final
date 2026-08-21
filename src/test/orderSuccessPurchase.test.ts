@@ -28,6 +28,7 @@ describe("OrderSuccess Meta Purchase Tracking & Idempotency", () => {
     sessionStorage.clear();
     localStorage.clear();
     vi.clearAllMocks();
+    (window as any).fbq = vi.fn();
   });
 
   afterEach(() => {

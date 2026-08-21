@@ -270,65 +270,94 @@ export function trackPurchase(
   },
   explicitEventId?: string
 ): string {
-  const finalEventId = explicitEventId || generatePurchaseEventId(order.orderNumber);
-  const contents = normalizeContents(order.items);
-  const contentIds = extractContentIds(order.items);
-  
-  let finalTotal = normalizePrice(order.total);
-  if (finalTotal <= 0 && Array.isArray(order.items) && order.items.length > 0) {
-    const itemsSum = order.items.reduce((sum, i) => sum + (normalizePrice(i.price ?? (i as any).unitPrice ?? 0) * (i.quantity || 1)), 0);
-    finalTotal = normalizePrice(itemsSum);
-  }
-  if (finalTotal <= 0) {
-    finalTotal = 1;
+  if (!order || !order.orderNumber || typeof order.orderNumber !== "string") {
+    console.error("[Meta Purchase] Cannot track purchase: invalid order or missing orderNumber");
+    return "";
   }
 
-  const numItems = order.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+  const cleanOrderNumber = order.orderNumber.trim();
+  if (!cleanOrderNumber) {
+    console.error("[Meta Purchase] Cannot track purchase: empty orderNumber");
+    return "";
+  }
+
+  let finalTotal = normalizePrice(order.total);
+  if (finalTotal <= 0 && Array.isArray(order.items) && order.items.length > 0) {
+    const itemsSum = order.items.reduce(
+      (sum, i) => sum + (normalizePrice(i.price ?? (i as any).unitPrice ?? 0) * (i.quantity || 1)),
+      0
+    );
+    finalTotal = normalizePrice(itemsSum);
+  }
+  if (finalTotal <= 0 || !Number.isFinite(finalTotal)) {
+    console.error("[Meta Purchase] Invalid purchase value:", order.total);
+    return "";
+  }
+
+  const finalEventId = explicitEventId ? explicitEventId.trim() : generatePurchaseEventId(cleanOrderNumber);
+  const contents = normalizeContents(order.items);
+  const contentIds = extractContentIds(order.items);
+
+  const numItems = order.items && Array.isArray(order.items) && order.items.length > 0
+    ? order.items.reduce((sum, i) => sum + (i.quantity || 1), 0)
+    : 1;
 
   const customData: MetaCustomData = {
     content_ids: contentIds,
     content_type: DEFAULT_CONTENT_TYPE,
     contents,
     value: finalTotal,
-    currency: DEFAULT_CURRENCY,
+    currency: "BDT",
     num_items: numItems,
-    order_id: order.orderNumber,
+    order_id: cleanOrderNumber,
   };
 
   // 1. Browser Meta Pixel
-  trackPixelEvent(META_STANDARD_EVENTS.PURCHASE, customData, finalEventId);
+  const pixelSuccess = trackPixelEvent(META_STANDARD_EVENTS.PURCHASE, customData, finalEventId);
+  if (!pixelSuccess) {
+    console.error("[Meta Purchase] Failed to dispatch browser Meta Pixel Purchase event.");
+    return "";
+  }
 
   // 2. Relay to CAPI endpoint asynchronously
-  const attribution = getAttributionContext();
-  const userDataPayload: RawUserData = {
-    ...(order.customer || {}),
-    fbp: attribution.fbp,
-    fbc: attribution.fbc,
-  };
+  try {
+    const attribution = getAttributionContext();
+    const userDataPayload: RawUserData = {
+      ...(order.customer || {}),
+      fbp: attribution.fbp,
+      fbc: attribution.fbc,
+    };
 
-  relayClientEventToCapi({
-    event_name: META_STANDARD_EVENTS.PURCHASE,
-    event_id: finalEventId,
-    order_id: order.orderId || order.orderNumber,
-    custom_data: customData,
-    user_data: userDataPayload,
-  });
+    relayClientEventToCapi({
+      event_name: META_STANDARD_EVENTS.PURCHASE,
+      event_id: finalEventId,
+      order_id: order.orderId || cleanOrderNumber,
+      custom_data: customData,
+      user_data: userDataPayload,
+    });
+  } catch (relayErr) {
+    console.warn("[Meta Purchase] CAPI relay error (non-blocking):", relayErr);
+  }
 
   // 3. Centralized dataLayer
-  pushToDataLayer("purchase", {
-    ecommerce: {
-      transaction_id: order.orderNumber,
-      currency: DEFAULT_CURRENCY,
-      value: finalTotal,
-      items: order.items.map((i) => ({
-        item_id: i.sku || i.id,
-        item_name: i.name || "",
-        item_category: i.category || "General",
-        price: normalizePrice(i.price),
-        quantity: i.quantity || 1,
-      })),
-    },
-  }, { eventId: finalEventId });
+  try {
+    pushToDataLayer("purchase", {
+      ecommerce: {
+        transaction_id: cleanOrderNumber,
+        currency: "BDT",
+        value: finalTotal,
+        items: (order.items || []).map((i) => ({
+          item_id: String(i.sku || i.id || "item"),
+          item_name: i.name || "",
+          item_category: i.category || "General",
+          price: normalizePrice(i.price),
+          quantity: i.quantity || 1,
+        })),
+      },
+    }, { eventId: finalEventId });
+  } catch (dlErr) {
+    console.warn("[Meta Purchase] dataLayer push error (non-blocking):", dlErr);
+  }
 
   return finalEventId;
 }
