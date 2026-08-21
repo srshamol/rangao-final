@@ -81,13 +81,21 @@ export function trackPixelEvent(
   try {
     const sanitizedParams = params ? { ...params } : {};
 
-    // Strictly enforce valid currency & numeric value according to Meta standards
-    if ("currency" in sanitizedParams) {
+    // Purchase event strictly requires both a valid numeric value (> 0) and currency code in Meta specifications
+    if (eventName === "Purchase") {
       sanitizedParams.currency = "BDT";
-    }
-    if ("value" in sanitizedParams) {
-      const v = typeof sanitizedParams.value === "number" ? sanitizedParams.value : parseFloat(String(sanitizedParams.value).replace(/[^0-9.-]+/g, ""));
-      sanitizedParams.value = Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0;
+      let numVal = typeof sanitizedParams.value === "number"
+        ? sanitizedParams.value
+        : parseFloat(String(sanitizedParams.value || "").replace(/[^0-9.-]+/g, ""));
+      sanitizedParams.value = Number.isFinite(numVal) && numVal > 0 ? Math.round(numVal * 100) / 100 : 1;
+    } else {
+      if ("currency" in sanitizedParams) {
+        sanitizedParams.currency = "BDT";
+      }
+      if ("value" in sanitizedParams) {
+        const v = typeof sanitizedParams.value === "number" ? sanitizedParams.value : parseFloat(String(sanitizedParams.value).replace(/[^0-9.-]+/g, ""));
+        sanitizedParams.value = Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0;
+      }
     }
 
     if (eventId) {

@@ -77,10 +77,14 @@ export function trackPurchase(
   items: { id: string }[],
   total: number
 ) {
+  const cleanTotal = typeof total === "number" && Number.isFinite(total) && total > 0
+    ? Math.round(total * 100) / 100
+    : 1;
+
   fbq("track", "Purchase", {
-    value: total,
+    value: cleanTotal,
     currency: "BDT",
-    content_ids: items.map((i) => i.id),
+    content_ids: (items || []).map((i) => i.id).filter(Boolean),
     content_type: "product",
     order_id: orderId,
   }, {

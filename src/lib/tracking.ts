@@ -549,33 +549,34 @@ export function trackPurchase(
 ) {
   if (!activeConfig || !activeConfig.global_enabled) return;
 
-  // Ensure total is a valid clean number
-  const cleanTotal = typeof total === 'number' ? total : parseFloat(String(total));
-  const finalTotal = isNaN(cleanTotal) ? 0 : Number(cleanTotal.toFixed(2));
+  // Ensure total is a valid clean positive number
+  let cleanTotal = typeof total === 'number' ? total : parseFloat(String(total));
+  if (isNaN(cleanTotal) || cleanTotal <= 0) {
+    if (items && items.length > 0) {
+      cleanTotal = items.reduce((sum, i) => sum + ((i.price || 0) * (i.quantity || 1)), 0);
+    }
+  }
+  const finalTotal = isNaN(cleanTotal) || cleanTotal <= 0 ? 1 : Number(cleanTotal.toFixed(2));
 
   debugLog('general', "Purchase event triggered. Order:", orderId, "Total:", finalTotal);
 
-  const contentIds = items.map(i => i.id);
+  const contentIds = items.map(i => i.id).filter(Boolean);
 
   // Meta Pixel with Deduplication Event ID
   if (activeConfig.meta_pixel_enabled && window.fbq) {
-    debugLog('meta', "Sending Purchase event to fbq:", {
+    const metaPayload: Record<string, any> = {
       value: finalTotal,
       currency: "BDT",
       content_ids: contentIds,
       content_type: "product",
       order_id: orderId,
-    }, {
+    };
+
+    debugLog('meta', "Sending Purchase event to fbq:", metaPayload, {
       eventID: orderId
     });
 
-    window.fbq('track', 'Purchase', {
-      value: finalTotal,
-      currency: "BDT",
-      content_ids: contentIds,
-      content_type: "product",
-      order_id: orderId,
-    }, {
+    window.fbq('track', 'Purchase', metaPayload, {
       eventID: orderId, // Used for CAPI and Pixel deduplication
     });
   }

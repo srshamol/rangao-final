@@ -273,7 +273,16 @@ export function trackPurchase(
   const finalEventId = explicitEventId || generatePurchaseEventId(order.orderNumber);
   const contents = normalizeContents(order.items);
   const contentIds = extractContentIds(order.items);
-  const finalTotal = normalizePrice(order.total);
+  
+  let finalTotal = normalizePrice(order.total);
+  if (finalTotal <= 0 && Array.isArray(order.items) && order.items.length > 0) {
+    const itemsSum = order.items.reduce((sum, i) => sum + (normalizePrice(i.price ?? (i as any).unitPrice ?? 0) * (i.quantity || 1)), 0);
+    finalTotal = normalizePrice(itemsSum);
+  }
+  if (finalTotal <= 0) {
+    finalTotal = 1;
+  }
+
   const numItems = order.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
 
   const customData: MetaCustomData = {
