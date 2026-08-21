@@ -72,20 +72,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       process.env.META_PIXEL_ID ||
       process.env.NEXT_PUBLIC_META_PIXEL_ID ||
       process.env.VITE_META_PIXEL_ID ||
-      "18625836884445311";
+      "1862583688445311";
     let metaAccessToken = process.env.META_CAPI_ACCESS_TOKEN || "";
     let testEventCode = process.env.META_TEST_EVENT_CODE || "";
     let capiEnabled = true;
     let apiVersion = process.env.META_GRAPH_API_VERSION || DEFAULT_GRAPH_API_VERSION;
 
     try {
-      const { data: row } = await supabase
+      const { data: rows } = await supabase
         .from("store_settings")
-        .select("value")
-        .eq("key", "tracking_settings")
-        .maybeSingle();
+        .select("key, value")
+        .in("key", ["tracking_settings", "public_tracking_settings"]);
 
-      const trackingConfig = row?.value as any;
+      const trackingConfig = (rows?.find((r) => r.key === "tracking_settings")?.value ||
+        rows?.find((r) => r.key === "public_tracking_settings")?.value) as any;
+
       if (trackingConfig) {
         if (!process.env.META_PIXEL_ID && trackingConfig.meta_pixel_id) {
           metaPixelId = trackingConfig.meta_pixel_id;
@@ -347,6 +348,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: true,
+      status: "sent",
       event_id: finalEventId,
       events_received: result.events_received,
       fbtrace_id: result.fbtrace_id,
