@@ -47,19 +47,15 @@ export interface OrderState {
 // In-memory module-level set to prevent re-tracking across renders in same JS session
 const inMemoryTrackedOrders = new Set<string>();
 
-/**
- * Checks if a purchase event has already been tracked for this orderNumber
- * across in-memory, sessionStorage, and localStorage layers.
- */
-export function isPurchaseTracked(orderNumber: string): boolean {
-  if (!orderNumber || typeof orderNumber !== "string") return true;
+export function isPurchaseTracked(orderNumber?: string | null): boolean {
+  if (!orderNumber || typeof orderNumber !== "string") return false;
   const cleanOrderNumber = orderNumber.trim();
-  if (!cleanOrderNumber) return true;
+  if (!cleanOrderNumber) return false;
 
-  // 1. In-memory guard
+  // 1. In-memory guard (catches React StrictMode double mounts & rapid re-renders)
   if (inMemoryTrackedOrders.has(cleanOrderNumber)) return true;
 
-  // 2. SessionStorage guard
+  // 2. SessionStorage guard (catches in-tab navigations)
   try {
     if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(`meta_purchase_tracked_${cleanOrderNumber}`)) {
       return true;
@@ -68,7 +64,7 @@ export function isPurchaseTracked(orderNumber: string): boolean {
     // sessionStorage access fallback
   }
 
-  // 3. LocalStorage guard (bounded single key per order)
+  // 3. LocalStorage guard (bounded single key per order, catches refreshes)
   try {
     if (typeof localStorage !== "undefined") {
       if (localStorage.getItem(`meta_purchase_tracked_${cleanOrderNumber}`)) {
@@ -545,7 +541,7 @@ const OrderSuccess = () => {
     }
   }, [location.state, localOrder, orderNumber, invoiceId]);
 
-  // 3. Purchase tracking with multi-layered idempotency and strict mode respect
+  // 3. Purchase tracking with multi-layered idempotency and Browser + Server deduplication
   useEffect(() => {
     // 1. Guard against missing or invalid order
     if (!order || !order.orderNumber || typeof order.orderNumber !== "string") {
@@ -561,48 +557,35 @@ const OrderSuccess = () => {
       return;
     }
 
-    // 3. Guard against duplicate tracking across all storage layers & renders
+    // 3. For online payments, ensure payment is verified/completed
+    const isOnlinePayment = Boolean(
+      invoiceId ||
+      order.paymentMethod?.toLowerCase().includes("online") ||
+      order.paymentMethod?.toLowerCase().includes("uddoktapay")
+    );
+    if (isOnlinePayment && order.paymentStatus && order.paymentStatus !== "completed") {
+      console.log("[Meta Purchase] Skipped - online payment status is not completed:", order.paymentStatus);
+      return;
+    }
+
+    // 4. Guard against duplicate tracking across in-memory, session, and local storage
     if (isPurchaseTracked(currentOrderNumber)) {
       console.log(`[Meta Purchase] Skipped - already tracked: ${currentOrderNumber}`);
       return;
     }
 
-    // 4. Asynchronously verify strict purchase mode from store settings
+    // 5. Evaluate and dispatch Purchase event with deterministic event ID
     let isCancelled = false;
 
     const evaluateAndDispatchPurchase = async () => {
       try {
         console.log(`[Meta Purchase] Evaluating eligibility for: ${currentOrderNumber}`);
 
-        const { data, error } = await supabase
-          .from("store_settings" as any)
-          .select("value")
-          .eq("key", "public_tracking_settings")
-          .maybeSingle();
-
-        if (isCancelled) return;
-
-        if (error) {
-          console.warn("[Meta Purchase] Could not load tracking settings, defaulting to strict mode:", error);
-        }
-
-        const config = data?.value as any;
-        // Default to strict mode (true) unless explicitly set to false
-        const isStrict = config?.meta_strict_purchase_mode !== false;
-
-        if (isStrict) {
-          console.log(`[Meta Purchase] Skipped - strict mode (Purchase event will only be fired on admin/server confirmation) for: ${currentOrderNumber}`);
-          return;
-        }
-
-        // Re-check idempotency guard right before dispatching
+        // Re-check idempotency guard before executing
         if (isPurchaseTracked(currentOrderNumber)) {
           console.log(`[Meta Purchase] Skipped - already tracked: ${currentOrderNumber}`);
           return;
         }
-
-        // Mark tracked immediately before dispatch to eliminate race conditions
-        markPurchaseTracked(currentOrderNumber);
 
         const expectedEventId = `evt_purchase_${currentOrderNumber}`;
         console.log(`[Meta Purchase] Eligible & Dispatching for: ${currentOrderNumber} (Event ID: ${expectedEventId})`);
@@ -621,8 +604,8 @@ const OrderSuccess = () => {
           };
         });
 
-        // Dispatch via authoritative analytics abstraction
-        analytics.purchase(
+        // Dispatch via authoritative analytics abstraction FIRST
+        const dispatchedEventId = analytics.purchase(
           {
             orderNumber: currentOrderNumber,
             orderId: order.id,
@@ -637,6 +620,14 @@ const OrderSuccess = () => {
           },
           expectedEventId
         );
+
+        if (isCancelled) return;
+
+        // Mark as tracked AFTER successful dispatch to prevent accidental suppression
+        if (dispatchedEventId) {
+          markPurchaseTracked(currentOrderNumber);
+          console.log(`[Meta Purchase] Successfully dispatched & recorded idempotency for: ${currentOrderNumber} (${dispatchedEventId})`);
+        }
       } catch (err) {
         console.error("[Meta Purchase] Error during purchase tracking execution:", err);
       }
@@ -647,7 +638,7 @@ const OrderSuccess = () => {
     return () => {
       isCancelled = true;
     };
-  }, [order, verifying, verificationError]);
+  }, [order, verifying, verificationError, invoiceId]);
 
   const [deliveryTimes, setDeliveryTimes] = useState<{ inside: string; outside: string }>({
     inside: "৩-৫ কার্যদিবস",

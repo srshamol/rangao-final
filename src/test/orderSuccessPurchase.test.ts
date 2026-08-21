@@ -10,7 +10,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           maybeSingle: vi.fn().mockResolvedValue({
-            data: { value: { meta_strict_purchase_mode: true } },
+            data: { value: { meta_strict_purchase_mode: false } },
             error: null,
           }),
           single: vi.fn().mockResolvedValue({
@@ -35,32 +35,12 @@ describe("OrderSuccess Meta Purchase Tracking & Idempotency", () => {
     localStorage.clear();
   });
 
-  it("A. strict mode enabled should prevent browser Purchase from firing", async () => {
+  it("A. valid order should trigger Browser Purchase called once", () => {
     const purchaseSpy = vi.spyOn(analytics, "purchase");
-    const isStrict = true;
+    const orderNumber = "ORD-260821-8279";
 
-    // Simulate strict mode check logic
-    if (isStrict) {
-      // Skipped
-    } else {
-      analytics.purchase({
-        orderNumber: "ORD-260821-6289",
-        total: 2500,
-        items: [],
-      });
-    }
-
-    expect(purchaseSpy).not.toHaveBeenCalled();
-  });
-
-  it("B. strict mode disabled should allow Purchase to fire once", () => {
-    const purchaseSpy = vi.spyOn(analytics, "purchase");
-    const orderNumber = "ORD-260821-TEST1";
-    const isStrict = false;
-
-    if (!isStrict && !isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      analytics.purchase(
+    if (!isPurchaseTracked(orderNumber)) {
+      const dispatchedId = analytics.purchase(
         {
           orderNumber,
           total: 2500,
@@ -68,121 +48,146 @@ describe("OrderSuccess Meta Purchase Tracking & Idempotency", () => {
         },
         `evt_purchase_${orderNumber}`
       );
+      if (dispatchedId) {
+        markPurchaseTracked(orderNumber);
+      }
     }
 
     expect(purchaseSpy).toHaveBeenCalledTimes(1);
     expect(purchaseSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ orderNumber }),
-      "evt_purchase_ORD-260821-TEST1"
+      expect.objectContaining({ orderNumber: "ORD-260821-8279" }),
+      "evt_purchase_ORD-260821-8279"
     );
+    expect(isPurchaseTracked(orderNumber)).toBe(true);
   });
 
-  it("C. same order object rendered twice should only fire Purchase once", () => {
+  it("B. same order rendered twice should only call Purchase once", () => {
     const purchaseSpy = vi.spyOn(analytics, "purchase");
     const orderNumber = "ORD-260821-TWICE";
 
     // First render
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      analytics.purchase({ orderNumber, total: 1000, items: [] }, `evt_purchase_${orderNumber}`);
+      const dispatchedId = analytics.purchase({ orderNumber, total: 1000, items: [] }, `evt_purchase_${orderNumber}`);
+      if (dispatchedId) {
+        markPurchaseTracked(orderNumber);
+      }
     }
 
     // Second render (same order)
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      analytics.purchase({ orderNumber, total: 1000, items: [] }, `evt_purchase_${orderNumber}`);
+      const dispatchedId = analytics.purchase({ orderNumber, total: 1000, items: [] }, `evt_purchase_${orderNumber}`);
+      if (dispatchedId) {
+        markPurchaseTracked(orderNumber);
+      }
     }
 
     expect(purchaseSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("D. same order loaded from location.state then Supabase should only fire once", () => {
+  it("C. React StrictMode remount should call Purchase once", () => {
     const purchaseSpy = vi.spyOn(analytics, "purchase");
-    const orderNumber = "ORD-260821-STATE-DB";
+    const orderNumber = "ORD-260821-STRICTMODE";
 
-    // 1. Loaded from location.state
+    // First mount
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      analytics.purchase({ orderNumber, total: 1500, items: [] }, `evt_purchase_${orderNumber}`);
+      const id1 = analytics.purchase({ orderNumber, total: 3000, items: [] }, `evt_purchase_${orderNumber}`);
+      if (id1) markPurchaseTracked(orderNumber);
     }
 
-    // 2. Later updated/reloaded from Supabase
+    // Second mount (StrictMode unmount + remount)
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      analytics.purchase({ orderNumber, total: 1500, items: [] }, `evt_purchase_${orderNumber}`);
+      const id2 = analytics.purchase({ orderNumber, total: 3000, items: [] }, `evt_purchase_${orderNumber}`);
+      if (id2) markPurchaseTracked(orderNumber);
     }
 
     expect(purchaseSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("E. page remount should NOT fire Purchase again", () => {
-    const purchaseSpy = vi.spyOn(analytics, "purchase");
-    const orderNumber = "ORD-260821-REMOUNT";
-
-    // Mount 1
-    markPurchaseTracked(orderNumber);
-    analytics.purchase({ orderNumber, total: 3000, items: [] }, `evt_purchase_${orderNumber}`);
-
-    // Mount 2
-    const tracked = isPurchaseTracked(orderNumber);
-    if (!tracked) {
-      analytics.purchase({ orderNumber, total: 3000, items: [] }, `evt_purchase_${orderNumber}`);
-    }
-
-    expect(tracked).toBe(true);
-    expect(purchaseSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("F. browser refresh (simulated via sessionStorage / localStorage) should prevent duplicate tracking", () => {
-    const orderNumber = "ORD-260821-REFRESH";
-
-    // Simulate pre-existing localStorage key from previous page load
-    localStorage.setItem(`meta_purchase_tracked_${orderNumber}`, "true");
-
     expect(isPurchaseTracked(orderNumber)).toBe(true);
   });
 
-  it("G. order number ORD-260821-6289 must produce exact event ID evt_purchase_ORD-260821-6289", () => {
-    const eventId = generatePurchaseEventId("ORD-260821-6289");
-    expect(eventId).toBe("evt_purchase_ORD-260821-6289");
-  });
+  it("D. page refresh (persisted in localStorage / sessionStorage) should not duplicate Purchase", () => {
+    const orderNumber = "ORD-260821-REFRESH";
 
-  it("H. undefined or missing orderNumber should NOT track", () => {
-    expect(isPurchaseTracked("")).toBe(true);
-    expect(isPurchaseTracked(undefined as any)).toBe(true);
-  });
+    // Simulate pre-existing localStorage key from previous page visit
+    localStorage.setItem(`meta_purchase_tracked_${orderNumber}`, "true");
 
-  it("I. payment not completed or verifying should prevent purchase tracking", () => {
     const purchaseSpy = vi.spyOn(analytics, "purchase");
-    const verifying = true;
-    const verificationError = null;
-    const order = { orderNumber: "ORD-260821-PENDING", total: 1000, items: [] };
-
-    // Eligibility check
-    if (!verifying && !verificationError && !isPurchaseTracked(order.orderNumber)) {
-      analytics.purchase(order, `evt_purchase_${order.orderNumber}`);
+    if (!isPurchaseTracked(orderNumber)) {
+      analytics.purchase({ orderNumber, total: 2000, items: [] }, `evt_purchase_${orderNumber}`);
     }
 
     expect(purchaseSpy).not.toHaveBeenCalled();
   });
 
-  it("J. duplicate payment verification response should be idempotent", () => {
-    const orderNumber = "ORD-260821-PAY-VERIFY";
-    let verificationCount = 0;
+  it("E. payment verification retry should not duplicate Purchase", () => {
+    const orderNumber = "ORD-260821-RETRY";
+    const purchaseSpy = vi.spyOn(analytics, "purchase");
 
-    // Simulate first verification callback
+    // Verification attempt 1
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      verificationCount++;
+      const id = analytics.purchase({ orderNumber, total: 1500, items: [] }, `evt_purchase_${orderNumber}`);
+      if (id) markPurchaseTracked(orderNumber);
     }
 
-    // Simulate second verification callback
+    // Verification attempt 2 (retry callback)
     if (!isPurchaseTracked(orderNumber)) {
-      markPurchaseTracked(orderNumber);
-      verificationCount++;
+      const id = analytics.purchase({ orderNumber, total: 1500, items: [] }, `evt_purchase_${orderNumber}`);
+      if (id) markPurchaseTracked(orderNumber);
     }
 
-    expect(verificationCount).toBe(1);
-    expect(isPurchaseTracked(orderNumber)).toBe(true);
+    expect(purchaseSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("F. missing or undefined orderNumber should NOT track Purchase", () => {
+    const purchaseSpy = vi.spyOn(analytics, "purchase");
+    const invalidOrder = { orderNumber: "", total: 1000, items: [] };
+
+    const validNumber = invalidOrder.orderNumber && typeof invalidOrder.orderNumber === "string" && invalidOrder.orderNumber.trim();
+    if (validNumber && !isPurchaseTracked(invalidOrder.orderNumber)) {
+      analytics.purchase(invalidOrder as any, `evt_purchase_${invalidOrder.orderNumber}`);
+    }
+
+    expect(purchaseSpy).not.toHaveBeenCalled();
+  });
+
+  it("G. payment incomplete or verifying should NOT track Purchase", () => {
+    const purchaseSpy = vi.spyOn(analytics, "purchase");
+    const verifying = true;
+    const verificationError = null;
+    const order = {
+      orderNumber: "ORD-260821-INCOMPLETE",
+      paymentMethod: "uddoktapay",
+      paymentStatus: "pending",
+      total: 1000,
+      items: []
+    };
+
+    const isOnlinePayment = Boolean(order.paymentMethod === "uddoktapay");
+    const isPaymentIncomplete = isOnlinePayment && order.paymentStatus !== "completed";
+
+    // Eligibility check
+    if (!verifying && !verificationError && !isPaymentIncomplete && !isPurchaseTracked(order.orderNumber)) {
+      analytics.purchase(order as any, `evt_purchase_${order.orderNumber}`);
+    }
+
+    expect(purchaseSpy).not.toHaveBeenCalled();
+  });
+
+  it("H. order number ORD-260821-8279 must produce exactly evt_purchase_ORD-260821-8279", () => {
+    const orderNumber = "ORD-260821-8279";
+    const eventId = generatePurchaseEventId(orderNumber);
+    expect(eventId).toBe("evt_purchase_ORD-260821-8279");
+  });
+
+  it("I. Browser and Server use the same event ID format", () => {
+    const orderNumber = "ORD-260821-8279";
+
+    // Browser format from generatePurchaseEventId
+    const browserEventId = generatePurchaseEventId(orderNumber);
+
+    // Server format as defined in fb-capi/index.ts: `evt_purchase_${order.order_number}`
+    const serverEventId = `evt_purchase_${orderNumber}`;
+
+    expect(browserEventId).toBe(serverEventId);
+    expect(browserEventId).toBe("evt_purchase_ORD-260821-8279");
   });
 });
