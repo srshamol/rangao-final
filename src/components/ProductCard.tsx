@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import CodOrderModal from "@/components/CodOrderModal";
 import type { DBProduct } from "@/hooks/useHomepageData";
+import RangaoImage from "@/components/ui/RangaoImage";
 import { getProductUrl } from "@/lib/utils";
 
 
