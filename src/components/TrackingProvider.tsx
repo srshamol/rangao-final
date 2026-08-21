@@ -2,23 +2,33 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { updateTrackingConfig, trackPageView } from "@/lib/tracking";
+import { initMetaPixel } from "@/lib/meta/pixel";
+import { captureAttribution } from "@/lib/meta/attribution";
 
 export default function TrackingProvider() {
   const { data: settings } = useStoreSettings();
   const location = useLocation();
   const lastPathname = useRef("");
 
-  // Sync settings when loaded or changed
+  // Sync settings and initialize Meta Pixel when loaded or changed
   useEffect(() => {
+    captureAttribution();
+
     if (settings?.storeInfo?.tracking) {
-      updateTrackingConfig(settings.storeInfo.tracking);
+      const tracking = settings.storeInfo.tracking;
+      updateTrackingConfig(tracking);
+
+      if (tracking.meta_pixel_enabled && tracking.meta_pixel_id) {
+        initMetaPixel(tracking.meta_pixel_id);
+      }
     }
   }, [settings]);
 
-  // Track PageViews on route change
+  // Track PageViews on SPA route changes
   useEffect(() => {
     if (location.pathname !== lastPathname.current) {
       lastPathname.current = location.pathname;
+      captureAttribution();
       trackPageView(location.pathname);
     }
   }, [location.pathname]);

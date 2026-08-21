@@ -1,23 +1,34 @@
 import { type Product } from "@/data/products";
 import { type CartItem } from "@/context/CartContext";
 import {
+  trackPageView,
   trackViewContent,
+  trackSearch,
   trackAddToCart,
   trackInitiateCheckout,
+  trackAddPaymentInfo,
   trackPurchase,
-  trackSearch,
-  trackPageView
-} from "@/lib/tracking";
+  trackLead,
+  trackCompleteRegistration,
+  trackAddToWishlist,
+  trackContact,
+  trackCustomEvent,
+} from "@/lib/meta";
+import type { EcommerceItem, RawUserData } from "@/lib/meta/types";
 
 export interface AnalyticsOrder {
   orderNumber: string;
+  orderId?: string;
   total: number;
+  customer?: RawUserData;
   items: Array<{
     id?: string;
     productId?: string;
     name: string;
     unitPrice: number;
     quantity: number;
+    category?: string;
+    sku?: string;
   }>;
 }
 
@@ -39,45 +50,49 @@ export function isTrackingAllowed(): boolean {
   return true;
 }
 
-// Legacy initialisation is now managed dynamically by TrackingProvider and lib/tracking.ts
 export function initializeTracking(): void {
-  if (typeof window === "undefined") return;
-  // Trigger initial PageView event using the unified tracking engine
-  trackPageView(window.location.pathname);
+  if (typeof window === "undefined" || !isTrackingAllowed()) return;
+  trackPageView(window.location.href);
 }
 
 export const analytics = {
-  // Called when user views a product
-  viewItem(product: Product): void {
-    if (!isTrackingAllowed()) return;
+  // PageView
+  pageView(url?: string, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackPageView(url, eventId);
+  },
 
-    trackViewContent({
+  // Called when user views a product
+  viewItem(product: Product | { id: string; name?: string; price: number; category?: string; sku?: string }, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackViewContent({
       id: product.id,
       name: product.name,
-      category: product.categoryLabel || product.category || "Uncategorized",
+      category: (product as any).categoryLabel || product.category || "General",
       price: product.price,
-    });
+      sku: (product as any).sku || product.id,
+    }, eventId);
   },
 
   // Called when user adds item to cart
-  addToCart(product: Product, quantity: number): void {
-    if (!isTrackingAllowed()) return;
-
-    trackAddToCart(
+  addToCart(product: Product | EcommerceItem, quantity = 1, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackAddToCart(
       {
         id: product.id,
         name: product.name,
-        category: product.categoryLabel || product.category || "Uncategorized",
+        category: (product as any).categoryLabel || product.category || "General",
         price: product.price,
+        sku: (product as any).sku || product.id,
+        quantity,
       },
-      quantity
+      quantity,
+      eventId
     );
   },
 
   // Called when user removes item from cart
   removeFromCart(product: Product, quantity: number): void {
-    // Standard GA4/Meta Pixel doesn't have a strict standard event for removeFromCart,
-    // but GTM dataLayer is supported.
     if (!isTrackingAllowed()) return;
 
     window.dataLayer = window.dataLayer || [];
@@ -90,7 +105,7 @@ export const analytics = {
           {
             item_id: product.id,
             item_name: product.name,
-            item_category: product.categoryLabel || product.category || "Uncategorized",
+            item_category: product.categoryLabel || product.category || "General",
             price: product.price,
             quantity: quantity,
           },
@@ -100,39 +115,85 @@ export const analytics = {
   },
 
   // Called when user starts checkout
-  beginCheckout(cart: CartItem[], total: number): void {
-    if (!isTrackingAllowed()) return;
+  beginCheckout(cart: CartItem[] | EcommerceItem[], total: number, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
 
-    const mappedItems = cart.map((item) => ({
-      id: item.product.id,
-      name: item.product.name,
-      category: item.product.categoryLabel || item.product.category || "Uncategorized",
-      price: item.product.price,
-      quantity: item.quantity,
+    const mappedItems: EcommerceItem[] = cart.map((item: any) => ({
+      id: item.product?.id || item.id,
+      sku: item.product?.sku || item.sku || item.product?.id || item.id,
+      name: item.product?.name || item.name,
+      category: item.product?.categoryLabel || item.product?.category || item.category || "General",
+      price: item.product?.price ?? item.price ?? 0,
+      quantity: item.quantity || 1,
     }));
 
-    trackInitiateCheckout(mappedItems, total);
+    return trackInitiateCheckout(mappedItems, total, eventId);
+  },
+
+  // Called when payment method is selected or provided
+  addPaymentInfo(items: EcommerceItem[], total: number, paymentMethod = "COD", eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackAddPaymentInfo(items, total, paymentMethod, eventId);
   },
 
   // Called when order is placed successfully
-  purchase(order: AnalyticsOrder): void {
-    if (!isTrackingAllowed()) return;
+  purchase(order: AnalyticsOrder, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
 
-    // Convert items to tracking format with exact product IDs
-    const mappedItems = order.items.map((item) => ({
-      id: item.id || item.productId || order.orderNumber,
+    const mappedItems: EcommerceItem[] = order.items.map((item) => ({
+      id: String(item.productId || item.id || order.orderNumber),
+      sku: String(item.sku || item.productId || item.id || order.orderNumber),
       name: item.name,
       price: item.unitPrice,
       quantity: item.quantity,
+      category: item.category || "General",
     }));
 
-    trackPurchase(order.orderNumber, mappedItems, order.total);
+    return trackPurchase(
+      {
+        orderNumber: order.orderNumber,
+        orderId: order.orderId,
+        total: order.total,
+        items: mappedItems,
+        customer: order.customer,
+      },
+      eventId
+    );
   },
 
   // Called on search
-  search(query: string, resultCount: number): void {
-    if (!isTrackingAllowed()) return;
+  search(query: string, resultCount?: number, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackSearch(query, eventId);
+  },
 
-    trackSearch(query);
+  // Called on lead / inquiry submission
+  lead(data: { value?: number; leadType?: string; email?: string; phone?: string } = {}, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackLead(data, eventId);
+  },
+
+  // Called on customer registration
+  completeRegistration(method = "email", userData?: RawUserData, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackCompleteRegistration(method, userData, eventId);
+  },
+
+  // Called on wishlist addition
+  addToWishlist(item: EcommerceItem, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackAddToWishlist(item, eventId);
+  },
+
+  // Called on contact / whatsapp / call clicks
+  contact(method: "whatsapp" | "phone" | "form", eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackContact(method, eventId);
+  },
+
+  // Custom events
+  custom(eventName: string, params?: Record<string, any>, eventId?: string): string {
+    if (!isTrackingAllowed()) return "";
+    return trackCustomEvent(eventName, params, eventId);
   },
 };

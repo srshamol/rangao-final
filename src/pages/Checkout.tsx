@@ -328,14 +328,19 @@ const Checkout = () => {
     try {
       trackAddPaymentInfo(items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })), total);
 
-      let fbp = "";
-      let fbc = "";
-      try {
-        const { default: clientParamBuilder } = await import("meta-capi-param-builder-clientjs");
-        fbp = clientParamBuilder.getFbp() || "";
-        fbc = clientParamBuilder.getFbc() || "";
-      } catch (err) {
-        console.error("Error reading CAPI parameters:", err);
+      const { getAttributionContext } = await import("@/lib/meta/attribution");
+      const attribution = getAttributionContext();
+      let fbp = attribution.fbp || "";
+      let fbc = attribution.fbc || "";
+
+      if (!fbp || !fbc) {
+        try {
+          const { default: clientParamBuilder } = await import("meta-capi-param-builder-clientjs");
+          if (!fbp) fbp = clientParamBuilder.getFbp() || "";
+          if (!fbc) fbc = clientParamBuilder.getFbc() || "";
+        } catch (err) {
+          // ignore
+        }
       }
       const userAgent = navigator.userAgent;
 
@@ -554,6 +559,8 @@ const Checkout = () => {
           },
           paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
           items: items.map((i) => ({
+            id: i.product.id,
+            productId: i.product.id,
             name: i.product.name,
             image: i.product.images[0],
             quantity: i.quantity,

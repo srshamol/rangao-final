@@ -623,6 +623,8 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           },
           paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
           items: [{
+            id: product.id,
+            productId: product.id,
             name: product.name,
             image: product.images[0],
             quantity: localQuantity,

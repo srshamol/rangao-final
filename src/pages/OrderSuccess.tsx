@@ -443,8 +443,15 @@ const OrderSuccess = () => {
 
           analytics.purchase({
             orderNumber: order.orderNumber,
+            orderId: order.id,
             total: order.total,
-            items: mappedItems
+            items: mappedItems,
+            customer: {
+              phone: order.customerPhone,
+              email: order.customerEmail,
+              fullName: order.customerName,
+              city: order.shippingAddress?.division || order.shippingAddress?.district || "",
+            },
           });
 
           // Trigger Conversions API (Server-side tracking) immediately on checkout completion
