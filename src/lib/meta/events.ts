@@ -312,13 +312,22 @@ export function trackPurchase(
     order_id: cleanOrderNumber,
   };
 
-  // 1. Browser Meta Pixel
-  const pixelSuccess = trackPixelEvent(META_STANDARD_EVENTS.PURCHASE, customData, finalEventId);
-  if (!pixelSuccess) {
-    console.error("[Meta Purchase] Failed to dispatch browser Meta Pixel Purchase event.");
+  // 1. Browser Meta Pixel — issue fbq command
+  // NOTE: "true" here means the fbq command was issued (queued or dispatched).
+  // It does NOT mean Meta's servers received the event.
+  // Use DevTools Network (filter: tr?id=) to confirm the browser HTTP request fires.
+  const pixelDispatched = trackPixelEvent(META_STANDARD_EVENTS.PURCHASE, customData, finalEventId);
+  if (!pixelDispatched) {
+    console.error(
+      "[Meta Purchase] Browser fbq command NOT issued — see above for reason.",
+      "Server CAPI will still be attempted."
+    );
     return "";
   } else {
-    console.log("[Meta Purchase] Purchase event successfully handed to Meta Pixel queue (idempotency recorded).");
+    console.log(
+      "[Meta Purchase] Browser fbq command issued.",
+      "Verify delivery via DevTools Network filter: tr?id=1862583688445311"
+    );
   }
 
   // 2. Relay to CAPI endpoint asynchronously

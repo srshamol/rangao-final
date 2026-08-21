@@ -626,9 +626,12 @@ const OrderSuccess = () => {
         // Mark as tracked AFTER successful dispatch to prevent accidental suppression
         if (dispatchedEventId) {
           markPurchaseTracked(currentOrderNumber);
-          console.log(`[Meta Purchase] Successfully dispatched & recorded idempotency for: ${currentOrderNumber} (${dispatchedEventId})`);
+          console.log(
+            `[Meta Purchase] fbq command issued for: ${currentOrderNumber} (${dispatchedEventId})`,
+            "| Verify browser delivery via DevTools Network → filter: tr?id=1862583688445311"
+          );
         } else {
-          console.warn(`[Meta Purchase] Purchase event dispatch was skipped or failed validation for: ${currentOrderNumber}`);
+          console.warn(`[Meta Purchase] fbq command NOT issued for: ${currentOrderNumber} — validation failed or fbq unavailable.`);
         }
       } catch (err) {
         console.error("[Meta Purchase] Error during purchase tracking execution:", err);
