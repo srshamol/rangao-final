@@ -512,4 +512,25 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
       expect(result.error).toContain("Missing pixelId or accessToken");
     });
   });
+
+  describe("10. Authoritative Meta Dataset ID Single Source of Truth & Validation", () => {
+    it("should strictly enforce 1862583688445311 as the authoritative Dataset ID", async () => {
+      const { AUTHORITATIVE_META_DATASET_ID, getMetaDatasetId, isMetaDatasetIdValid, getMetaCapiEndpoint } = await import("@/lib/meta");
+
+      expect(AUTHORITATIVE_META_DATASET_ID).toBe("1862583688445311");
+      expect(AUTHORITATIVE_META_DATASET_ID.length).toBe(16);
+
+      // Rejects the invalid 17-digit ID and auto-corrects to authoritative ID
+      expect(getMetaDatasetId("18625836884445311")).toBe("1862583688445311");
+      expect(isMetaDatasetIdValid("18625836884445311")).toBe(false);
+
+      // Validates the genuine 16-digit ID
+      expect(isMetaDatasetIdValid("1862583688445311")).toBe(true);
+      expect(getMetaDatasetId("1862583688445311")).toBe("1862583688445311");
+
+      // CAPI Endpoint generation strictly routes to authoritative ID
+      expect(getMetaCapiEndpoint("18625836884445311", "v21.0")).toBe("https://graph.facebook.com/v21.0/1862583688445311/events");
+      expect(getMetaCapiEndpoint("1862583688445311", "v21.0")).toBe("https://graph.facebook.com/v21.0/1862583688445311/events");
+    });
+  });
 });

@@ -1,3 +1,5 @@
+import { getMetaDatasetId, isMetaDatasetIdValid, AUTHORITATIVE_META_DATASET_ID } from "./config";
+
 declare global {
   interface Window {
     fbq: (...args: any[]) => void;
@@ -10,26 +12,21 @@ let activePixelId: string | null = null;
 let isLoaded = false;
 
 /**
- * Validates a Meta Pixel ID format (must be numeric, non-placeholder).
+ * Validates a Meta Pixel ID format (must be numeric, non-placeholder, not in invalid list).
  */
 export function isValidMetaPixelId(pixelId: string | null | undefined): boolean {
   if (!pixelId) return false;
-  const clean = String(pixelId).trim();
-  if (!clean || !/^\d+$/.test(clean)) return false;
-  if (clean === "123456789012345" || clean.length < 5) return false;
-  return true;
+  return isMetaDatasetIdValid(pixelId);
 }
 
 /**
  * Loads and initializes the Meta Pixel script tag in the browser head.
+ * Enforces the authoritative 16-digit Dataset ID (1862583688445311).
  */
-export function initMetaPixel(pixelId: string, options?: { autoPageView?: boolean }): void {
+export function initMetaPixel(pixelId?: string, options?: { autoPageView?: boolean }): void {
   if (typeof window === "undefined") return;
-  if (!isValidMetaPixelId(pixelId)) {
-    return;
-  }
 
-  const cleanId = pixelId.trim();
+  const cleanId = getMetaDatasetId(pixelId);
 
   // Guard against duplicate fbq('init') calls for the same pixel ID
   window._fb_initialized_pixels = window._fb_initialized_pixels || new Set();

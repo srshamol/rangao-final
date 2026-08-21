@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getMetaDatasetId } from "@/lib/meta/config";
 
 export interface HeroBannerSlide {
   id: string;
@@ -590,7 +591,10 @@ export function useStoreSettings() {
         storeInfo: {
           ...defaults.store_info,
           ...settings.store_info,
-          tracking: settings.public_tracking_settings || settings.tracking_settings || settings.store_info?.tracking || defaults.store_info.tracking,
+          tracking: {
+            ...(settings.public_tracking_settings || settings.tracking_settings || settings.store_info?.tracking || defaults.store_info.tracking),
+            meta_pixel_id: getMetaDatasetId((settings.public_tracking_settings || settings.tracking_settings || settings.store_info?.tracking)?.meta_pixel_id),
+          },
         } as StoreInfo,
         trustFeatures: (settings.trust_features || defaults.trust_features) as TrustFeatureItem[],
         offerBanner: { ...defaults.offer_banner, ...settings.offer_banner } as OfferBanner,

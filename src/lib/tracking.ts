@@ -1,6 +1,9 @@
 // Unified Tracking System for Rangao
 // Coordinates Meta Pixel, GTM, GA4, TikTok Pixel, and Google Tag Manager DataLayer
 
+import { initMetaPixel } from "./meta/pixel";
+import { getMetaDatasetId, isMetaDatasetIdValid } from "./meta/config";
+
 declare global {
   interface Window {
     fbq: (...args: any[]) => void;
@@ -47,7 +50,7 @@ export function isValidTrackingId(type: 'meta' | 'gtm' | 'ga4' | 'tiktok', value
 
   switch (type) {
     case 'meta':
-      return /^\d+$/.test(val) && val !== '123456789012345';
+      return isMetaDatasetIdValid(val);
     case 'gtm':
       return /^GTM-[A-Z0-9]+$/i.test(val) && !/^GTM-X+$/i.test(val);
     case 'ga4':
@@ -91,32 +94,11 @@ export function initializeScripts() {
   }
 
   // --- META PIXEL ---
-  if (activeConfig.meta_pixel_enabled && isValidTrackingId('meta', activeConfig.meta_pixel_id)) {
-    const pixelId = activeConfig.meta_pixel_id.trim();
+  if (activeConfig.meta_pixel_enabled) {
+    const pixelId = getMetaDatasetId(activeConfig.meta_pixel_id);
     if (!loadedScripts.has(`meta-${pixelId}`)) {
       debugLog('meta', `Initializing Meta Pixel: ${pixelId}`);
-      try {
-        const { initMetaPixel } = require("./meta/pixel");
-        initMetaPixel(pixelId);
-      } catch {
-        (function(f: any, b: Document, e: string, v: string, n: any, t?: any, s?: any) {
-          if (f.fbq) return;
-          n = f.fbq = function() {
-            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-          };
-          if (!f._fbq) f._fbq = n;
-          n.push = n;
-          n.loaded = !0;
-          n.version = '2.0';
-          n.queue = [];
-          t = b.createElement(e);
-          t.async = !0;
-          t.src = v;
-          s = b.getElementsByTagName(e)[0];
-          s?.parentNode?.insertBefore(t, s);
-        })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-        window.fbq('init', pixelId);
-      }
+      initMetaPixel(pixelId);
       loadedScripts.add(`meta-${pixelId}`);
     }
   }

@@ -68,11 +68,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // 3. Load tracking credentials (Environment variables take precedence, database fallback)
-    let metaPixelId =
+    const AUTHORITATIVE_META_DATASET_ID = "1862583688445311";
+    const INVALID_META_DATASET_IDS = ["18625836884445311"];
+
+    function sanitizeDatasetId(id?: string | null): string {
+      if (id && typeof id === "string") {
+        const clean = id.trim();
+        if (INVALID_META_DATASET_IDS.includes(clean)) return AUTHORITATIVE_META_DATASET_ID;
+        if (/^\d{15,16}$/.test(clean)) return clean;
+      }
+      return AUTHORITATIVE_META_DATASET_ID;
+    }
+
+    let metaPixelId = sanitizeDatasetId(
       process.env.META_PIXEL_ID ||
       process.env.NEXT_PUBLIC_META_PIXEL_ID ||
-      process.env.VITE_META_PIXEL_ID ||
-      "1862583688445311";
+      process.env.VITE_META_PIXEL_ID
+    );
     let metaAccessToken = process.env.META_CAPI_ACCESS_TOKEN || "";
     let testEventCode = process.env.META_TEST_EVENT_CODE || "";
     let capiEnabled = true;
@@ -89,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (trackingConfig) {
         if (!process.env.META_PIXEL_ID && trackingConfig.meta_pixel_id) {
-          metaPixelId = trackingConfig.meta_pixel_id;
+          metaPixelId = sanitizeDatasetId(trackingConfig.meta_pixel_id);
         }
         if (!metaAccessToken && trackingConfig.meta_access_token) {
           metaAccessToken = trackingConfig.meta_access_token;
@@ -98,7 +110,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           testEventCode = trackingConfig.meta_test_event_code;
         }
         if (!process.env.META_GRAPH_API_VERSION && trackingConfig.meta_api_version) {
-          apiVersion = trackingConfig.meta_api_version;
+          const confVersion = String(trackingConfig.meta_api_version).trim();
+          if (/^v\d+\.\d+$/.test(confVersion)) {
+            apiVersion = confVersion;
+          }
         }
         if (trackingConfig.meta_capi_enabled !== undefined) capiEnabled = Boolean(trackingConfig.meta_capi_enabled);
         if (trackingConfig.global_enabled === false) capiEnabled = false;
@@ -106,6 +121,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (settingsErr) {
       console.warn("[Meta CAPI Serverless] Error reading settings from DB:", settingsErr);
     }
+
+    metaPixelId = sanitizeDatasetId(metaPixelId);
 
     if (!capiEnabled || !metaPixelId || !metaAccessToken) {
       return res.status(200).json({
