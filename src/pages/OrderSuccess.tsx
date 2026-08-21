@@ -11,31 +11,110 @@ import { motion } from "framer-motion";
 import { formatPrice } from "@/data/products";
 import { supabase } from "@/integrations/supabase/client";
 
-interface OrderItem {
+export interface OrderItem {
+  id?: string;
+  productId?: string;
+  sku?: string;
   name: string;
-  image: string;
+  image?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  category?: string;
 }
 
-interface OrderState {
+export interface OrderState {
   id?: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
-  customerEmail: string;
-  shippingAddress: {
-    division: string;
-    district: string;
-    thana: string;
-    address: string;
+  customerEmail?: string;
+  shippingAddress?: {
+    division?: string;
+    district?: string;
+    thana?: string;
+    address?: string;
   };
-  paymentMethod: string;
+  paymentMethod?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryCharge: number;
   total: number;
+  paymentStatus?: string;
+  orderStatus?: string;
+}
+
+// In-memory module-level set to prevent re-tracking across renders in same JS session
+const inMemoryTrackedOrders = new Set<string>();
+
+/**
+ * Checks if a purchase event has already been tracked for this orderNumber
+ * across in-memory, sessionStorage, and localStorage layers.
+ */
+export function isPurchaseTracked(orderNumber: string): boolean {
+  if (!orderNumber || typeof orderNumber !== "string") return true;
+  const cleanOrderNumber = orderNumber.trim();
+  if (!cleanOrderNumber) return true;
+
+  // 1. In-memory guard
+  if (inMemoryTrackedOrders.has(cleanOrderNumber)) return true;
+
+  // 2. SessionStorage guard
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(`meta_purchase_tracked_${cleanOrderNumber}`)) {
+      return true;
+    }
+  } catch {
+    // sessionStorage access fallback
+  }
+
+  // 3. LocalStorage guard (bounded single key per order)
+  try {
+    if (typeof localStorage !== "undefined") {
+      if (localStorage.getItem(`meta_purchase_tracked_${cleanOrderNumber}`)) {
+        return true;
+      }
+      // Backwards compatibility with fb_tracked_orders JSON array
+      const oldTrackedStr = localStorage.getItem("fb_tracked_orders");
+      if (oldTrackedStr) {
+        const oldTracked = JSON.parse(oldTrackedStr);
+        if (Array.isArray(oldTracked) && oldTracked.includes(cleanOrderNumber)) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // localStorage access fallback
+  }
+
+  return false;
+}
+
+/**
+ * Marks a purchase event as tracked across in-memory, sessionStorage, and localStorage.
+ */
+export function markPurchaseTracked(orderNumber: string): void {
+  if (!orderNumber || typeof orderNumber !== "string") return;
+  const cleanOrderNumber = orderNumber.trim();
+  if (!cleanOrderNumber) return;
+
+  inMemoryTrackedOrders.add(cleanOrderNumber);
+
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(`meta_purchase_tracked_${cleanOrderNumber}`, "true");
+    }
+  } catch {
+    // ignore sessionStorage errors
+  }
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(`meta_purchase_tracked_${cleanOrderNumber}`, "true");
+    }
+  } catch {
+    // ignore localStorage errors
+  }
 }
 
 const statusLabels: Record<string, string> = {
@@ -171,14 +250,24 @@ const OrderSuccess = () => {
   const [verifying, setVerifying] = useState(!!invoiceId);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<OrderState | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(false);
+
+  const verificationAttemptedRef = useRef<string | null>(null);
+  const loadingOrderRef = useRef(false);
 
   const order = (location.state as OrderState | null) || localOrder;
 
+  // 1. Online Payment Verification (UddoktaPay)
   useEffect(() => {
     const verifyAndLoad = async () => {
       if (!invoiceId || !orderNumber) return;
+      if (verificationAttemptedRef.current === invoiceId) return;
+      verificationAttemptedRef.current = invoiceId;
+
       try {
         setVerifying(true);
+        setVerificationError(null);
+
         const res = await fetch("/api/uddoktapay/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -196,7 +285,7 @@ const OrderSuccess = () => {
           const { data: dbOrder, error: orderErr } = await supabase
             .from("orders")
             .select("*")
-            .eq("order_number", orderNumber)
+            .eq("order_number", orderNumber.trim())
             .maybeSingle();
 
           if (orderErr || !dbOrder) throw new Error("অর্ডার লোড করতে সমস্যা হয়েছে");
@@ -222,6 +311,9 @@ const OrderSuccess = () => {
             },
             paymentMethod: dbOrder.payment_method || "",
             items: dbItems.map((item: any) => ({
+              id: item.product_id || item.product_name,
+              productId: item.product_id || item.product_name,
+              sku: item.product_id || "",
               name: item.product_name,
               image: "",
               quantity: item.quantity,
@@ -231,6 +323,8 @@ const OrderSuccess = () => {
             subtotal: Number(dbOrder.subtotal || 0),
             deliveryCharge: Number(dbOrder.delivery_charge || 0),
             total: Number(dbOrder.total_amount),
+            paymentStatus: dbOrder.payment_status,
+            orderStatus: dbOrder.order_status,
           });
         } else {
           throw new Error(data.message || "পেমেন্ট ভেরিফিকেশন সম্পন্ন হয়নি");
@@ -238,7 +332,6 @@ const OrderSuccess = () => {
       } catch (err: any) {
         console.warn("UddoktaPay serverless verification function unavailable, attempting direct client-side fallback:", err);
         try {
-          // Fetch settings
           const { data: row, error: settingsError } = await supabase
             .from("store_settings" as any)
             .select("value")
@@ -278,7 +371,6 @@ const OrderSuccess = () => {
           if (result.status === "COMPLETED") {
             const orderId = result.metadata?.order_id;
             if (orderId) {
-              // Fetch order to verify
               const { data: dbOrder, error: orderErr } = await supabase
                 .from("orders")
                 .select("*")
@@ -290,7 +382,6 @@ const OrderSuccess = () => {
               }
 
               if (dbOrder.payment_status !== "completed") {
-                // Update order status and payment status in database
                 await supabase
                   .from("orders")
                   .update({
@@ -300,9 +391,7 @@ const OrderSuccess = () => {
                   })
                   .eq("id", orderId);
 
-
-
-                // Send Telegram Notification (optional client-side fallback)
+                // Send Telegram Notification (idempotent client fallback)
                 try {
                   const { data: tgRow } = await supabase
                     .from("store_settings" as any)
@@ -361,6 +450,7 @@ const OrderSuccess = () => {
                 items: dbItems.map((item: any) => ({
                   id: item.product_id || item.product_name,
                   productId: item.product_id || item.product_name,
+                  sku: item.product_id || "",
                   name: item.product_name,
                   image: "",
                   quantity: item.quantity,
@@ -370,6 +460,8 @@ const OrderSuccess = () => {
                 subtotal: Number(dbOrder.subtotal || 0),
                 deliveryCharge: Number(dbOrder.delivery_charge || 0),
                 total: Number(dbOrder.total_amount),
+                paymentStatus: dbOrder.payment_status,
+                orderStatus: dbOrder.order_status,
               });
             } else {
               throw new Error("মেটাডেটাতে অর্ডার আইডি পাওয়া যায়নি");
@@ -391,60 +483,150 @@ const OrderSuccess = () => {
     }
   }, [invoiceId, orderNumber]);
 
+  // 2. Load order from Supabase if not present in location.state (e.g. direct URL visit or refresh)
   useEffect(() => {
-    if (order) {
-      const sessionKey = `purchase_tracked_${order.orderNumber}`;
-      if (sessionStorage.getItem(sessionKey)) {
-        console.log("[Purchase Tracking] Already tracked in this session:", order.orderNumber);
-        return;
-      }
-      sessionStorage.setItem(sessionKey, "true");
-
-      const checkAndTrack = async () => {
+    if (!location.state && !localOrder && orderNumber && !invoiceId && !loadingOrderRef.current) {
+      const loadOrderByNumber = async () => {
         try {
-          const { data } = await supabase
-            .from("store_settings" as any)
-            .select("value")
-            .eq("key", "public_tracking_settings")
+          loadingOrderRef.current = true;
+          setLoadingOrder(true);
+          const { data: dbOrder, error: orderErr } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", orderNumber.trim())
             .maybeSingle();
 
-          const config = data?.value as any;
-          const isStrict = config?.meta_strict_purchase_mode !== false;
-
-          if (isStrict) {
-            console.log("[Strict Purchase Mode] Purchase event will only be fired on admin confirmation.");
+          if (orderErr || !dbOrder) {
             return;
           }
 
-          const trackedOrdersStr = localStorage.getItem("fb_tracked_orders") || "[]";
-          let trackedOrders: string[] = [];
-          try {
-            trackedOrders = JSON.parse(trackedOrdersStr);
-          } catch {
-            trackedOrders = [];
-          }
+          const { data: dbItems } = await supabase
+            .from("order_items")
+            .select("*")
+            .eq("order_id", dbOrder.id);
 
-          if (trackedOrders.includes(order.orderNumber)) {
-            console.log("Duplicate purchase tracking prevented for:", order.orderNumber);
-            return;
-          }
+          setLocalOrder({
+            id: dbOrder.id,
+            orderNumber: dbOrder.order_number,
+            customerName: dbOrder.customer_name,
+            customerPhone: dbOrder.customer_phone,
+            customerEmail: dbOrder.customer_email || "",
+            shippingAddress: (dbOrder.shipping_address as any) || {
+              division: "",
+              district: "",
+              thana: "",
+              address: "",
+            },
+            paymentMethod: dbOrder.payment_method || "",
+            items: (dbItems || []).map((item: any) => ({
+              id: item.product_id || item.product_name,
+              productId: item.product_id || item.product_name,
+              sku: item.product_id || "",
+              name: item.product_name,
+              image: "",
+              quantity: item.quantity,
+              unitPrice: Number(item.unit_price),
+              totalPrice: Number(item.total_price),
+            })),
+            subtotal: Number(dbOrder.subtotal || 0),
+            deliveryCharge: Number(dbOrder.delivery_charge || 0),
+            total: Number(dbOrder.total_amount),
+            paymentStatus: dbOrder.payment_status,
+            orderStatus: dbOrder.order_status,
+          });
+        } catch (e) {
+          console.error("Error loading order by number:", e);
+        } finally {
+          setLoadingOrder(false);
+        }
+      };
 
-          trackedOrders.push(order.orderNumber);
-          localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
+      loadOrderByNumber();
+    }
+  }, [location.state, localOrder, orderNumber, invoiceId]);
 
-          // Map items properly with product IDs
-          const mappedItems = order.items.map((i: any) => ({
-            id: i.id || i.productId,
-            productId: i.productId || i.id,
-            name: i.name,
-            unitPrice: i.unitPrice,
-            quantity: i.quantity
-          }));
+  // 3. Purchase tracking with multi-layered idempotency and strict mode respect
+  useEffect(() => {
+    // 1. Guard against missing or invalid order
+    if (!order || !order.orderNumber || typeof order.orderNumber !== "string") {
+      return;
+    }
 
-          analytics.purchase({
-            orderNumber: order.orderNumber,
+    const currentOrderNumber = order.orderNumber.trim();
+    if (!currentOrderNumber) return;
+
+    // 2. Guard against in-progress or failed payment verification
+    if (verifying || verificationError) {
+      console.log("[Meta Purchase] Skipped - payment still verifying or verification error");
+      return;
+    }
+
+    // 3. Guard against duplicate tracking across all storage layers & renders
+    if (isPurchaseTracked(currentOrderNumber)) {
+      console.log(`[Meta Purchase] Skipped - already tracked: ${currentOrderNumber}`);
+      return;
+    }
+
+    // 4. Asynchronously verify strict purchase mode from store settings
+    let isCancelled = false;
+
+    const evaluateAndDispatchPurchase = async () => {
+      try {
+        console.log(`[Meta Purchase] Evaluating eligibility for: ${currentOrderNumber}`);
+
+        const { data, error } = await supabase
+          .from("store_settings" as any)
+          .select("value")
+          .eq("key", "public_tracking_settings")
+          .maybeSingle();
+
+        if (isCancelled) return;
+
+        if (error) {
+          console.warn("[Meta Purchase] Could not load tracking settings, defaulting to strict mode:", error);
+        }
+
+        const config = data?.value as any;
+        // Default to strict mode (true) unless explicitly set to false
+        const isStrict = config?.meta_strict_purchase_mode !== false;
+
+        if (isStrict) {
+          console.log(`[Meta Purchase] Skipped - strict mode (Purchase event will only be fired on admin/server confirmation) for: ${currentOrderNumber}`);
+          return;
+        }
+
+        // Re-check idempotency guard right before dispatching
+        if (isPurchaseTracked(currentOrderNumber)) {
+          console.log(`[Meta Purchase] Skipped - already tracked: ${currentOrderNumber}`);
+          return;
+        }
+
+        // Mark tracked immediately before dispatch to eliminate race conditions
+        markPurchaseTracked(currentOrderNumber);
+
+        const expectedEventId = `evt_purchase_${currentOrderNumber}`;
+        console.log(`[Meta Purchase] Eligible & Dispatching for: ${currentOrderNumber} (Event ID: ${expectedEventId})`);
+
+        // Map items with stable IDs
+        const mappedItems = (order.items || []).map((i) => {
+          const itemId = String(i.productId || i.id || i.sku || i.name || "product");
+          return {
+            id: itemId,
+            productId: itemId,
+            sku: String(i.sku || itemId),
+            name: i.name || "Product",
+            unitPrice: Number(i.unitPrice || 0),
+            quantity: Number(i.quantity || 1),
+            category: i.category || "General",
+          };
+        });
+
+        // Dispatch via authoritative analytics abstraction
+        analytics.purchase(
+          {
+            orderNumber: currentOrderNumber,
             orderId: order.id,
-            total: order.total,
+            total: Number(order.total || 0),
             items: mappedItems,
             customer: {
               phone: order.customerPhone,
@@ -452,15 +634,20 @@ const OrderSuccess = () => {
               fullName: order.customerName,
               city: order.shippingAddress?.division || order.shippingAddress?.district || "",
             },
-          });
-        } catch (e) {
-          console.error("Error checking strict purchase mode:", e);
-        }
-      };
+          },
+          expectedEventId
+        );
+      } catch (err) {
+        console.error("[Meta Purchase] Error during purchase tracking execution:", err);
+      }
+    };
 
-      checkAndTrack();
-    }
-  }, [order]);
+    evaluateAndDispatchPurchase();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [order, verifying, verificationError]);
 
   const [deliveryTimes, setDeliveryTimes] = useState<{ inside: string; outside: string }>({
     inside: "৩-৫ কার্যদিবস",
@@ -553,7 +740,14 @@ const OrderSuccess = () => {
             </div>
           )}
 
-          {!verifying && !verificationError && (
+          {loadingOrder && !order && !verifying && !verificationError && (
+            <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border bg-card mt-8">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <h2 className="font-display text-xl font-bold text-foreground">অর্ডারের তথ্য লোড করা হচ্ছে...</h2>
+            </div>
+          )}
+
+          {!verifying && !verificationError && !loadingOrder && (
             order ? (
               <div className="mt-8 space-y-6">
                 {/* Delivery Estimate */}

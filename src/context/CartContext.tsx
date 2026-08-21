@@ -57,7 +57,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return [...prev, { product, quantity: newQty }];
     });
     setIsOpen(true);
-    trackAddToCart({ id: product.id, name: product.name, category: product.category, price: product.price });
+    trackAddToCart(
+      { id: product.id, name: product.name, category: product.category, price: product.price },
+      quantity
+    );
   };
 
   const removeFromCart = (productId: string) => {

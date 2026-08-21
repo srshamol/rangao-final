@@ -54,6 +54,9 @@ export function initMetaPixel(pixelId?: string, options?: { autoPageView?: boole
     firstScript?.parentNode?.insertBefore(script, firstScript);
   }
 
+  // Explicitly disable Meta Pixel Automatic Configuration / Automatic Event Detection
+  // to prevent synthetic duplicate events (e.g. ob3_plugin-set_... / ob3_plug...)
+  win.fbq("set", "autoConfig", false, cleanId);
   win.fbq("init", cleanId);
   window._fb_initialized_pixels.add(cleanId);
   activePixelId = cleanId;

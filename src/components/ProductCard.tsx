@@ -9,8 +9,6 @@ import { toast } from "sonner";
 import { useState } from "react";
 import CodOrderModal from "@/components/CodOrderModal";
 import type { DBProduct } from "@/hooks/useHomepageData";
-import RangaoImage from "@/components/ui/RangaoImage";
-import { analytics } from "@/services/analytics";
 import { getProductUrl } from "@/lib/utils";
 
 
@@ -109,7 +107,6 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
   const handleOrder = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToCart(product as any);
-    analytics.addToCart(product as any, 1);
     toast.success(`${product.name} কার্টে যোগ হয়েছে`);
   };
 

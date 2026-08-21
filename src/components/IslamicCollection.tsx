@@ -6,7 +6,6 @@ import { useProducts } from "@/hooks/useHomepageData";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { dbToCard } from "./ProductCard";
-import { analytics } from "@/services/analytics";
 import { getProductUrl } from "@/lib/utils";
 
 interface Props {
@@ -49,7 +48,6 @@ const IslamicCollection = ({
     e.stopPropagation();
     const card = dbToCard(product);
     addToCart(card as any);
-    analytics.addToCart(card as any, 1);
     toast.success(`${product.name} কার্টে যোগ হয়েছে`);
   };
 

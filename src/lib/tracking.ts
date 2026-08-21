@@ -1,8 +1,15 @@
-// Unified Tracking System for Rangao
-// Coordinates Meta Pixel, GTM, GA4, TikTok Pixel, and Google Tag Manager DataLayer
-
 import { initMetaPixel } from "./meta/pixel";
 import { getMetaDatasetId, isMetaDatasetIdValid } from "./meta/config";
+import {
+  trackPageView as metaTrackPageView,
+  trackViewContent as metaTrackViewContent,
+  trackSearch as metaTrackSearch,
+  trackAddToCart as metaTrackAddToCart,
+  trackInitiateCheckout as metaTrackInitiateCheckout,
+  trackAddPaymentInfo as metaTrackAddPaymentInfo,
+  trackPurchase as metaTrackPurchase,
+  trackLead as metaTrackLead,
+} from "./meta/events";
 
 declare global {
   interface Window {
@@ -214,9 +221,9 @@ export function trackPageView(url?: string) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', `PageView event at ${url || window.location.pathname}`);
 
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'PageView');
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackPageView(url);
   }
 
   // TikTok Pixel
@@ -245,16 +252,9 @@ export function trackViewContent(product: ProductType) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "ViewContent event triggered:", product);
 
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'ViewContent', {
-      content_ids: [product.id],
-      content_name: product.name,
-      content_category: product.category,
-      value: product.price,
-      currency: "BDT",
-      content_type: "product"
-    });
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackViewContent(product);
   }
 
   // GA4
@@ -310,11 +310,9 @@ export function trackSearch(query: string) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "Search event triggered:", query);
 
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'Search', {
-      search_string: query
-    });
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackSearch(query);
   }
 
   // GA4
@@ -344,16 +342,9 @@ export function trackAddToCart(product: ProductType, quantity: number = 1) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "AddToCart event triggered:", product, "Qty:", quantity);
 
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'AddToCart', {
-      content_ids: [product.id],
-      content_name: product.name,
-      content_category: product.category,
-      value: product.price * quantity,
-      currency: "BDT",
-      content_type: "product"
-    });
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackAddToCart(product, quantity);
   }
 
   // GA4
@@ -417,16 +408,19 @@ export function trackInitiateCheckout(items: CartItemType[], total: number) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "InitiateCheckout event triggered. Items count:", items.length, "Total:", total);
 
-  const contentIds = items.map(i => i.id);
-
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'InitiateCheckout', {
-      content_ids: contentIds,
-      value: total,
-      currency: "BDT",
-      num_items: items.reduce((sum, i) => sum + i.quantity, 0)
-    });
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackInitiateCheckout(
+      items.map(i => ({
+        id: i.id,
+        sku: i.id,
+        name: i.name,
+        category: i.category || "General",
+        price: i.price,
+        quantity: i.quantity || 1
+      })),
+      total
+    );
   }
 
   // GA4
@@ -482,15 +476,19 @@ export function trackAddPaymentInfo(items: CartItemType[], total: number) {
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "AddPaymentInfo event triggered. Total:", total);
 
-  const contentIds = items.map(i => i.id);
-
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'AddPaymentInfo', {
-      content_ids: contentIds,
-      value: total,
-      currency: "BDT"
-    });
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackAddPaymentInfo(
+      items.map(i => ({
+        id: i.id,
+        sku: i.id,
+        name: i.name,
+        category: i.category || "General",
+        price: i.price,
+        quantity: i.quantity || 1
+      })),
+      total
+    );
   }
 
   // GA4
@@ -560,24 +558,19 @@ export function trackPurchase(
 
   debugLog('general', "Purchase event triggered. Order:", orderId, "Total:", finalTotal);
 
-  const contentIds = items.map(i => i.id).filter(Boolean);
-
-  // Meta Pixel with Deduplication Event ID
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    const metaPayload: Record<string, any> = {
-      value: finalTotal,
-      currency: "BDT",
-      content_ids: contentIds,
-      content_type: "product",
-      order_id: orderId,
-    };
-
-    debugLog('meta', "Sending Purchase event to fbq:", metaPayload, {
-      eventID: orderId
-    });
-
-    window.fbq('track', 'Purchase', metaPayload, {
-      eventID: orderId, // Used for CAPI and Pixel deduplication
+  // Meta Pixel via authoritative @/lib/meta (with deterministic evt_purchase_<orderId> eventID)
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackPurchase({
+      orderNumber: orderId,
+      total: finalTotal,
+      items: items.map(i => ({
+        id: i.id,
+        sku: i.id,
+        name: i.name,
+        category: i.category || "General",
+        price: i.price,
+        quantity: i.quantity || 1
+      }))
     });
   }
 
@@ -638,11 +631,11 @@ export function trackLead(data: { value?: number; currency?: string; lead_type?:
   if (!activeConfig || !activeConfig.global_enabled) return;
   debugLog('general', "Lead event triggered:", data);
 
-  // Meta Pixel
-  if (activeConfig.meta_pixel_enabled && window.fbq) {
-    window.fbq('track', 'Lead', {
+  // Meta Pixel via authoritative @/lib/meta
+  if (activeConfig.meta_pixel_enabled) {
+    metaTrackLead({
       value: data.value || 0,
-      currency: data.currency || "BDT"
+      leadType: data.lead_type || "Inquiry"
     });
   }
 

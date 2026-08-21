@@ -24,7 +24,6 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
-import { trackInitiateCheckout, trackAddPaymentInfo } from "@/lib/tracking";
 import { analytics } from "@/services/analytics";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
 import { useCustomer } from "@/context/CustomerContext";

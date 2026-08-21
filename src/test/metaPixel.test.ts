@@ -91,7 +91,12 @@ describe("Meta Pixel Tracking Validation", () => {
       updateTrackingConfig(config);
       trackPageView("/target-page");
 
-      expect(window.fbq).toHaveBeenCalledWith("track", "PageView");
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "PageView",
+        {},
+        expect.objectContaining({ eventID: expect.stringMatching(/^evt_pageview_/) })
+      );
     });
 
     it("should trigger ViewContent event properly", () => {
@@ -121,14 +126,18 @@ describe("Meta Pixel Tracking Validation", () => {
         price: 1500,
       });
 
-      expect(window.fbq).toHaveBeenCalledWith("track", "ViewContent", {
-        content_ids: ["prod-1"],
-        content_name: "Test Product",
-        content_category: "Clothing",
-        value: 1500,
-        currency: "BDT",
-        content_type: "product",
-      });
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "ViewContent",
+        expect.objectContaining({
+          content_ids: ["prod-1"],
+          content_name: "Test Product",
+          content_type: "product",
+          value: 1500,
+          currency: "BDT",
+        }),
+        { eventID: "evt_viewcontent_prod-1" }
+      );
     });
 
     it("should trigger AddToCart event properly", () => {
@@ -158,14 +167,19 @@ describe("Meta Pixel Tracking Validation", () => {
         price: 1500,
       }, 2);
 
-      expect(window.fbq).toHaveBeenCalledWith("track", "AddToCart", {
-        content_ids: ["prod-1"],
-        content_name: "Test Product",
-        content_category: "Clothing",
-        value: 3000,
-        currency: "BDT",
-        content_type: "product",
-      });
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "AddToCart",
+        expect.objectContaining({
+          content_ids: ["prod-1"],
+          content_name: "Test Product",
+          content_type: "product",
+          value: 3000,
+          currency: "BDT",
+          num_items: 2,
+        }),
+        expect.objectContaining({ eventID: expect.stringMatching(/^evt_addtocart_prod-1_/) })
+      );
     });
 
     it("should trigger Purchase event properly with Event ID deduplication", () => {
@@ -192,26 +206,36 @@ describe("Meta Pixel Tracking Validation", () => {
         { id: "prod-1", name: "Test Product", category: "Clothing", price: 1500, quantity: 2 }
       ], 3000);
 
-      expect(window.fbq).toHaveBeenCalledWith("track", "Purchase", {
-        value: 3000,
-        currency: "BDT",
-        content_ids: ["prod-1"],
-        content_type: "product",
-        order_id: "order-12345",
-      }, {
-        eventID: "order-12345",
-      });
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "Purchase",
+        expect.objectContaining({
+          value: 3000,
+          currency: "BDT",
+          content_ids: ["prod-1"],
+          content_type: "product",
+          order_id: "order-12345",
+        }),
+        {
+          eventID: "evt_purchase_order-12345",
+        }
+      );
     });
   });
 
   describe("Legacy Facebook Pixel Utility (fbpixel.ts)", () => {
     it("should initialize legacy pixel and track standard events", () => {
       initFBPixel("98765432101234");
+      expect(window.fbq).toHaveBeenCalledWith("set", "autoConfig", false, "98765432101234");
       expect(window.fbq).toHaveBeenCalledWith("init", "98765432101234");
-      expect(window.fbq).toHaveBeenCalledWith("track", "PageView");
 
       legacyTrackPageView();
-      expect(window.fbq).toHaveBeenCalledWith("track", "PageView");
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "PageView",
+        {},
+        expect.objectContaining({ eventID: expect.stringMatching(/^evt_pageview_/) })
+      );
 
       legacyTrackAddToCart({
         id: "prod-1",
@@ -219,24 +243,33 @@ describe("Meta Pixel Tracking Validation", () => {
         category: "Clothing",
         price: 1500,
       });
-      expect(window.fbq).toHaveBeenCalledWith("track", "AddToCart", {
-        content_ids: ["prod-1"],
-        content_name: "Test Product",
-        content_category: "Clothing",
-        value: 1500,
-        currency: "BDT",
-      });
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "AddToCart",
+        expect.objectContaining({
+          content_ids: ["prod-1"],
+          content_name: "Test Product",
+          value: 1500,
+          currency: "BDT",
+        }),
+        expect.objectContaining({ eventID: expect.stringMatching(/^evt_addtocart_prod-1_/) })
+      );
 
       legacyTrackPurchase("order-12345", [{ id: "prod-1" }], 1500);
-      expect(window.fbq).toHaveBeenCalledWith("track", "Purchase", {
-        value: 1500,
-        currency: "BDT",
-        content_ids: ["prod-1"],
-        content_type: "product",
-        order_id: "order-12345",
-      }, {
-        eventID: "order-12345",
-      });
+      expect(window.fbq).toHaveBeenCalledWith(
+        "track",
+        "Purchase",
+        expect.objectContaining({
+          value: 1500,
+          currency: "BDT",
+          content_ids: ["prod-1"],
+          content_type: "product",
+          order_id: "order-12345",
+        }),
+        {
+          eventID: "evt_purchase_order-12345",
+        }
+      );
     });
   });
 

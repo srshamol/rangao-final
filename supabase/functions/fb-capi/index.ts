@@ -173,10 +173,11 @@ Deno.serve(async (req) => {
         const contentIds = (items || []).map((i: any) => i.product_id || i.product_name);
         const numItems = (items || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
 
+        const purchaseEventId = `evt_purchase_${order.order_number}`;
         const eventData: Record<string, any> = {
           event_name: event_name,
           event_time: Math.floor(Date.now() / 1000),
-          event_id: order.order_number,
+          event_id: event_name === "Purchase" ? purchaseEventId : `evt_${event_name.toLowerCase()}_${order.order_number}`,
           event_source_url: Deno.env.get("SITE_URL") || "https://www.rangao.bd",
           user_data: userData,
           custom_data: {

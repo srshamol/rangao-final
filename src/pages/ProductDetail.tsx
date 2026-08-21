@@ -886,7 +886,6 @@ const ProductDetail = () => {
                               }`}
                               onClick={() => {
                                 addToCart(product, quantity);
-                                analytics.addToCart(product as any, quantity);
                                 toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
                               }}
                             >
@@ -1282,7 +1281,6 @@ const ProductDetail = () => {
                   }`}
                   onClick={() => {
                     addToCart(product, quantity);
-                    analytics.addToCart(product as any, quantity);
                     toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
                   }}
                   title="কার্টে যোগ করুন"

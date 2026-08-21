@@ -8,7 +8,7 @@ const STORAGE_KEY = "rangao_meta_attribution";
  * Gets a cookie value by name.
  */
 function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || !document.cookie) return null;
   const match = document.cookie.match(new RegExp(`(^|;\\s*)(${name})=([^;]*)`));
   return match ? decodeURIComponent(match[3]) : null;
 }
