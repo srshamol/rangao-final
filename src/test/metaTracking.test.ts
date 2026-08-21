@@ -5,6 +5,8 @@ import {
   normalizePhone,
   normalizeEmail,
   normalizePrice,
+  normalizeMetaCurrency,
+  normalizeMetaValue,
   normalizeContentItem,
   normalizeContents,
   extractContentIds,
@@ -135,6 +137,22 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
       expect(normalizePrice("1250.509")).toBe(1250.51);
       expect(normalizePrice(null)).toBe(0);
       expect(normalizePrice("invalid")).toBe(0);
+      expect(normalizePrice("৳990.00")).toBe(990);
+    });
+
+    it("should strictly normalize currency to BDT and reject symbols or invalid values", () => {
+      expect(normalizeMetaCurrency("BDT")).toBe("BDT");
+      expect(normalizeMetaCurrency("bdt")).toBe("BDT");
+      expect(normalizeMetaCurrency("৳")).toBe("BDT");
+      expect(normalizeMetaCurrency("taka")).toBe("BDT");
+      expect(normalizeMetaCurrency(undefined)).toBe("BDT");
+      expect(normalizeMetaCurrency(null)).toBe("BDT");
+
+      expect(normalizeMetaValue(990)).toBe(990);
+      expect(normalizeMetaValue("990 BDT")).toBe(990);
+      expect(normalizeMetaValue("৳1250.50")).toBe(1250.5);
+      expect(normalizeMetaValue(-50)).toBe(0);
+      expect(normalizeMetaValue(null)).toBe(0);
     });
   });
 

@@ -82,10 +82,21 @@ export function trackPixelEvent(
   if (typeof window === "undefined" || !window.fbq) return;
 
   try {
+    const sanitizedParams = params ? { ...params } : {};
+
+    // Strictly enforce valid currency & numeric value according to Meta standards
+    if ("currency" in sanitizedParams) {
+      sanitizedParams.currency = "BDT";
+    }
+    if ("value" in sanitizedParams) {
+      const v = typeof sanitizedParams.value === "number" ? sanitizedParams.value : parseFloat(String(sanitizedParams.value).replace(/[^0-9.-]+/g, ""));
+      sanitizedParams.value = Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0;
+    }
+
     if (eventId) {
-      window.fbq("track", eventName, params || {}, { eventID: eventId });
+      window.fbq("track", eventName, sanitizedParams, { eventID: eventId });
     } else {
-      window.fbq("track", eventName, params || {});
+      window.fbq("track", eventName, sanitizedParams);
     }
 
     if (process.env.NODE_ENV !== "production") {
@@ -93,7 +104,7 @@ export function trackPixelEvent(
         `%c[Meta Pixel] %c${eventName}`,
         "background: #1877F2; color: #fff; font-weight: bold; border-radius: 3px; padding: 1px 4px;",
         "font-weight: bold; color: #1877F2;",
-        { params, eventId }
+        { params: sanitizedParams, eventId }
       );
     }
   } catch (err) {
@@ -112,10 +123,20 @@ export function trackPixelCustomEvent(
   if (typeof window === "undefined" || !window.fbq) return;
 
   try {
+    const sanitizedParams = params ? { ...params } : {};
+
+    if ("currency" in sanitizedParams) {
+      sanitizedParams.currency = "BDT";
+    }
+    if ("value" in sanitizedParams) {
+      const v = typeof sanitizedParams.value === "number" ? sanitizedParams.value : parseFloat(String(sanitizedParams.value).replace(/[^0-9.-]+/g, ""));
+      sanitizedParams.value = Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0;
+    }
+
     if (eventId) {
-      window.fbq("trackCustom", customEventName, params || {}, { eventID: eventId });
+      window.fbq("trackCustom", customEventName, sanitizedParams, { eventID: eventId });
     } else {
-      window.fbq("trackCustom", customEventName, params || {});
+      window.fbq("trackCustom", customEventName, sanitizedParams);
     }
 
     if (process.env.NODE_ENV !== "production") {
@@ -123,7 +144,7 @@ export function trackPixelCustomEvent(
         `%c[Meta Pixel Custom] %c${customEventName}`,
         "background: #4267B2; color: #fff; font-weight: bold; border-radius: 3px; padding: 1px 4px;",
         "font-weight: bold; color: #4267B2;",
-        { params, eventId }
+        { params: sanitizedParams, eventId }
       );
     }
   } catch (err) {

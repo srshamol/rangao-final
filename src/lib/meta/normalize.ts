@@ -52,13 +52,38 @@ export function normalizeString(str: string | null | undefined): string {
 }
 
 /**
+ * Normalizes and strictly validates currency for Meta Pixel and CAPI.
+ * Always returns standard uppercase ISO code "BDT".
+ * Rejects symbols like ৳, Tk, undefined, null, or invalid currency types.
+ */
+export function normalizeMetaCurrency(currency?: any): string {
+  if (!currency || typeof currency !== "string") return "BDT";
+  const clean = currency.trim().toUpperCase();
+  if (clean === "BDT" || clean === "USD" || clean === "EUR") return clean;
+  return "BDT";
+}
+
+/**
+ * Normalizes numeric monetary values for Meta Pixel and CAPI.
+ * Guarantees a strictly positive, finite float number rounded to 2 decimal places.
+ */
+export function normalizeMetaValue(value: any): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || isNaN(value) || value < 0) return 0;
+    return Math.round(value * 100) / 100;
+  }
+  const cleanStr = String(value).replace(/[^0-9.-]+/g, "");
+  const num = parseFloat(cleanStr);
+  if (!Number.isFinite(num) || isNaN(num) || num < 0) return 0;
+  return Math.round(num * 100) / 100;
+}
+
+/**
  * Normalizes prices to numbers rounded to 2 decimal places.
  */
 export function normalizePrice(price: number | string | null | undefined): number {
-  if (price === null || price === undefined) return 0;
-  const num = typeof price === "number" ? price : parseFloat(String(price));
-  if (isNaN(num)) return 0;
-  return Math.round(num * 100) / 100;
+  return normalizeMetaValue(price);
 }
 
 /**

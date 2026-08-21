@@ -26,6 +26,17 @@ function normalizeBDPhone(phone: string | null | undefined): string {
   return cleaned;
 }
 
+// Helper: Normalize value strictly to positive float number
+function normalizeValue(value: any): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) / 100 : 0;
+  }
+  const cleanStr = String(value).replace(/[^0-9.-]+/g, "");
+  const num = parseFloat(cleanStr);
+  return Number.isFinite(num) && num >= 0 ? Math.round(num * 100) / 100 : 0;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 1. CORS & Methods
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -56,12 +67,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       auth: { persistSession: false },
     });
 
-    // 3. Load tracking credentials from store_settings or environment variables
-    let metaPixelId = process.env.META_PIXEL_ID || process.env.VITE_META_PIXEL_ID || "";
+    // 3. Load tracking credentials (Environment variables take precedence, database fallback)
+    let metaPixelId =
+      process.env.META_PIXEL_ID ||
+      process.env.NEXT_PUBLIC_META_PIXEL_ID ||
+      process.env.VITE_META_PIXEL_ID ||
+      "18625836884445311";
     let metaAccessToken = process.env.META_CAPI_ACCESS_TOKEN || "";
     let testEventCode = process.env.META_TEST_EVENT_CODE || "";
     let capiEnabled = true;
-
     let apiVersion = process.env.META_GRAPH_API_VERSION || DEFAULT_GRAPH_API_VERSION;
 
     try {
@@ -73,10 +87,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const trackingConfig = row?.value as any;
       if (trackingConfig) {
-        if (trackingConfig.meta_pixel_id) metaPixelId = trackingConfig.meta_pixel_id;
-        if (trackingConfig.meta_access_token) metaAccessToken = trackingConfig.meta_access_token;
-        if (trackingConfig.meta_test_event_code) testEventCode = trackingConfig.meta_test_event_code;
-        if (trackingConfig.meta_api_version) apiVersion = trackingConfig.meta_api_version;
+        if (!process.env.META_PIXEL_ID && trackingConfig.meta_pixel_id) {
+          metaPixelId = trackingConfig.meta_pixel_id;
+        }
+        if (!metaAccessToken && trackingConfig.meta_access_token) {
+          metaAccessToken = trackingConfig.meta_access_token;
+        }
+        if (!testEventCode && trackingConfig.meta_test_event_code) {
+          testEventCode = trackingConfig.meta_test_event_code;
+        }
+        if (!process.env.META_GRAPH_API_VERSION && trackingConfig.meta_api_version) {
+          apiVersion = trackingConfig.meta_api_version;
+        }
         if (trackingConfig.meta_capi_enabled !== undefined) capiEnabled = Boolean(trackingConfig.meta_capi_enabled);
         if (trackingConfig.global_enabled === false) capiEnabled = false;
       }
@@ -102,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 5. Build authoritative User Data
     const formattedUserData: Record<string, any> = {};
 
-    let authoritativeValue = custom_data?.value;
+    let authoritativeValue = normalizeValue(custom_data?.value);
     let authoritativeContentIds = custom_data?.content_ids || [];
     let authoritativeContents = custom_data?.contents || [];
     let authoritativeOrderId = custom_data?.order_id || order_id;
@@ -174,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           formattedUserData.external_id = [sha256(dbOrder.id)];
 
           // Authoritative order details
-          authoritativeValue = Number(dbOrder.total_amount);
+          authoritativeValue = normalizeValue(dbOrder.total_amount);
           authoritativeOrderId = dbOrder.order_number;
 
           if (dbOrder.order_items && dbOrder.order_items.length > 0) {
@@ -182,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             authoritativeContents = dbOrder.order_items.map((i: any) => ({
               id: String(i.product_id || i.product_name),
               quantity: i.quantity || 1,
-              item_price: Number(i.unit_price || 0),
+              item_price: normalizeValue(i.unit_price || 0),
             }));
           }
         }
@@ -220,14 +242,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const eventSourceUrl = req.headers.referer || "https://www.rangao.bd";
 
     const customDataPayload: Record<string, any> = {
-      currency: custom_data.currency || "BDT",
-      content_type: "product",
       ...custom_data,
+      currency: "BDT",
+      content_type: "product",
+      value: authoritativeValue,
     };
 
-    if (authoritativeValue !== undefined) {
-      customDataPayload.value = Number(authoritativeValue);
-    }
     if (authoritativeContentIds.length > 0) {
       customDataPayload.content_ids = authoritativeContentIds;
     }
@@ -254,7 +274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     if (testEventCode) {
-      payload.test_event_code = testEventCode;
+      payload.test_event_code = testEventCode.trim();
     }
 
     // 7. Dispatch to Meta Graph API
@@ -306,8 +326,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!isSuccess) {
-      console.error("[Meta CAPI Serverless Error]:", result.error || result);
-      return res.status(500).json({ error: result.error?.message || "Failed to send Meta CAPI event", details: result });
+      const errorMsg = result.error?.message || `HTTP ${response.status}: Failed to send Meta CAPI event`;
+      console.warn(
+        `[Meta CAPI] Event ${event_name} failed:`,
+        `Code: ${result.error?.code || response.status}`,
+        `Message: ${errorMsg}`,
+        `Trace: ${result.fbtrace_id || "N/A"}`
+      );
+
+      // Return HTTP 200 with structured diagnostic response so frontend never gets a 500 console error
+      return res.status(200).json({
+        success: false,
+        status: "meta_rejected",
+        error: errorMsg,
+        code: result.error?.code,
+        error_subcode: result.error?.error_subcode,
+        fbtrace_id: result.fbtrace_id,
+      });
     }
 
     return res.status(200).json({
@@ -317,7 +352,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fbtrace_id: result.fbtrace_id,
     });
   } catch (err: any) {
-    console.error("[Meta CAPI Serverless Exception]:", err);
-    return res.status(500).json({ error: err.message || "Internal server error" });
+    console.error("[Meta CAPI Serverless Exception]:", err.message || err);
+    return res.status(200).json({
+      success: false,
+      status: "server_exception",
+      error: err.message || "Internal server error",
+    });
   }
 }
