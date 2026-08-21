@@ -453,15 +453,6 @@ const OrderSuccess = () => {
               city: order.shippingAddress?.division || order.shippingAddress?.district || "",
             },
           });
-
-          // Trigger Conversions API (Server-side tracking) immediately on checkout completion
-          if (order.id) {
-            supabase.functions.invoke("fb-capi", {
-              body: { order_id: order.id, event_name: "Purchase" }
-            }).then(({ data, error }) => {
-              console.log("[Conversions API Checkout completion trigger]:", data, error);
-            });
-          }
         } catch (e) {
           console.error("Error checking strict purchase mode:", e);
         }

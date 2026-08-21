@@ -406,6 +406,19 @@ export type Database = {
           total_amount: number
           updated_at: string | null
           user_id: string | null
+          user_agent: string | null
+          fbp: string | null
+          fbc: string | null
+          fbclid: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_term: string | null
+          meta_purchase_event_id: string | null
+          meta_purchase_status: string | null
+          meta_purchase_sent_at: string | null
+          meta_purchase_last_error: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -428,6 +441,19 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
           user_id?: string | null
+          user_agent?: string | null
+          fbp?: string | null
+          fbc?: string | null
+          fbclid?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          meta_purchase_event_id?: string | null
+          meta_purchase_status?: string | null
+          meta_purchase_sent_at?: string | null
+          meta_purchase_last_error?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -450,6 +476,19 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
           user_id?: string | null
+          user_agent?: string | null
+          fbp?: string | null
+          fbc?: string | null
+          fbclid?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          meta_purchase_event_id?: string | null
+          meta_purchase_status?: string | null
+          meta_purchase_sent_at?: string | null
+          meta_purchase_last_error?: string | null
         }
         Relationships: []
       }

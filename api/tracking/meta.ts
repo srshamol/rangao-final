@@ -62,6 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let testEventCode = process.env.META_TEST_EVENT_CODE || "";
     let capiEnabled = true;
 
+    let apiVersion = process.env.META_GRAPH_API_VERSION || DEFAULT_GRAPH_API_VERSION;
+
     try {
       const { data: row } = await supabase
         .from("store_settings")
@@ -74,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (trackingConfig.meta_pixel_id) metaPixelId = trackingConfig.meta_pixel_id;
         if (trackingConfig.meta_access_token) metaAccessToken = trackingConfig.meta_access_token;
         if (trackingConfig.meta_test_event_code) testEventCode = trackingConfig.meta_test_event_code;
+        if (trackingConfig.meta_api_version) apiVersion = trackingConfig.meta_api_version;
         if (trackingConfig.meta_capi_enabled !== undefined) capiEnabled = Boolean(trackingConfig.meta_capi_enabled);
         if (trackingConfig.global_enabled === false) capiEnabled = false;
       }
@@ -103,6 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let authoritativeContentIds = custom_data?.content_ids || [];
     let authoritativeContents = custom_data?.contents || [];
     let authoritativeOrderId = custom_data?.order_id || order_id;
+    let matchedDbOrder: any = null;
 
     // If order_id is present (especially for Purchase), verify from Database
     if (order_id) {
@@ -114,8 +118,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .maybeSingle();
 
         if (dbOrder) {
+          matchedDbOrder = dbOrder;
+
           // Idempotency: Check if Purchase was already sent for this order
           if (event_name === "Purchase") {
+            const status = (dbOrder.order_status || "").toLowerCase();
+            if (status === "cancelled" || status === "refunded" || status === "failed") {
+              return res.status(200).json({
+                skipped: true,
+                message: `Order is ${status}, skipping Purchase event`,
+              });
+            }
+
+            if (dbOrder.meta_purchase_status === "sent") {
+              return res.status(200).json({
+                success: true,
+                deduplicated: true,
+                message: "Purchase event already sent for this order (db status)",
+              });
+            }
+
             const { data: history } = await supabase
               .from("order_history")
               .select("id")
@@ -127,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               return res.status(200).json({
                 success: true,
                 deduplicated: true,
-                message: "Purchase event already sent for this order",
+                message: "Purchase event already sent for this order (history)",
               });
             }
           }
@@ -237,7 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 7. Dispatch to Meta Graph API
     const response = await fetch(
-      `${META_GRAPH_API_BASE}/${DEFAULT_GRAPH_API_VERSION}/${metaPixelId}/events`,
+      `${META_GRAPH_API_BASE}/${apiVersion}/${metaPixelId}/events`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -248,15 +270,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = await response.json();
     const isSuccess = response.ok && !result.error;
 
-    // Log to order history if order_id exists
-    if (order_id && isSuccess && event_name === "Purchase") {
+    // Log to order history & update orders table if order_id exists
+    if (matchedDbOrder && event_name === "Purchase") {
       try {
-        await supabase.from("order_history").insert({
-          order_id,
-          action: "fb_capi_sent",
-          details: `Meta CAPI ${event_name} ইভেন্ট সফলভাবে পাঠানো হয়েছে (Event ID: ${finalEventId})`,
-          staff_name: "Meta CAPI System",
-        });
+        if (isSuccess) {
+          await supabase
+            .from("orders")
+            .update({
+              meta_purchase_event_id: finalEventId,
+              meta_purchase_status: "sent",
+              meta_purchase_sent_at: new Date().toISOString(),
+              meta_purchase_last_error: null,
+            })
+            .eq("id", matchedDbOrder.id);
+
+          await supabase.from("order_history").insert({
+            order_id: matchedDbOrder.id,
+            action: "fb_capi_sent",
+            details: `Meta CAPI ${event_name} ইভেন্ট সফলভাবে পাঠানো হয়েছে (Event ID: ${finalEventId})`,
+            staff_name: "Meta CAPI System",
+          });
+        } else {
+          const errorMsg = result.error?.message || JSON.stringify(result);
+          await supabase
+            .from("orders")
+            .update({
+              meta_purchase_status: "failed",
+              meta_purchase_last_error: errorMsg,
+            })
+            .eq("id", matchedDbOrder.id);
+        }
       } catch (logErr) {
         // non-blocking
       }

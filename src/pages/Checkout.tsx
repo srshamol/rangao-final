@@ -368,6 +368,12 @@ const Checkout = () => {
           user_agent: userAgent,
           fbp: fbp || null,
           fbc: fbc || null,
+          fbclid: attribution.fbclid || null,
+          utm_source: attribution.utm_source || null,
+          utm_medium: attribution.utm_medium || null,
+          utm_campaign: attribution.utm_campaign || null,
+          utm_content: attribution.utm_content || null,
+          utm_term: attribution.utm_term || null,
         })
         .select("id, order_number")
         .single();

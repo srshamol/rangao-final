@@ -25,20 +25,56 @@ import {
   trackCustomEvent,
   initMetaPixel,
   isValidMetaPixelId,
+  captureAttribution,
+  getAttributionContext,
+  sendMetaCapiEvent,
 } from "@/lib/meta";
 
 describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
+  let localStorageStore: Record<string, string> = {};
+  let sessionStorageStore: Record<string, string> = {};
+
   beforeEach(() => {
+    localStorageStore = {};
+    sessionStorageStore = {};
+
     // Mock window & document environment
     vi.stubGlobal("window", {
       fbq: vi.fn(),
       _fbq: {},
       dataLayer: [],
       location: {
-        href: "https://www.rangao.bd/products/ayatul-kursi",
+        href: "https://www.rangao.bd/products/ayatul-kursi?fbclid=IwAR123456789&utm_source=facebook&utm_medium=cpc&utm_campaign=ramadan_sale",
+        origin: "https://www.rangao.bd",
         pathname: "/products/ayatul-kursi",
         search: "?fbclid=IwAR123456789&utm_source=facebook&utm_medium=cpc&utm_campaign=ramadan_sale",
       },
+    });
+
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => localStorageStore[key] || null),
+      setItem: vi.fn((key: string, val: string) => {
+        localStorageStore[key] = val;
+      }),
+      removeItem: vi.fn((key: string) => {
+        delete localStorageStore[key];
+      }),
+      clear: vi.fn(() => {
+        localStorageStore = {};
+      }),
+    });
+
+    vi.stubGlobal("sessionStorage", {
+      getItem: vi.fn((key: string) => sessionStorageStore[key] || null),
+      setItem: vi.fn((key: string, val: string) => {
+        sessionStorageStore[key] = val;
+      }),
+      removeItem: vi.fn((key: string) => {
+        delete sessionStorageStore[key];
+      }),
+      clear: vi.fn(() => {
+        sessionStorageStore = {};
+      }),
     });
 
     vi.stubGlobal("document", {
@@ -139,7 +175,7 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
     });
   });
 
-  describe("4. SHA-256 Hashing & User Matching (Event Match Quality)", () => {
+  describe("4. SHA-256 Hashing & User Matching (Enhanced Signal Quality)", () => {
     it("should compute accurate SHA-256 hex string", async () => {
       const hash = await sha256("test@example.com");
       expect(hash).toBe("973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b");
@@ -376,6 +412,69 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
         { code: "RAMADAN20" },
         { eventID: customEventId }
       );
+    });
+  });
+
+  describe("7. Attribution & UTM Persistence Across Multi-Page Funnel", () => {
+    it("should capture and persist fbclid, fbc, and UTMs into storage", () => {
+      const attr = captureAttribution();
+
+      expect(attr.fbclid).toBe("IwAR123456789");
+      expect(attr.utm_source).toBe("facebook");
+      expect(attr.utm_medium).toBe("cpc");
+      expect(attr.utm_campaign).toBe("ramadan_sale");
+      expect(attr.fbc).toMatch(/^fb\.1\.\d+\.IwAR123456789$/);
+
+      // Verify persistence in localStorage
+      const savedContext = JSON.parse(localStorageStore["rangao_meta_attribution"]);
+      expect(savedContext.utm_campaign).toBe("ramadan_sale");
+    });
+
+    it("should retain original attribution when navigating to a URL without query params", () => {
+      // Step 1: Initial landing with UTMs
+      captureAttribution();
+
+      // Step 2: Customer navigates to product page without query params
+      window.location.search = "";
+      window.location.href = "https://www.rangao.bd/checkout";
+
+      const subsequentAttr = captureAttribution();
+      expect(subsequentAttr.utm_source).toBe("facebook");
+      expect(subsequentAttr.utm_campaign).toBe("ramadan_sale");
+      expect(subsequentAttr.fbclid).toBe("IwAR123456789");
+    });
+  });
+
+  describe("8. Thank-You Page 10x Refresh Idempotency Check", () => {
+    it("should return the exact same deterministic event ID for repeated purchase calls", () => {
+      const orderNumber = "ORD-REFRESH-TEST-100";
+      const ids: string[] = [];
+
+      for (let i = 0; i < 10; i++) {
+        ids.push(generatePurchaseEventId(orderNumber));
+      }
+
+      // All 10 IDs must be strictly identical
+      expect(new Set(ids).size).toBe(1);
+      expect(ids[0]).toBe("evt_purchase_ORD-REFRESH-TEST-100");
+    });
+  });
+
+  describe("9. CAPI Dispatcher Payload & Timestamp Verification", () => {
+    it("should reject CAPI dispatch when credentials are missing", async () => {
+      const result = await sendMetaCapiEvent(
+        {
+          event_name: "Purchase",
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: "evt_purchase_test",
+          action_source: "website",
+          user_data: {},
+        },
+        { pixelId: "", accessToken: "" }
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Missing pixelId or accessToken");
     });
   });
 });

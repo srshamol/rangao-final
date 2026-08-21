@@ -384,14 +384,19 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     try {
       const shippingLabel = shippingOptions.find((s) => s.id === shipping)!.label;
 
-      let fbp = "";
-      let fbc = "";
-      try {
-        const { default: clientParamBuilder } = await import("meta-capi-param-builder-clientjs");
-        fbp = clientParamBuilder.getFbp() || "";
-        fbc = clientParamBuilder.getFbc() || "";
-      } catch (err) {
-        console.error("Error reading CAPI parameters:", err);
+      const { getAttributionContext } = await import("@/lib/meta/attribution");
+      const attribution = getAttributionContext();
+      let fbp = attribution.fbp || "";
+      let fbc = attribution.fbc || "";
+
+      if (!fbp || !fbc) {
+        try {
+          const { default: clientParamBuilder } = await import("meta-capi-param-builder-clientjs");
+          if (!fbp) fbp = clientParamBuilder.getFbp() || "";
+          if (!fbc) fbc = clientParamBuilder.getFbc() || "";
+        } catch (err) {
+          // ignore
+        }
       }
       const userAgent = navigator.userAgent;
 
@@ -418,6 +423,12 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
           user_agent: userAgent,
           fbp: fbp || null,
           fbc: fbc || null,
+          fbclid: attribution.fbclid || null,
+          utm_source: attribution.utm_source || null,
+          utm_medium: attribution.utm_medium || null,
+          utm_campaign: attribution.utm_campaign || null,
+          utm_content: attribution.utm_content || null,
+          utm_term: attribution.utm_term || null,
         })
         .select("id, order_number")
         .single();
