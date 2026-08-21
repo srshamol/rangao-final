@@ -478,9 +478,12 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
       const isPreOrder = product.stock === 0;
 
+      const isValidUUID = (id?: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || "");
+
       const { error: itemsError } = await supabase.from("order_items").insert({
         order_id: order.id,
-        product_id: product.id,
+        product_id: isValidUUID(product.id) ? product.id : null,
         product_name: isPreOrder ? `${product.name} (প্রি-অর্ডার)` : product.name,
         unit_price: product.price,
         quantity: localQuantity,

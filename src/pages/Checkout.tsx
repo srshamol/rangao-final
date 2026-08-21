@@ -342,6 +342,7 @@ const Checkout = () => {
           // ignore
         }
       }
+      const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : null;
       // Track AddPaymentInfo event
       analytics.addPaymentInfo(
         items.map((i) => ({
@@ -393,9 +394,12 @@ const Checkout = () => {
       if (orderError) throw orderError;
 
       // 2. Insert order items
+      const isValidUUID = (id?: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || "");
+
       const orderItems = items.map((i) => ({
         order_id: order.id,
-        product_id: i.product.id,
+        product_id: isValidUUID(i.product.id) ? i.product.id : null,
         product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
         unit_price: i.product.price,
         quantity: i.quantity,
@@ -593,6 +597,8 @@ const Checkout = () => {
     } catch (err: any) {
       console.error("Order completion error:", err);
       toast.error("অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+    } finally {
+      setSubmitting(false);
     }
   };
 
