@@ -30,18 +30,20 @@ const mockSupabaseClient = {
         select: vi.fn().mockImplementation(() => ({
           eq: vi.fn().mockImplementation(() => ({
             eq: vi.fn().mockImplementation(() => ({
-              gt: vi.fn().mockImplementation(() => ({
-                order: vi.fn().mockResolvedValue({
-                  data: [
-                    {
-                      id: "mock-otp-id",
-                      code: "1234",
-                      expires_at: new Date(Date.now() + 50000).toISOString(),
-                      verified: false,
-                    },
-                  ],
-                  error: null,
-                }),
+              eq: vi.fn().mockImplementation(() => ({
+                gt: vi.fn().mockImplementation(() => ({
+                  order: vi.fn().mockResolvedValue({
+                    data: [
+                      {
+                        id: "mock-otp-id",
+                        code: "1234",
+                        expires_at: new Date(Date.now() + 50000).toISOString(),
+                        verified: false,
+                      },
+                    ],
+                    error: null,
+                  }),
+                })),
               })),
             })),
           })),

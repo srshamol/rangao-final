@@ -587,7 +587,11 @@ export function useStoreSettings() {
         deliveryCharges: { ...defaults.delivery_charges, ...settings.delivery_charges } as DeliveryCharges,
         paymentMethods: { ...defaults.payment_methods, ...settings.payment_methods } as PaymentMethods,
         homepageSections: { ...defaults.homepage_sections, ...settings.homepage_sections } as HomepageSections,
-        storeInfo: { ...defaults.store_info, ...settings.store_info } as StoreInfo,
+        storeInfo: {
+          ...defaults.store_info,
+          ...settings.store_info,
+          tracking: settings.public_tracking_settings || settings.tracking_settings || settings.store_info?.tracking || defaults.store_info.tracking,
+        } as StoreInfo,
         trustFeatures: (settings.trust_features || defaults.trust_features) as TrustFeatureItem[],
         offerBanner: { ...defaults.offer_banner, ...settings.offer_banner } as OfferBanner,
         newsletter: { ...defaults.newsletter, ...settings.newsletter } as NewsletterConfig,

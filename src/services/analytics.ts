@@ -13,6 +13,8 @@ export interface AnalyticsOrder {
   orderNumber: string;
   total: number;
   items: Array<{
+    id?: string;
+    productId?: string;
     name: string;
     unitPrice: number;
     quantity: number;
@@ -23,13 +25,13 @@ export interface AnalyticsOrder {
 export function isTrackingAllowed(): boolean {
   if (typeof window === "undefined") return false;
 
-  // 1. Consent Check
+  // 1. Consent Check - only block if user explicitly declined
   const consent = localStorage.getItem("rangao_cookie_consent");
-  if (consent !== "accepted") {
+  if (consent === "declined") {
     return false;
   }
 
-  // 2. Admin Check
+  // 2. Admin Check - never track internal admin usage
   if (window.location.pathname.startsWith("/admin")) {
     return false;
   }
@@ -116,9 +118,9 @@ export const analytics = {
   purchase(order: AnalyticsOrder): void {
     if (!isTrackingAllowed()) return;
 
-    // Convert items to tracking format
+    // Convert items to tracking format with exact product IDs
     const mappedItems = order.items.map((item) => ({
-      id: order.orderNumber, // fallback ID
+      id: item.id || item.productId || order.orderNumber,
       name: item.name,
       price: item.unitPrice,
       quantity: item.quantity,

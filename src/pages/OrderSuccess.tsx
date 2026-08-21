@@ -359,6 +359,8 @@ const OrderSuccess = () => {
                 },
                 paymentMethod: dbOrder.payment_method || "",
                 items: dbItems.map((item: any) => ({
+                  id: item.product_id || item.product_name,
+                  productId: item.product_id || item.product_name,
                   name: item.product_name,
                   image: "",
                   quantity: item.quantity,
@@ -430,8 +432,10 @@ const OrderSuccess = () => {
           trackedOrders.push(order.orderNumber);
           localStorage.setItem("fb_tracked_orders", JSON.stringify(trackedOrders));
 
-          // Map items properly
-          const mappedItems = order.items.map((i) => ({
+          // Map items properly with product IDs
+          const mappedItems = order.items.map((i: any) => ({
+            id: i.id || i.productId,
+            productId: i.productId || i.id,
             name: i.name,
             unitPrice: i.unitPrice,
             quantity: i.quantity

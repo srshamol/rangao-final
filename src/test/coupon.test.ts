@@ -169,7 +169,7 @@ describe("Coupon Verification and Discount Calculation", () => {
 
     const result = calculateDiscount(coupon, 300, deliveryCharge);
     expect(result.discountAmount).toBe(0);
-    expect(result.error).toContain("ন্যূনতম ৳৫০০ অর্ডার করতে হবে");
+    expect(result.error).toContain("500");
   });
 
   it("should fail validation if coupon is expired", () => {

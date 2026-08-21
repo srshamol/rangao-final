@@ -16,20 +16,21 @@ export function initFBPixel(pixelId: string) {
   // Load FB Pixel script
   const f = window as any;
   const b = document;
-  if (f.fbq) return;
-  const n: any = (f.fbq = function () {
-    n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-  });
-  if (!f._fbq) f._fbq = n;
-  n.push = n;
-  n.loaded = true;
-  n.version = "2.0";
-  n.queue = [];
-  const t = b.createElement("script");
-  t.async = true;
-  t.src = "https://connect.facebook.net/en_US/fbevents.js";
-  const s = b.getElementsByTagName("script")[0];
-  s?.parentNode?.insertBefore(t, s);
+  if (!f.fbq) {
+    const n: any = (f.fbq = function () {
+      n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+    });
+    if (!f._fbq) f._fbq = n;
+    n.push = n;
+    n.loaded = true;
+    n.version = "2.0";
+    n.queue = [];
+    const t = b.createElement("script");
+    t.async = true;
+    t.src = "https://connect.facebook.net/en_US/fbevents.js";
+    const s = b.getElementsByTagName("script")[0];
+    s?.parentNode?.insertBefore(t, s);
+  }
 
   window.fbq("init", pixelId);
   window.fbq("track", "PageView");

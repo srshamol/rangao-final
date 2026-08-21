@@ -8,6 +8,12 @@ describe("Meta Pixel Tracking Validation", () => {
     vi.stubGlobal("window", {
       fbq: vi.fn(),
       _fbq: {},
+      ttq: {
+        page: vi.fn(),
+        track: vi.fn(),
+        load: vi.fn(),
+        push: vi.fn(),
+      },
       dataLayer: [],
       location: {
         pathname: "/test-path",

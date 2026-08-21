@@ -171,6 +171,7 @@ export function initializeScripts() {
 
       (function(w: any, d: Document, t: string) {
         w.TiktokAnalyticsObject = t;
+        if (w[t]?.track && w[t]?.page) return;
         var ttq = (w[t] = w[t] || []);
         ttq.methods = [
           "page", "track", "identify", "instances", "debug", "on", "off",
@@ -179,7 +180,12 @@ export function initializeScripts() {
         ];
         ttq.setAndDefer = function(t: any, e: any) {
           t[e] = function() {
-            t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+            if (typeof t.push === "function") {
+              t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+            } else {
+              t.queue = t.queue || [];
+              t.queue.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+            }
           };
         };
         for (var i = 0; i < ttq.methods.length; i++) {

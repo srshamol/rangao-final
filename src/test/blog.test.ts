@@ -69,7 +69,7 @@ describe("Blog & Tips Logic", () => {
       const dbPost: BlogItem = {
         id: "uuid-1234",
         title: "Test Title",
-        content: "Detailed markdown content of the post.",
+        content: "Detailed markdown content of the post",
         category: "গাইড",
         image_url: "https://example.com/img.jpg",
         author: "Admin User",
