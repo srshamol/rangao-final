@@ -325,8 +325,6 @@ const Checkout = () => {
 
   const completeOrderCreation = async (clientIP: string) => {
     try {
-      trackAddPaymentInfo(items.map(i => ({ id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })), total);
-
       const { getAttributionContext } = await import("@/lib/meta/attribution");
       const attribution = getAttributionContext();
       let fbp = attribution.fbp || "";
