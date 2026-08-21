@@ -12,10 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  Loader2, Save, Store, Truck, CreditCard, Settings2, BarChart3, 
-  CheckCircle2, XCircle, Send, Plus, Trash2, Smartphone, Globe, 
-  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud 
+import {
+  Loader2, Save, Store, Truck, CreditCard, Settings2, BarChart3,
+  CheckCircle2, XCircle, Send, Plus, Trash2, Smartphone, Globe,
+  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud
 } from "lucide-react";
 import { mediaService } from "@/lib/mediaService";
 import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings, AboutUsSettings, CoreValueItem } from "@/hooks/useStoreSettings";
@@ -102,25 +102,25 @@ export default function AdminSettings() {
     social_links: []
   });
 
-  const [delivery, setDelivery] = useState<DeliveryCharges>({ 
-    dhaka_inside: 70, 
-    dhaka_outside: 130, 
+  const [delivery, setDelivery] = useState<DeliveryCharges>({
+    dhaka_inside: 70,
+    dhaka_outside: 130,
     free_delivery_min: 0,
     delivery_time_inside: "৩-৫ কার্যদিবস",
     delivery_time_outside: "৫-৭ কার্যদিবস"
   });
   const [payment, setPayment] = useState<PaymentMethods>({ cod: true, bkash: false, nagad: false, bkash_number: "", nagad_number: "", uddoktapay: false, uddoktapay_api_key: "", uddoktapay_base_url: "", uddoktapay_display_name: "" });
-  
-  const [courier, setCourier] = useState<CourierSettings>({ 
-    default_courier: "steadfast", 
-    auto_sync_hours: 6, 
-    api_key: "", 
-    secret_key: "", 
-    bdcourier_api_key: "", 
-    bdcourier_base_url: "https://app.bdcourier.com/api", 
-    bdcourier_enabled: false 
+
+  const [courier, setCourier] = useState<CourierSettings>({
+    default_courier: "steadfast",
+    auto_sync_hours: 6,
+    api_key: "",
+    secret_key: "",
+    bdcourier_api_key: "",
+    bdcourier_base_url: "https://app.bdcourier.com/api",
+    bdcourier_enabled: false
   });
-  
+
   const [fbPixel, setFbPixel] = useState<FacebookPixel>({ pixel_id: "", access_token: "", test_event_code: "", enabled: false, strict_purchase_mode: true });
   const [tracking, setTracking] = useState<any>({
     global_enabled: true,
@@ -267,7 +267,7 @@ export default function AdminSettings() {
     setUploadingField(field);
     try {
       const mediaItem = await mediaService.upload(file, "images");
-      
+
       setStoreInfo(prev => ({
         ...prev,
         [field]: mediaItem.url
@@ -366,16 +366,12 @@ export default function AdminSettings() {
             });
           }
           if (row.key === "facebook_pixel") setFbPixel(row.value);
-          if (row.key === "tracking_settings" || row.key === "public_tracking_settings") {
-            const val = { ...row.value };
-            if (val.meta_pixel_id === "18625836884445311" || !val.meta_pixel_id) {
-              val.meta_pixel_id = "1862583688445311";
-            }
-            setTracking((prev: any) => ({
+          if (row.key === "tracking_settings") {
+            setTracking(prev => ({
               ...prev,
-              ...val
+              ...row.value
             }));
-            setDbTracking(val);
+            setDbTracking(row.value);
           }
 
           if (row.key === "telegram_settings") {
@@ -448,7 +444,7 @@ export default function AdminSettings() {
       const { error } = await supabase.from("store_settings" as any)
         .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
       if (error) throw error;
-      
+
       // Update both database tables to maintain 100% frontend synchronization
       if (key === "store_info") {
         // Automatically sync email & phone to contact_info too
@@ -458,90 +454,90 @@ export default function AdminSettings() {
           .upsert({ key: "contact_info", value: nextContact, updated_at: new Date().toISOString() }, { onConflict: "key" });
       }
 
-       toast({ title: "✅ সেটিংস সফলভাবে সেভ হয়েছে" });
-     } catch (e: any) {
-       toast({ title: "সেভ ব্যর্থ", description: e.message, variant: "destructive" });
-     } finally {
-       setSaving(null);
-     }
-   };
- 
-   const saveTrackingSettings = async () => {
-     setSaving("tracking_settings");
-     try {
-       // Validate Pixel/GTM/GA4/TikTok inputs if needed
-       if (tracking.meta_pixel_enabled && !tracking.meta_pixel_id?.trim()) {
-         toast({ title: "❌ ভুল ইনপুট", description: "ফেসবুক পিক্সেল আইডি দিতে হবে।", variant: "destructive" });
-         return;
-       }
-       if (tracking.gtm_enabled && !tracking.gtm_id?.trim()) {
-         toast({ title: "❌ ভুল ইনপুট", description: "GTM কন্টেইনার আইডি দিতে হবে।", variant: "destructive" });
-         return;
-       }
-       if (tracking.ga4_enabled && !tracking.ga4_id?.trim()) {
-         toast({ title: "❌ ভুল ইনপুট", description: "GA4 মেজারমেন্ট আইডি দিতে হবে।", variant: "destructive" });
-         return;
-       }
-       if (tracking.tiktok_enabled && !tracking.tiktok_pixel_id?.trim()) {
-         toast({ title: "❌ ভুল ইনপুট", description: "TikTok পিক্সেল আইডি দিতে হবে।", variant: "destructive" });
-         return;
-       }
- 
-       // 1. Save full tracking settings (contains private tokens)
-       const { error: err1 } = await supabase
-         .from("store_settings" as any)
-         .upsert({
-           key: "tracking_settings",
-           value: tracking,
-           updated_at: new Date().toISOString()
-         }, { onConflict: "key" });
-       if (err1) throw err1;
- 
-       // 2. Save public version (exclude sensitive tokens)
-       const { meta_access_token, tiktok_access_token, ...publicTracking } = tracking;
-       const { error: err2 } = await supabase
-         .from("store_settings" as any)
-         .upsert({
-           key: "public_tracking_settings",
-           value: publicTracking,
-           updated_at: new Date().toISOString()
-         }, { onConflict: "key" });
-       if (err2) throw err2;
- 
-       // 3. Sync to store_info.tracking for instant frontend refresh
-       const nextStoreInfo = { ...storeInfo, tracking: publicTracking };
-       setStoreInfo(nextStoreInfo);
-       const { error: err3 } = await supabase
-         .from("store_settings" as any)
-         .upsert({
-           key: "store_info",
-           value: nextStoreInfo,
-           updated_at: new Date().toISOString()
-         }, { onConflict: "key" });
-       if (err3) throw err3;
- 
-       // Also update backward-compatible facebook_pixel setting for other systems reading it
-       await supabase.from("store_settings" as any)
-         .upsert({
-           key: "facebook_pixel",
-           value: {
-             enabled: tracking.meta_pixel_enabled,
-             pixel_id: tracking.meta_pixel_id,
-             access_token: tracking.meta_access_token,
-             test_event_code: tracking.meta_test_event_code,
-             strict_purchase_mode: tracking.meta_strict_purchase_mode
-           },
-           updated_at: new Date().toISOString()
-         }, { onConflict: "key" });
- 
-       toast({ title: "✅ ট্র্যাকিং সেটিংস সফলভাবে সেভ হয়েছে" });
-       setDbTracking(tracking);
-     } catch (e: any) {
-       toast({ title: "❌ সেভ ব্যর্থ হয়েছে", description: e.message, variant: "destructive" });
-     } finally {
-       setSaving(null);
-     }
-   };
+      toast({ title: "✅ সেটিংস সফলভাবে সেভ হয়েছে" });
+    } catch (e: any) {
+      toast({ title: "সেভ ব্যর্থ", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveTrackingSettings = async () => {
+    setSaving("tracking_settings");
+    try {
+      // Validate Pixel/GTM/GA4/TikTok inputs if needed
+      if (tracking.meta_pixel_enabled && !tracking.meta_pixel_id?.trim()) {
+        toast({ title: "❌ ভুল ইনপুট", description: "ফেসবুক পিক্সেল আইডি দিতে হবে।", variant: "destructive" });
+        return;
+      }
+      if (tracking.gtm_enabled && !tracking.gtm_id?.trim()) {
+        toast({ title: "❌ ভুল ইনপুট", description: "GTM কন্টেইনার আইডি দিতে হবে।", variant: "destructive" });
+        return;
+      }
+      if (tracking.ga4_enabled && !tracking.ga4_id?.trim()) {
+        toast({ title: "❌ ভুল ইনপুট", description: "GA4 মেজারমেন্ট আইডি দিতে হবে।", variant: "destructive" });
+        return;
+      }
+      if (tracking.tiktok_enabled && !tracking.tiktok_pixel_id?.trim()) {
+        toast({ title: "❌ ভুল ইনপুট", description: "TikTok পিক্সেল আইডি দিতে হবে।", variant: "destructive" });
+        return;
+      }
+
+      // 1. Save full tracking settings (contains private tokens)
+      const { error: err1 } = await supabase
+        .from("store_settings" as any)
+        .upsert({
+          key: "tracking_settings",
+          value: tracking,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "key" });
+      if (err1) throw err1;
+
+      // 2. Save public version (exclude sensitive tokens)
+      const { meta_access_token, tiktok_access_token, ...publicTracking } = tracking;
+      const { error: err2 } = await supabase
+        .from("store_settings" as any)
+        .upsert({
+          key: "public_tracking_settings",
+          value: publicTracking,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "key" });
+      if (err2) throw err2;
+
+      // 3. Sync to store_info.tracking for instant frontend refresh
+      const nextStoreInfo = { ...storeInfo, tracking: publicTracking };
+      setStoreInfo(nextStoreInfo);
+      const { error: err3 } = await supabase
+        .from("store_settings" as any)
+        .upsert({
+          key: "store_info",
+          value: nextStoreInfo,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "key" });
+      if (err3) throw err3;
+
+      // Also update backward-compatible facebook_pixel setting for other systems reading it
+      await supabase.from("store_settings" as any)
+        .upsert({
+          key: "facebook_pixel",
+          value: {
+            enabled: tracking.meta_pixel_enabled,
+            pixel_id: tracking.meta_pixel_id,
+            access_token: tracking.meta_access_token,
+            test_event_code: tracking.meta_test_event_code,
+            strict_purchase_mode: tracking.meta_strict_purchase_mode
+          },
+          updated_at: new Date().toISOString()
+        }, { onConflict: "key" });
+
+      toast({ title: "✅ ট্র্যাকিং সেটিংস সফলভাবে সেভ হয়েছে" });
+      setDbTracking(tracking);
+    } catch (e: any) {
+      toast({ title: "❌ সেভ ব্যর্থ হয়েছে", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
 
   // WhatsApp Generation Helper
   const getWhatsAppLink = () => {
@@ -650,7 +646,7 @@ export default function AdminSettings() {
   };
 
   const handleToggleSocialLink = (id: string) => {
-    const nextLinks = (contactInfo.social_links || []).map(item => 
+    const nextLinks = (contactInfo.social_links || []).map(item =>
       item.id === id ? { ...item, enabled: !item.enabled } : item
     );
     setContactInfo(prev => ({ ...prev, social_links: nextLinks }));
@@ -687,7 +683,7 @@ export default function AdminSettings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
+
                 {/* Primary Logo */}
                 <div className="space-y-3 p-4 rounded-xl border bg-secondary/25 flex flex-col justify-between">
                   <div>
@@ -710,10 +706,10 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div className="space-y-2 mt-2">
-                    <Input 
-                      value={storeInfo.logo_url} 
-                      onChange={e => setStoreInfo(p => ({ ...p, logo_url: e.target.value }))} 
-                      placeholder="অথবা লোগো ইমেজ URL দিন" 
+                    <Input
+                      value={storeInfo.logo_url}
+                      onChange={e => setStoreInfo(p => ({ ...p, logo_url: e.target.value }))}
+                      placeholder="অথবা লোগো ইমেজ URL দিন"
                       className="text-xs"
                     />
                   </div>
@@ -741,10 +737,10 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div className="space-y-2 mt-2">
-                    <Input 
-                      value={storeInfo.mobile_logo_url || ""} 
-                      onChange={e => setStoreInfo(p => ({ ...p, mobile_logo_url: e.target.value }))} 
-                      placeholder="অথবা মোবাইল লোগো URL দিন" 
+                    <Input
+                      value={storeInfo.mobile_logo_url || ""}
+                      onChange={e => setStoreInfo(p => ({ ...p, mobile_logo_url: e.target.value }))}
+                      placeholder="অথবা মোবাইল লোগো URL দিন"
                       className="text-xs"
                     />
                   </div>
@@ -772,17 +768,17 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div className="space-y-2 mt-2">
-                    <input 
-                      ref={whiteLogoInputRef} 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={e => e.target.files?.[0] && uploadFile(e.target.files[0], "white_logo_url")} 
+                    <input
+                      ref={whiteLogoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => e.target.files?.[0] && uploadFile(e.target.files[0], "white_logo_url")}
                     />
-                    <Input 
-                      value={storeInfo.white_logo_url || ""} 
-                      onChange={e => setStoreInfo(p => ({ ...p, white_logo_url: e.target.value }))} 
-                      placeholder="অথবা হোয়াইট লোগো URL দিন" 
+                    <Input
+                      value={storeInfo.white_logo_url || ""}
+                      onChange={e => setStoreInfo(p => ({ ...p, white_logo_url: e.target.value }))}
+                      placeholder="অথবা হোয়াইট লোগো URL দিন"
                       className="text-xs"
                       disabled={uploadingField === "white_logo_url"}
                     />
@@ -797,34 +793,34 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs">ডেস্কটপ প্রস্থ (px)</Label>
-                    <Input 
-                      type="number" 
-                      value={storeInfo.logo_desktop_width || 140} 
-                      onChange={e => setStoreInfo(p => ({ ...p, logo_desktop_width: Number(e.target.value) }))} 
+                    <Input
+                      type="number"
+                      value={storeInfo.logo_desktop_width || 140}
+                      onChange={e => setStoreInfo(p => ({ ...p, logo_desktop_width: Number(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">ডেস্কটপ উচ্চতা (px)</Label>
-                    <Input 
-                      type="number" 
-                      value={storeInfo.logo_desktop_height || 40} 
-                      onChange={e => setStoreInfo(p => ({ ...p, logo_desktop_height: Number(e.target.value) }))} 
+                    <Input
+                      type="number"
+                      value={storeInfo.logo_desktop_height || 40}
+                      onChange={e => setStoreInfo(p => ({ ...p, logo_desktop_height: Number(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">মোবাইল প্রস্থ (px)</Label>
-                    <Input 
-                      type="number" 
-                      value={storeInfo.logo_mobile_width || 100} 
-                      onChange={e => setStoreInfo(p => ({ ...p, logo_mobile_width: Number(e.target.value) }))} 
+                    <Input
+                      type="number"
+                      value={storeInfo.logo_mobile_width || 100}
+                      onChange={e => setStoreInfo(p => ({ ...p, logo_mobile_width: Number(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">মোবাইল উচ্চতা (px)</Label>
-                    <Input 
-                      type="number" 
-                      value={storeInfo.logo_mobile_height || 30} 
-                      onChange={e => setStoreInfo(p => ({ ...p, logo_mobile_height: Number(e.target.value) }))} 
+                    <Input
+                      type="number"
+                      value={storeInfo.logo_mobile_height || 30}
+                      onChange={e => setStoreInfo(p => ({ ...p, logo_mobile_height: Number(e.target.value) }))}
                     />
                   </div>
                 </div>
@@ -837,10 +833,10 @@ export default function AdminSettings() {
                   <Label className="font-bold">ওয়েবসাইট ফেভিকন (Favicon)</Label>
                   <p className="text-xs text-muted-foreground">PNG, ICO, or SVG ফাইল আপলোড বা URL দিন। এটি ব্রাউজার ট্যাব এবং বুকমার্কে প্রদর্শিত হয়।</p>
                   <div className="flex gap-2">
-                    <Input 
-                      value={storeInfo.favicon_url || ""} 
-                      onChange={e => setStoreInfo(p => ({ ...p, favicon_url: e.target.value }))} 
-                      placeholder="ফেভিকন ইমেজ URL" 
+                    <Input
+                      value={storeInfo.favicon_url || ""}
+                      onChange={e => setStoreInfo(p => ({ ...p, favicon_url: e.target.value }))}
+                      placeholder="ফেভিকন ইমেজ URL"
                       className="flex-1"
                     />
                     <Button type="button" variant="outline" className="gap-1 rounded-xl" onClick={() => setActivePickerField("favicon_url")}>
@@ -891,17 +887,17 @@ export default function AdminSettings() {
                   <p className="font-bold text-sm">হোয়াটসঅ্যাপ উইজেট বাটন</p>
                   <p className="text-xs text-muted-foreground">অন করলে পুরো ওয়েবসাইটে ও প্রোডাক্ট পেজে হোয়াটসঅ্যাপ বাটন প্রদর্শিত হবে</p>
                 </div>
-                <Switch 
-                  checked={contactInfo.whatsapp_enabled !== false} 
-                  onCheckedChange={v => setContactInfo(p => ({ ...p, whatsapp_enabled: v }))} 
+                <Switch
+                  checked={contactInfo.whatsapp_enabled !== false}
+                  onCheckedChange={v => setContactInfo(p => ({ ...p, whatsapp_enabled: v }))}
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>কান্ট্রি কোড</Label>
-                  <Select 
-                    value={contactInfo.whatsapp_country_code || "+880"} 
+                  <Select
+                    value={contactInfo.whatsapp_country_code || "+880"}
                     onValueChange={handleCountryCodeChange}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -917,10 +913,10 @@ export default function AdminSettings() {
 
                 <div className="space-y-2">
                   <Label>হোয়াটসঅ্যাপ নম্বর</Label>
-                  <Input 
-                    value={contactInfo.whatsapp} 
-                    onChange={e => handleWhatsAppChange(e.target.value)} 
-                    placeholder="যেমন: 01812345678" 
+                  <Input
+                    value={contactInfo.whatsapp}
+                    onChange={e => handleWhatsAppChange(e.target.value)}
+                    placeholder="যেমন: 01812345678"
                   />
                   <p className="text-[10px] text-muted-foreground">নম্বরটি টাইপ করুন। কান্ট্রি কোড ও প্রথম শূন্য স্বয়ংক্রিয়ভাবে ফর্ম্যাট হবে।</p>
                 </div>
@@ -963,7 +959,7 @@ export default function AdminSettings() {
               <CardDescription>ওয়েবসাইটের হেডার ও ফুটারে সোশ্যাল মিডিয়া আইকন ও অ্যাকাউন্টসমূহ কন্ট্রোল করুন</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              
+
               {/* Add social account block */}
               <div className="p-4 rounded-xl border bg-secondary/15 flex flex-col md:flex-row gap-4 items-end">
                 <div className="flex-1 space-y-2 w-full">
@@ -979,10 +975,10 @@ export default function AdminSettings() {
                 </div>
                 <div className="flex-2 space-y-2 w-full md:w-auto md:flex-1">
                   <Label>প্রোফাইল লিংক (URL)</Label>
-                  <Input 
-                    value={newUrl} 
-                    onChange={e => setNewUrl(e.target.value)} 
-                    placeholder="https://facebook.com/your-brand" 
+                  <Input
+                    value={newUrl}
+                    onChange={e => setNewUrl(e.target.value)}
+                    placeholder="https://facebook.com/your-brand"
                   />
                 </div>
                 <Button type="button" className="gap-1.5 rounded-xl bg-accent text-accent-foreground w-full md:w-auto" onClick={handleAddSocialLink}>
@@ -994,7 +990,7 @@ export default function AdminSettings() {
               <Separator />
               <div className="space-y-4">
                 <h4 className="font-bold text-sm text-primary">সংরক্ষিত সোশ্যাল অ্যাকাউন্টসমূহ ({contactInfo.social_links?.length || 0})</h4>
-                
+
                 {(!contactInfo.social_links || contactInfo.social_links.length === 0) ? (
                   <div className="p-8 text-center border-2 border-dashed rounded-xl">
                     <p className="text-sm text-muted-foreground">কোনো সোশ্যাল অ্যাকাউন্ট যোগ করা হয়নি। উপরের ফর্মে লিঙ্ক দিন।</p>
@@ -1018,15 +1014,15 @@ export default function AdminSettings() {
                           <div className="flex items-center gap-4 shrink-0 justify-end">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">{link.enabled ? "সক্রিয়" : "বন্ধ"}</span>
-                              <Switch 
-                                checked={link.enabled} 
-                                onCheckedChange={() => handleToggleSocialLink(link.id)} 
+                              <Switch
+                                checked={link.enabled}
+                                onCheckedChange={() => handleToggleSocialLink(link.id)}
                               />
                             </div>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
                               onClick={() => handleRemoveSocialLink(link.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1070,7 +1066,7 @@ export default function AdminSettings() {
               <CardDescription>বিজনেস আইডেন্টিটি, ফোন নম্বর, কন্টাক্ট ইমেইল এবং অফিসিয়াল ঠিকানা কনফিগার করুন</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              
+
               {/* Business Contact details */}
               <div className="space-y-4">
                 <h3 className="font-bold text-sm text-primary flex items-center gap-1"><Smartphone className="h-4 w-4 text-accent" /> সাধারণ কন্টাক্ট তথ্য</h3>
@@ -1160,7 +1156,7 @@ export default function AdminSettings() {
               <CardDescription>শিপিং চার্জ, কুপন থ্রেশহোল্ড এবং পেমেন্ট মেথড গেটওয়ে সেটিংস</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              
+
               {/* Delivery charges */}
               <div className="space-y-4">
                 <h3 className="font-bold text-sm text-primary">শিপিং এবং ডেলিভারি চার্জ</h3>
@@ -1179,7 +1175,7 @@ export default function AdminSettings() {
                     <p className="text-[10px] text-muted-foreground">০ = ফ্রি ডেলিভারি অফ থাকবে</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   <div className="space-y-2">
                     <Label>আনুমানিক ডেলিভারি সময় (ঢাকার ভিতরে)</Label>
@@ -1201,7 +1197,7 @@ export default function AdminSettings() {
               {/* Payment gateways */}
               <div className="space-y-4">
                 <h3 className="font-bold text-sm text-primary">পেমেন্ট অপশন ও গেটওয়েসমূহ</h3>
-                
+
                 <div className="flex items-center justify-between p-3.5 rounded-xl border bg-card">
                   <div>
                     <p className="font-semibold text-sm">ক্যাশ অন ডেলিভারি (Cash On Delivery)</p>
@@ -1285,11 +1281,11 @@ export default function AdminSettings() {
               <CardDescription>অর্ডার অটো-সিঙ্ক ও পার্সেল বুকিংয়ের জন্য কুরিয়ার API কনফিগার করুন</CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   saveSetting("courier_settings", courier);
-                }} 
+                }}
                 className="space-y-6"
               >
                 <div className="space-y-4">
@@ -1297,8 +1293,8 @@ export default function AdminSettings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>প্রধান কুরিয়ার পার্টনার</Label>
-                      <Select 
-                        value={courier.default_courier} 
+                      <Select
+                        value={courier.default_courier}
                         onValueChange={v => setCourier(p => ({ ...p, default_courier: v }))}
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1312,10 +1308,10 @@ export default function AdminSettings() {
                     </div>
                     <div className="space-y-2">
                       <Label>অটো-সিঙ্ক ইন্টারভাল (ঘণ্টা)</Label>
-                      <Input 
-                        type="number" 
-                        value={courier.auto_sync_hours} 
-                        onChange={e => setCourier(p => ({ ...p, auto_sync_hours: Number(e.target.value) }))} 
+                      <Input
+                        type="number"
+                        value={courier.auto_sync_hours}
+                        onChange={e => setCourier(p => ({ ...p, auto_sync_hours: Number(e.target.value) }))}
                       />
                     </div>
                   </div>
@@ -1328,18 +1324,18 @@ export default function AdminSettings() {
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label>Steadfast API Key</Label>
-                      <Input 
-                        value={courier.api_key || ""} 
-                        onChange={e => setCourier(p => ({ ...p, api_key: e.target.value }))} 
+                      <Input
+                        value={courier.api_key || ""}
+                        onChange={e => setCourier(p => ({ ...p, api_key: e.target.value }))}
                         placeholder="যেমন: sk_xxxxxx_xxxxxxxxxxxx"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Steadfast Secret Key</Label>
-                      <Input 
+                      <Input
                         type="password"
-                        value={courier.secret_key || ""} 
-                        onChange={e => setCourier(p => ({ ...p, secret_key: e.target.value }))} 
+                        value={courier.secret_key || ""}
+                        onChange={e => setCourier(p => ({ ...p, secret_key: e.target.value }))}
                         placeholder="••••••••••••••••••••••••"
                         autoComplete="off"
                       />
@@ -1355,9 +1351,9 @@ export default function AdminSettings() {
                       <p className="font-semibold text-sm">BD Courier ইন্টিগ্রেশন</p>
                       <p className="text-xs text-muted-foreground">BD Courier API গেটওয়ে সচল করুন</p>
                     </div>
-                    <Switch 
-                      checked={!!courier.bdcourier_enabled} 
-                      onCheckedChange={v => setCourier(p => ({ ...p, bdcourier_enabled: v }))} 
+                    <Switch
+                      checked={!!courier.bdcourier_enabled}
+                      onCheckedChange={v => setCourier(p => ({ ...p, bdcourier_enabled: v }))}
                     />
                   </div>
 
@@ -1365,17 +1361,17 @@ export default function AdminSettings() {
                     <div className="space-y-4 pl-3 border-l-2 border-accent">
                       <div className="space-y-2">
                         <Label>BD Courier API Key</Label>
-                        <Input 
-                          value={courier.bdcourier_api_key || ""} 
-                          onChange={e => setCourier(p => ({ ...p, bdcourier_api_key: e.target.value }))} 
+                        <Input
+                          value={courier.bdcourier_api_key || ""}
+                          onChange={e => setCourier(p => ({ ...p, bdcourier_api_key: e.target.value }))}
                           placeholder="BD Courier API API Key"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label>BD Courier Base URL</Label>
-                        <Input 
-                          value={courier.bdcourier_base_url || "https://app.bdcourier.com/api"} 
-                          onChange={e => setCourier(p => ({ ...p, bdcourier_base_url: e.target.value }))} 
+                        <Input
+                          value={courier.bdcourier_base_url || "https://app.bdcourier.com/api"}
+                          onChange={e => setCourier(p => ({ ...p, bdcourier_base_url: e.target.value }))}
                         />
                       </div>
                     </div>
@@ -1402,11 +1398,11 @@ export default function AdminSettings() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   saveTrackingSettings();
-                }} 
+                }}
                 className="space-y-6 pt-6"
               >
                 {/* Global Settings Segment */}
@@ -1418,15 +1414,15 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">সব ট্র্যাকিং চালু করুন</Label>
                         <p className="text-[10px] text-muted-foreground">গ্লোবাল ইভেন্ট ফায়ারিং সুইচ</p>
                       </div>
-                      <Switch 
-                        checked={tracking.global_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, global_enabled: v }))} 
+                      <Switch
+                        checked={tracking.global_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, global_enabled: v }))}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">অ্যাক্টিভ এনভায়রনমেন্ট (Environment)</Label>
-                      <select 
-                        value={tracking.environment || "production"} 
+                      <select
+                        value={tracking.environment || "production"}
                         onChange={e => setTracking((p: any) => ({ ...p, environment: e.target.value }))}
                         className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:outline-none"
                       >
@@ -1498,31 +1494,31 @@ export default function AdminSettings() {
                         <p className="font-bold text-xs text-blue-600">Meta Pixel ট্র্যাকিং</p>
                         <p className="text-[10px] text-muted-foreground">ব্রাউজার পিক্সেল কোড লোড ও ফায়ার করুন</p>
                       </div>
-                      <Switch 
-                        checked={tracking.meta_pixel_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_pixel_enabled: v }))} 
+                      <Switch
+                        checked={tracking.meta_pixel_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_pixel_enabled: v }))}
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">Meta Pixel ID</Label>
-                        <Input 
-                          value={tracking.meta_pixel_id || ""} 
+                        <Input
+                          value={tracking.meta_pixel_id || ""}
                           onChange={e => {
                             const val = e.target.value;
                             const clean = val === "18625836884445311" ? "1862583688445311" : val;
                             setTracking((p: any) => ({ ...p, meta_pixel_id: clean }));
-                          }} 
+                          }}
                           placeholder="যেমন: 1862583688445311"
                           className="text-xs h-9"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs">Graph API Version</Label>
-                        <Input 
-                          value={tracking.meta_api_version || "v21.0"} 
-                          onChange={e => setTracking((p: any) => ({ ...p, meta_api_version: e.target.value }))} 
+                        <Input
+                          value={tracking.meta_api_version || "v21.0"}
+                          onChange={e => setTracking((p: any) => ({ ...p, meta_api_version: e.target.value }))}
                           placeholder="যেমন: v21.0"
                           className="text-xs h-9"
                         />
@@ -1536,18 +1532,18 @@ export default function AdminSettings() {
                         <p className="font-bold text-xs text-blue-600">Meta Conversions API (CAPI) সচল করুন</p>
                         <p className="text-[10px] text-muted-foreground">সার্ভার-সাইড ইভেন্ট ট্র্যাকিং এবং উন্নত ম্যাচ রেটিং</p>
                       </div>
-                      <Switch 
-                        checked={tracking.meta_capi_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_capi_enabled: v }))} 
+                      <Switch
+                        checked={tracking.meta_capi_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_capi_enabled: v }))}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-xs">Meta Conversions API Access Token</Label>
-                      <Input 
+                      <Input
                         type="password"
-                        value={tracking.meta_access_token || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, meta_access_token: e.target.value }))} 
+                        value={tracking.meta_access_token || ""}
+                        onChange={e => setTracking((p: any) => ({ ...p, meta_access_token: e.target.value }))}
                         placeholder="EAA..."
                         className="text-xs h-9"
                         autoComplete="off"
@@ -1558,9 +1554,9 @@ export default function AdminSettings() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">Test Event Code (পরীক্ষামূলক ইভেন্ট কোড)</Label>
-                        <Input 
-                          value={tracking.meta_test_event_code || ""} 
-                          onChange={e => setTracking((p: any) => ({ ...p, meta_test_event_code: e.target.value }))} 
+                        <Input
+                          value={tracking.meta_test_event_code || ""}
+                          onChange={e => setTracking((p: any) => ({ ...p, meta_test_event_code: e.target.value }))}
                           placeholder="যেমন: TEST12345"
                           className="text-xs h-9"
                         />
@@ -1570,9 +1566,9 @@ export default function AdminSettings() {
                           <Label className="font-bold text-xs">Strict Purchase Mode</Label>
                           <p className="text-[9px] text-muted-foreground">অর্ডার প্রতি কেবল একবার ট্র্যাকিং</p>
                         </div>
-                        <Switch 
-                          checked={tracking.meta_strict_purchase_mode} 
-                          onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_strict_purchase_mode: v }))} 
+                        <Switch
+                          checked={tracking.meta_strict_purchase_mode}
+                          onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_strict_purchase_mode: v }))}
                         />
                       </div>
                     </div>
@@ -1582,9 +1578,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">Meta Debug Mode</Label>
                         <p className="text-[9px] text-muted-foreground">কনসোলে ডিটেইলড লগ প্রদর্শন</p>
                       </div>
-                      <Switch 
-                        checked={tracking.meta_debug_mode} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_debug_mode: v }))} 
+                      <Switch
+                        checked={tracking.meta_debug_mode}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, meta_debug_mode: v }))}
                       />
                     </div>
                   </TabsContent>
@@ -1596,17 +1592,17 @@ export default function AdminSettings() {
                         <p className="font-bold text-xs text-red-600">Google Tag Manager (GTM)</p>
                         <p className="text-[10px] text-muted-foreground">GTM কন্টেইনার এবং ডেটালিয়ার সিঙ্ক করুন</p>
                       </div>
-                      <Switch 
-                        checked={tracking.gtm_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, gtm_enabled: v }))} 
+                      <Switch
+                        checked={tracking.gtm_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, gtm_enabled: v }))}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-xs">GTM Container ID</Label>
-                      <Input 
-                        value={tracking.gtm_id || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, gtm_id: e.target.value }))} 
+                      <Input
+                        value={tracking.gtm_id || ""}
+                        onChange={e => setTracking((p: any) => ({ ...p, gtm_id: e.target.value }))}
                         placeholder="যেমন: GTM-XXXXXXX"
                         className="text-xs h-9"
                       />
@@ -1619,17 +1615,17 @@ export default function AdminSettings() {
                         <p className="font-bold text-xs text-orange-600">Google Analytics 4 (GA4)</p>
                         <p className="text-[10px] text-muted-foreground">GA4 মেজারমেন্ট আইডি এবং ইকমার্স ইভেন্ট</p>
                       </div>
-                      <Switch 
-                        checked={tracking.ga4_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, ga4_enabled: v }))} 
+                      <Switch
+                        checked={tracking.ga4_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, ga4_enabled: v }))}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-xs">GA4 Measurement ID</Label>
-                      <Input 
-                        value={tracking.ga4_id || ""} 
-                        onChange={e => setTracking((p: any) => ({ ...p, ga4_id: e.target.value }))} 
+                      <Input
+                        value={tracking.ga4_id || ""}
+                        onChange={e => setTracking((p: any) => ({ ...p, ga4_id: e.target.value }))}
                         placeholder="যেমন: G-XXXXXXXXXX"
                         className="text-xs h-9"
                       />
@@ -1640,9 +1636,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">Google Debug Mode</Label>
                         <p className="text-[9px] text-muted-foreground">GA4 রিয়েলটাইম ভিউতে ডিবাগ মড সক্রিয়</p>
                       </div>
-                      <Switch 
-                        checked={tracking.google_debug_mode} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, google_debug_mode: v }))} 
+                      <Switch
+                        checked={tracking.google_debug_mode}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, google_debug_mode: v }))}
                       />
                     </div>
                   </TabsContent>
@@ -1654,28 +1650,28 @@ export default function AdminSettings() {
                         <p className="font-bold text-xs text-black">TikTok Pixel ট্র্যাকিং</p>
                         <p className="text-[10px] text-muted-foreground">টিকটক ব্রাউজার পিক্সেল সচল করুন</p>
                       </div>
-                      <Switch 
-                        checked={tracking.tiktok_enabled} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_enabled: v }))} 
+                      <Switch
+                        checked={tracking.tiktok_enabled}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_enabled: v }))}
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">TikTok Pixel ID</Label>
-                        <Input 
-                          value={tracking.tiktok_pixel_id || ""} 
-                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_pixel_id: e.target.value }))} 
+                        <Input
+                          value={tracking.tiktok_pixel_id || ""}
+                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_pixel_id: e.target.value }))}
                           placeholder="যেমন: CXXXXXXXXXXXXXXXXXXX"
                           className="text-xs h-9"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs">TikTok Access Token (ঐচ্ছিক)</Label>
-                        <Input 
+                        <Input
                           type="password"
-                          value={tracking.tiktok_access_token || ""} 
-                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_access_token: e.target.value }))} 
+                          value={tracking.tiktok_access_token || ""}
+                          onChange={e => setTracking((p: any) => ({ ...p, tiktok_access_token: e.target.value }))}
                           placeholder="যেমন: tt_xxxx"
                           className="text-xs h-9"
                           autoComplete="off"
@@ -1688,9 +1684,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">TikTok Debug Mode</Label>
                         <p className="text-[9px] text-muted-foreground">কনসোলে ইভেন্ট ডিটেইলস প্রিন্ট করুন</p>
                       </div>
-                      <Switch 
-                        checked={tracking.tiktok_debug_mode} 
-                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_debug_mode: v }))} 
+                      <Switch
+                        checked={tracking.tiktok_debug_mode}
+                        onCheckedChange={v => setTracking((p: any) => ({ ...p, tiktok_debug_mode: v }))}
                       />
                     </div>
                   </TabsContent>
@@ -1699,8 +1695,8 @@ export default function AdminSettings() {
                 {/* Event Log Console terminal */}
                 <div className="space-y-3">
                   <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">📊 Live Tracking Engine Status</h3>
-                  
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-3 rounded-xl border bg-secondary/10 text-center">
                       <span className="text-[10px] text-muted-foreground block">Browser Events</span>
                       {(() => {
@@ -1728,7 +1724,7 @@ export default function AdminSettings() {
                           tracking.tiktok_enabled &&
                           isValidTrackingId('tiktok', tracking.tiktok_pixel_id) &&
                           tracking.tiktok_access_token?.trim();
-                        
+
                         let statusText = "Disabled 🔴";
                         let statusColor = "text-red-500";
                         if (isMetaActive && isTiktokActive) {
@@ -1741,7 +1737,7 @@ export default function AdminSettings() {
                           statusText = "TikTok Active 🟢";
                           statusColor = "text-purple-500";
                         }
-                        
+
                         return (
                           <span className={`font-bold text-xs block mt-1 ${statusColor}`}>
                             {statusText}
@@ -1772,7 +1768,7 @@ export default function AdminSettings() {
                           statusText = "Single-Channel 🟡";
                           statusColor = "text-yellow-500";
                         }
-                        
+
                         return (
                           <span className={`font-bold text-xs block mt-1 ${statusColor}`}>
                             {statusText}
@@ -1785,10 +1781,10 @@ export default function AdminSettings() {
                   <div className="p-4 rounded-xl border bg-black text-green-400 font-mono text-[11px] space-y-2 min-h-36 max-h-64 overflow-y-auto">
                     <div className="text-white font-bold border-b border-green-800 pb-1.5 flex justify-between items-center">
                       <span>📟 Live Conversions Event Log Terminal</span>
-                       <Button 
+                      <Button
                         type="button"
-                        size="sm" 
-                        variant="outline" 
+                        size="sm"
+                        variant="outline"
                         className="h-6 text-[10px] bg-green-950/20 text-green-400 border-green-800 hover:bg-green-800 hover:text-white"
                         disabled={!tracking.global_enabled}
                         onClick={() => {
@@ -1799,8 +1795,8 @@ export default function AdminSettings() {
                           if (tracking.tiktok_enabled && isValidTrackingId('tiktok', tracking.tiktok_pixel_id)) activeEngines.push("TikTok");
 
                           if (activeEngines.length === 0) {
-                            toast({ 
-                              title: "❌ No Active Engines", 
+                            toast({
+                              title: "❌ No Active Engines",
                               description: "কোথাও কোনো ভ্যালিড ট্র্যাকিং আইডি কনফিগার ও সচল করা নেই। অনুগ্রহ করে প্রথমে আইডি দিয়ে সেভ করুন।",
                               variant: "destructive"
                             });
@@ -1812,9 +1808,9 @@ export default function AdminSettings() {
                             `[${new Date().toLocaleTimeString()}] [CLIENT] Test Lead Event fired (Value: 100 BDT, Currency: BDT) on: ${activeEngines.join(", ")}`,
                             ...prev
                           ]);
-                          toast({ 
-                            title: "✅ Lead Test Event Dispatched", 
-                            description: `টেস্ট ইভেন্ট সফলভাবে পাঠানো হয়েছে সচল ইঞ্জিনে: ${activeEngines.join(", ")}।` 
+                          toast({
+                            title: "✅ Lead Test Event Dispatched",
+                            description: `টেস্ট ইভেন্ট সফলভাবে পাঠানো হয়েছে সচল ইঞ্জিনে: ${activeEngines.join(", ")}।`
                           });
                         }}
                       >
@@ -1840,7 +1836,7 @@ export default function AdminSettings() {
                         {localLogs.filter(log => !log.includes("initialized successfully")).map((log, idx) => (
                           <div key={idx} className="text-yellow-300">{log}</div>
                         ))}
-                        
+
                         <div className="text-gray-400 border-b border-green-950 pb-1 mt-3 mb-1 font-semibold">--- Real-Time Backend CAPI Database Logs ---</div>
                         {capiLogs && capiLogs.length > 0 ? (
                           capiLogs.map((log: any) => (
@@ -1859,9 +1855,9 @@ export default function AdminSettings() {
                 </div>
 
                 <div className="pt-2">
-                  <Button 
+                  <Button
                     type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95"
                     disabled={saving === "tracking_settings"}
                   >
                     {saving === "tracking_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} ট্র্যাকিং সেটিংস সেভ করুন
@@ -1883,28 +1879,28 @@ export default function AdminSettings() {
               <CardDescription>আপনার ওয়েবসাইটের গুগল র‍্যাংকিং, মেটা টাইটেল, ডেসক্রিপশন এবং ইন্ডেক্সিং সেটিংস পরিচালনা করুন।</CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await saveSetting("seo_settings", seoSettings);
-                }} 
+                }}
                 className="space-y-4"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>ওয়েবসাইট টাইটেল (Site Title)</Label>
-                    <Input 
-                      value={seoSettings.site_title || ""} 
-                      onChange={e => setSeoSettings((p: any) => ({ ...p, site_title: e.target.value }))} 
-                      placeholder="যেমন: Rangao – রাঙাও" 
+                    <Input
+                      value={seoSettings.site_title || ""}
+                      onChange={e => setSeoSettings((p: any) => ({ ...p, site_title: e.target.value }))}
+                      placeholder="যেমন: Rangao – রাঙাও"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>টাইটেল ফরম্যাট (Title Format)</Label>
-                    <Input 
-                      value={seoSettings.title_format || ""} 
-                      onChange={e => setSeoSettings((p: any) => ({ ...p, title_format: e.target.value }))} 
-                      placeholder="যেমন: {title} | {siteName}" 
+                    <Input
+                      value={seoSettings.title_format || ""}
+                      onChange={e => setSeoSettings((p: any) => ({ ...p, title_format: e.target.value }))}
+                      placeholder="যেমন: {title} | {siteName}"
                     />
                     <p className="text-[10px] text-muted-foreground">প্রতিটি পেজের টাইটেল এবং স্টোর নামের লেআউট ডিজাইন করুন।</p>
                   </div>
@@ -1912,38 +1908,38 @@ export default function AdminSettings() {
 
                 <div className="space-y-2">
                   <Label>ডিফল্ট মেটা ডেসক্রিপশন (Default Description)</Label>
-                  <Input 
-                    value={seoSettings.site_description || ""} 
-                    onChange={e => setSeoSettings((p: any) => ({ ...p, site_description: e.target.value }))} 
-                    placeholder="রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি ওয়াল আর্ট ও হোম ডেকোর স্টোর।" 
+                  <Input
+                    value={seoSettings.site_description || ""}
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, site_description: e.target.value }))}
+                    placeholder="রাঙাও – বাংলাদেশের প্রিমিয়াম ইসলামিক ক্যালিগ্রাফি ওয়াল আর্ট ও হোম ডেকোর স্টোর।"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>ডিফল্ট কীওয়ার্ডস (Default Keywords)</Label>
-                  <Input 
-                    value={seoSettings.default_keywords || ""} 
-                    onChange={e => setSeoSettings((p: any) => ({ ...p, default_keywords: e.target.value }))} 
-                    placeholder="ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি" 
+                  <Input
+                    value={seoSettings.default_keywords || ""}
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, default_keywords: e.target.value }))}
+                    placeholder="ইসলামিক ডেকোর, ওয়াল আর্ট, নিকাহনামা, আয়াতুল কুরসি"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>গুগল সার্চ কনসোল ভেরিফিকেশন আইডি (Google Search Console ID)</Label>
-                  <Input 
-                    value={seoSettings.google_search_console_id || ""} 
-                    onChange={e => setSeoSettings((p: any) => ({ ...p, google_search_console_id: e.target.value }))} 
-                    placeholder="যেমন: google-site-verification=abc123xyz" 
+                  <Input
+                    value={seoSettings.google_search_console_id || ""}
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, google_search_console_id: e.target.value }))}
+                    placeholder="যেমন: google-site-verification=abc123xyz"
                   />
                   <p className="text-[10px] text-muted-foreground">গুগল সার্চ কনসোলে ওয়েবসাইট ভেরিফাই করতে এই কী-টি ব্যবহার করুন।</p>
                 </div>
 
                 <div className="space-y-2">
                   <Label>ফেসবুক অ্যাপ আইডি (Facebook App ID / fb:app_id)</Label>
-                  <Input 
-                    value={seoSettings.fb_app_id || ""} 
-                    onChange={e => setSeoSettings((p: any) => ({ ...p, fb_app_id: e.target.value }))} 
-                    placeholder="যেমন: 123456789012345" 
+                  <Input
+                    value={seoSettings.fb_app_id || ""}
+                    onChange={e => setSeoSettings((p: any) => ({ ...p, fb_app_id: e.target.value }))}
+                    placeholder="যেমন: 123456789012345"
                   />
                   <p className="text-[10px] text-muted-foreground">ফেসবুক ডোমেইন ভেরিফিকেশন ও শেয়ারিং অ্যানালিটিক্স-এর জন্য ফেসবুক অ্যাপ আইডি দিন।</p>
                 </div>
@@ -1956,9 +1952,9 @@ export default function AdminSettings() {
                       <Label className="font-bold text-xs">Search Index (ইন্ডেক্স করুন)</Label>
                       <p className="text-[9px] text-muted-foreground">সার্চ ইঞ্জিনে ওয়েবসাইট দৃশ্যমান করতে এটি সচল রাখুন</p>
                     </div>
-                    <Switch 
-                      checked={seoSettings.robots_index} 
-                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_index: v }))} 
+                    <Switch
+                      checked={seoSettings.robots_index}
+                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_index: v }))}
                     />
                   </div>
 
@@ -1967,17 +1963,17 @@ export default function AdminSettings() {
                       <Label className="font-bold text-xs">Follow Links (লিংক অনুকরণ করুন)</Label>
                       <p className="text-[9px] text-muted-foreground">বটদের লিংক অনুসরণ করার অনুমতি দিন</p>
                     </div>
-                    <Switch 
-                      checked={seoSettings.robots_follow} 
-                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_follow: v }))} 
+                    <Switch
+                      checked={seoSettings.robots_follow}
+                      onCheckedChange={v => setSeoSettings((p: any) => ({ ...p, robots_follow: v }))}
                     />
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <Button 
+                  <Button
                     type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95"
                     disabled={saving === "seo_settings"}
                   >
                     {saving === "seo_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} SEO সেটিংস সেভ করুন
@@ -1996,11 +1992,11 @@ export default function AdminSettings() {
               <CardDescription>গ্রাহক ফেস কার্ট স্টোরের "আমাদের সম্পর্কে" পৃষ্ঠার কন্টেন্ট এবং লেআউট কাস্টমাইজ করুন।</CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await saveSetting("about_us_settings", aboutUsSettings);
-                }} 
+                }}
                 className="space-y-6"
               >
                 {/* Section 1: Hero Header */}
@@ -2009,17 +2005,17 @@ export default function AdminSettings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>পেজ টাইটেল (Page Title)</Label>
-                      <Input 
-                        value={aboutUsSettings.title} 
-                        onChange={e => setAboutUsSettings(prev => ({ ...prev, title: e.target.value }))} 
+                      <Input
+                        value={aboutUsSettings.title}
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, title: e.target.value }))}
                         placeholder="যেমন: আমাদের সম্পর্কে"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>সাবটাইটেল (Subtitle)</Label>
-                      <Input 
-                        value={aboutUsSettings.subtitle} 
-                        onChange={e => setAboutUsSettings(prev => ({ ...prev, subtitle: e.target.value }))} 
+                      <Input
+                        value={aboutUsSettings.subtitle}
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, subtitle: e.target.value }))}
                         placeholder="আকর্ষণীয় স্লোগান বা সাবটাইটেল"
                       />
                     </div>
@@ -2027,10 +2023,10 @@ export default function AdminSettings() {
                   <div className="space-y-2">
                     <Label>ব্যানার ব্যাকগ্রাউন্ড ইমেজ (Banner Image URL)</Label>
                     <div className="flex gap-2">
-                      <Input 
-                        value={aboutUsSettings.banner_image_url} 
-                        onChange={e => setAboutUsSettings(prev => ({ ...prev, banner_image_url: e.target.value }))} 
-                        placeholder="ইমেজ URL দিন" 
+                      <Input
+                        value={aboutUsSettings.banner_image_url}
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, banner_image_url: e.target.value }))}
+                        placeholder="ইমেজ URL দিন"
                         className="flex-1"
                       />
                       <Button type="button" variant="outline" onClick={() => setActivePickerField("banner_image_url")}>মিডিয়া লাইব্রেরি</Button>
@@ -2045,28 +2041,28 @@ export default function AdminSettings() {
                   <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><BookOpen className="h-4.5 w-4.5 text-accent" /> আমাদের পথচলা (Our Story)</h3>
                   <div className="space-y-2">
                     <Label>স্টোরি হেডিং (Story Title)</Label>
-                    <Input 
-                      value={aboutUsSettings.story_title} 
-                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_title: e.target.value }))} 
+                    <Input
+                      value={aboutUsSettings.story_title}
+                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_title: e.target.value }))}
                       placeholder="যেমন: আমাদের পথচলা"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>স্টোরি বিবরণ (Story Content)</Label>
-                    <Textarea 
-                      value={aboutUsSettings.story_text} 
-                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_text: e.target.value }))} 
-                      placeholder="আপনার ব্রান্ড বা পথচলা সম্পর্কিত বিস্তারিত তথ্য লিখুন..." 
+                    <Textarea
+                      value={aboutUsSettings.story_text}
+                      onChange={e => setAboutUsSettings(prev => ({ ...prev, story_text: e.target.value }))}
+                      placeholder="আপনার ব্রান্ড বা পথচলা সম্পর্কিত বিস্তারিত তথ্য লিখুন..."
                       className="min-h-[160px] leading-relaxed"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>স্টোরি সেকশন ইমেজ (Story Section Image URL)</Label>
                     <div className="flex gap-2">
-                      <Input 
-                        value={aboutUsSettings.story_image_url} 
-                        onChange={e => setAboutUsSettings(prev => ({ ...prev, story_image_url: e.target.value }))} 
-                        placeholder="ইমেজ URL দিন" 
+                      <Input
+                        value={aboutUsSettings.story_image_url}
+                        onChange={e => setAboutUsSettings(prev => ({ ...prev, story_image_url: e.target.value }))}
+                        placeholder="ইমেজ URL দিন"
                         className="flex-1"
                       />
                       <Button type="button" variant="outline" onClick={() => setActivePickerField("story_image_url")}>মিডিয়া লাইব্রেরি</Button>
@@ -2084,16 +2080,16 @@ export default function AdminSettings() {
                     <div className="space-y-3 p-4 rounded-xl border bg-secondary/5">
                       <div className="space-y-2">
                         <Label className="font-bold">মিশন টাইটেল (Mission Title)</Label>
-                        <Input 
-                          value={aboutUsSettings.mission_title} 
-                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_title: e.target.value }))} 
+                        <Input
+                          value={aboutUsSettings.mission_title}
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_title: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label>মিশন বিবরণ</Label>
-                        <Textarea 
-                          value={aboutUsSettings.mission_text} 
-                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_text: e.target.value }))} 
+                        <Textarea
+                          value={aboutUsSettings.mission_text}
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, mission_text: e.target.value }))}
                           className="min-h-[100px]"
                         />
                       </div>
@@ -2103,16 +2099,16 @@ export default function AdminSettings() {
                     <div className="space-y-3 p-4 rounded-xl border bg-secondary/5">
                       <div className="space-y-2">
                         <Label className="font-bold">ভিশন টাইটেল (Vision Title)</Label>
-                        <Input 
-                          value={aboutUsSettings.vision_title} 
-                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_title: e.target.value }))} 
+                        <Input
+                          value={aboutUsSettings.vision_title}
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_title: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label>ভিশন বিবরণ</Label>
-                        <Textarea 
-                          value={aboutUsSettings.vision_text} 
-                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_text: e.target.value }))} 
+                        <Textarea
+                          value={aboutUsSettings.vision_text}
+                          onChange={e => setAboutUsSettings(prev => ({ ...prev, vision_text: e.target.value }))}
                           className="min-h-[100px]"
                         />
                       </div>
@@ -2127,23 +2123,23 @@ export default function AdminSettings() {
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-sm text-primary flex items-center gap-1.5"><Settings2 className="h-4.5 w-4.5 text-accent" /> আমাদের মূল মূল্যবোধ (Core Values)</h3>
                   </div>
-                  
+
                   <div className="space-y-4">
                     {aboutUsSettings.core_values.map((val, idx) => (
                       <div key={val.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl border bg-secondary/10 relative">
                         <div className="space-y-2">
                           <Label className="text-xs">মূল্যবোধ নাম (Title)</Label>
-                          <Input 
-                            value={val.title} 
-                            onChange={e => handleUpdateCoreValue(idx, "title", e.target.value)} 
+                          <Input
+                            value={val.title}
+                            onChange={e => handleUpdateCoreValue(idx, "title", e.target.value)}
                             className="bg-card"
                           />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs">সংক্ষিপ্ত বিবরণ (Description)</Label>
-                          <Input 
-                            value={val.desc} 
-                            onChange={e => handleUpdateCoreValue(idx, "desc", e.target.value)} 
+                          <Input
+                            value={val.desc}
+                            onChange={e => handleUpdateCoreValue(idx, "desc", e.target.value)}
                             className="bg-card"
                           />
                         </div>
@@ -2163,11 +2159,11 @@ export default function AdminSettings() {
                               </SelectContent>
                             </Select>
                           </div>
-                          <Button 
-                            type="button" 
-                            variant="destructive" 
-                            size="icon" 
-                            className="mb-0.5 rounded-lg h-9 w-9" 
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="mb-0.5 rounded-lg h-9 w-9"
                             onClick={() => handleRemoveCoreValue(idx)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -2178,10 +2174,10 @@ export default function AdminSettings() {
                   </div>
 
                   <div className="pt-2">
-                    <Button 
-                      type="button" 
-                      onClick={handleAddCoreValue} 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      onClick={handleAddCoreValue}
+                      variant="outline"
                       className="gap-1.5 rounded-xl text-xs"
                     >
                       <Plus className="h-4 w-4" /> নতুন যোগ করুন
@@ -2190,9 +2186,9 @@ export default function AdminSettings() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <Button 
+                  <Button
                     type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95"
                     disabled={saving === "about_us_settings"}
                   >
                     {saving === "about_us_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} About Us সেটিংস সেভ করুন
@@ -2212,11 +2208,11 @@ export default function AdminSettings() {
               <CardDescription>নতুন অর্ডার বা স্ট্যাটাস পরিবর্তনের জন্য টেলিগ্রাম বটে রিয়েল-টাইম নোটিফিকেশন চালু করুন।</CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await saveSetting("telegram_settings", telegramSettings);
-                }} 
+                }}
                 className="space-y-6"
               >
                 <div className="flex items-center justify-between p-4 rounded-xl border bg-secondary/10">
@@ -2224,30 +2220,30 @@ export default function AdminSettings() {
                     <Label className="font-bold text-sm">টেলিগ্রাম নোটিফিকেশন সচল করুন</Label>
                     <p className="text-xs text-muted-foreground">আপনার ফোনে নোটিফিকেশন চালু করতে এটি অন করুন</p>
                   </div>
-                  <Switch 
-                    checked={telegramSettings.enabled} 
-                    onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, enabled: v }))} 
+                  <Switch
+                    checked={telegramSettings.enabled}
+                    onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, enabled: v }))}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>বট টোকেন (Telegram Bot Token)</Label>
-                    <Input 
+                    <Input
                       type="password"
-                      value={telegramSettings.bot_token || ""} 
-                      onChange={e => setTelegramSettings((p: any) => ({ ...p, bot_token: e.target.value }))} 
-                      placeholder="যেমন: 123456789:ABCdefGhIJKlmNoPQRsT..." 
+                      value={telegramSettings.bot_token || ""}
+                      onChange={e => setTelegramSettings((p: any) => ({ ...p, bot_token: e.target.value }))}
+                      placeholder="যেমন: 123456789:ABCdefGhIJKlmNoPQRsT..."
                       className="rounded-xl"
                     />
                     <p className="text-[10px] text-muted-foreground">@BotFather থেকে প্রাপ্ত বট API টোকেনটি দিন।</p>
                   </div>
                   <div className="space-y-2">
                     <Label>চ্যাট আইডি (Chat/Group ID)</Label>
-                    <Input 
-                      value={telegramSettings.chat_id || ""} 
-                      onChange={e => setTelegramSettings((p: any) => ({ ...p, chat_id: e.target.value }))} 
-                      placeholder="যেমন: -1001234567890 বা 12345678" 
+                    <Input
+                      value={telegramSettings.chat_id || ""}
+                      onChange={e => setTelegramSettings((p: any) => ({ ...p, chat_id: e.target.value }))}
+                      placeholder="যেমন: -1001234567890 বা 12345678"
                       className="rounded-xl"
                     />
                     <p className="text-[10px] text-muted-foreground">যে চ্যাট বা গ্রুপে নোটিফিকেশন যাবে তার আইডি দিন।</p>
@@ -2264,9 +2260,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">নতুন অর্ডার নোটিফিকেশন</Label>
                         <p className="text-[9px] text-muted-foreground">নতুন অর্ডার প্লেস হলে নোটিফিকেশন পাবেন</p>
                       </div>
-                      <Switch 
-                        checked={telegramSettings.notify_new_order} 
-                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_new_order: v }))} 
+                      <Switch
+                        checked={telegramSettings.notify_new_order}
+                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_new_order: v }))}
                       />
                     </div>
 
@@ -2275,9 +2271,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">অর্ডার স্ট্যাটাস পরিবর্তন</Label>
                         <p className="text-[9px] text-muted-foreground">অর্ডারের প্রসেসিং/ডেলিভারি স্ট্যাটাস চেঞ্জ হলে নোটিফিকেশন পাবেন</p>
                       </div>
-                      <Switch 
-                        checked={telegramSettings.notify_status_change} 
-                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_status_change: v }))} 
+                      <Switch
+                        checked={telegramSettings.notify_status_change}
+                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_status_change: v }))}
                       />
                     </div>
 
@@ -2286,9 +2282,9 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">ইনকমপ্লিট অর্ডার নোটিফিকেশন</Label>
                         <p className="text-[9px] text-muted-foreground">নতুন ইনকমপ্লিট অর্ডার (কার্ট পরিত্যক্ত) তৈরি হলে নোটিফিকেশন পাবেন</p>
                       </div>
-                      <Switch 
-                        checked={telegramSettings.notify_incomplete_order} 
-                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_incomplete_order: v }))} 
+                      <Switch
+                        checked={telegramSettings.notify_incomplete_order}
+                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_incomplete_order: v }))}
                       />
                     </div>
 
@@ -2297,27 +2293,27 @@ export default function AdminSettings() {
                         <Label className="font-bold text-xs">লো স্টক অ্যালার্ট নোটিফিকেশন</Label>
                         <p className="text-[9px] text-muted-foreground">পণ্যের স্টক কমে সর্বনিম্ন সীমায় নামলে নোটিফিকেশন পাবেন</p>
                       </div>
-                      <Switch 
-                        checked={telegramSettings.notify_low_stock} 
-                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_low_stock: v }))} 
+                      <Switch
+                        checked={telegramSettings.notify_low_stock}
+                        onCheckedChange={v => setTelegramSettings((p: any) => ({ ...p, notify_low_stock: v }))}
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-2 flex flex-wrap gap-3">
-                  <Button 
+                  <Button
                     type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95"
                     disabled={saving === "telegram_settings"}
                   >
                     {saving === "telegram_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} সেটিংস সেভ করুন
                   </Button>
-                  
-                  <Button 
+
+                  <Button
                     type="button"
                     variant="outline"
-                    className="gap-1.5 rounded-xl px-6" 
+                    className="gap-1.5 rounded-xl px-6"
                     disabled={testingTelegram}
                     onClick={handleTestTelegram}
                   >
@@ -2337,11 +2333,11 @@ export default function AdminSettings() {
               <CardDescription>গ্রাহকদের জন্য ওটিপি ভেরিফিকেশন এবং কনফার্মেশন/স্ট্যাটাস আপডেট এসএমএস কনফিগার করুন।</CardDescription>
             </CardHeader>
             <CardContent>
-              <form 
+              <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await saveSetting("sms_settings", smsSettings);
-                }} 
+                }}
                 className="space-y-6"
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2350,9 +2346,9 @@ export default function AdminSettings() {
                       <Label className="font-bold text-sm">এসএমএস গেটওয়ে চালু করুন</Label>
                       <p className="text-[10px] text-muted-foreground">সব ধরণের এসএমএস পাঠানোর জন্য এটি চালু করুন</p>
                     </div>
-                    <Switch 
-                      checked={smsSettings.enabled} 
-                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, enabled: v }))} 
+                    <Switch
+                      checked={smsSettings.enabled}
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, enabled: v }))}
                     />
                   </div>
 
@@ -2361,9 +2357,9 @@ export default function AdminSettings() {
                       <Label className="font-bold text-sm">স্যান্ডবক্স মোড (Sandbox Mode)</Label>
                       <p className="text-[10px] text-muted-foreground">ব্যালেন্স খরচ না করে ওটিপি টেস্ট করার জন্য</p>
                     </div>
-                    <Switch 
-                      checked={smsSettings.sandbox_mode} 
-                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, sandbox_mode: v }))} 
+                    <Switch
+                      checked={smsSettings.sandbox_mode}
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, sandbox_mode: v }))}
                     />
                   </div>
 
@@ -2372,9 +2368,9 @@ export default function AdminSettings() {
                       <Label className="font-bold text-sm">চেকআউটে ওটিপি ভেরিফিকেশন</Label>
                       <p className="text-[10px] text-muted-foreground">ক্যাশ অন ডেলিভারি অর্ডারের আগে ওটিপি প্রয়োজন</p>
                     </div>
-                    <Switch 
-                      checked={smsSettings.otp_enabled} 
-                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, otp_enabled: v }))} 
+                    <Switch
+                      checked={smsSettings.otp_enabled}
+                      onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, otp_enabled: v }))}
                     />
                   </div>
                 </div>
@@ -2415,20 +2411,20 @@ export default function AdminSettings() {
                         <>
                           <div className="space-y-2">
                             <Label>এপিআই কী (API Key / Token)</Label>
-                            <Input 
+                            <Input
                               type="password"
-                              value={smsSettings.api_key || ""} 
-                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_key: e.target.value }))} 
-                              placeholder="আপনার SMS গেটওয়ের API Key দিন" 
+                              value={smsSettings.api_key || ""}
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_key: e.target.value }))}
+                              placeholder="আপনার SMS গেটওয়ের API Key দিন"
                               className="rounded-xl"
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>সেন্ডার আইডি (Sender ID / Masking - Optional)</Label>
-                            <Input 
-                              value={smsSettings.sender_id || ""} 
-                              onChange={e => setSmsSettings((p: any) => ({ ...p, sender_id: e.target.value }))} 
-                              placeholder="অনুমোদিত সেন্ডার আইডি (যেমন: Rangao)" 
+                            <Input
+                              value={smsSettings.sender_id || ""}
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, sender_id: e.target.value }))}
+                              placeholder="অনুমোদিত সেন্ডার আইডি (যেমন: Rangao)"
                               className="rounded-xl"
                             />
                           </div>
@@ -2437,10 +2433,10 @@ export default function AdminSettings() {
                         <>
                           <div className="col-span-2 space-y-2">
                             <Label>এপিআই ইউআরএল (API URL)</Label>
-                            <Input 
-                              value={smsSettings.api_url || ""} 
-                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_url: e.target.value }))} 
-                              placeholder="যেমন: https://api.example.com/send?apikey=KEY&to={to}&msg={msg}" 
+                            <Input
+                              value={smsSettings.api_url || ""}
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, api_url: e.target.value }))}
+                              placeholder="যেমন: https://api.example.com/send?apikey=KEY&to={to}&msg={msg}"
                               className="rounded-xl"
                             />
                             <p className="text-[10px] text-muted-foreground">ফোনের জন্য <code>{"{to}"}</code> এবং বার্তার জন্য <code>{"{msg}"}</code> প্লেসহোল্ডার ব্যবহার করুন।</p>
@@ -2457,20 +2453,20 @@ export default function AdminSettings() {
                           </div>
                           <div className="space-y-2">
                             <Label>Headers (JSON String - Optional)</Label>
-                            <Input 
-                              value={smsSettings.headers || ""} 
-                              onChange={e => setSmsSettings((p: any) => ({ ...p, headers: e.target.value }))} 
-                              placeholder='যেমন: {"Authorization": "Bearer token"}' 
+                            <Input
+                              value={smsSettings.headers || ""}
+                              onChange={e => setSmsSettings((p: any) => ({ ...p, headers: e.target.value }))}
+                              placeholder='যেমন: {"Authorization": "Bearer token"}'
                               className="rounded-xl"
                             />
                           </div>
                           {smsSettings.method === "POST" && (
                             <div className="col-span-2 space-y-2">
                               <Label>Request Body Template (JSON / Text String)</Label>
-                              <Textarea 
-                                value={smsSettings.body_template || ""} 
-                                onChange={e => setSmsSettings((p: any) => ({ ...p, body_template: e.target.value }))} 
-                                placeholder='যেমন: {"mobile": "{to}", "text": "{msg}"}' 
+                              <Textarea
+                                value={smsSettings.body_template || ""}
+                                onChange={e => setSmsSettings((p: any) => ({ ...p, body_template: e.target.value }))}
+                                placeholder='যেমন: {"mobile": "{to}", "text": "{msg}"}'
                                 className="rounded-xl min-h-[80px]"
                               />
                             </div>
@@ -2488,9 +2484,9 @@ export default function AdminSettings() {
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs">ওটিপি কোড টেমপ্লেট (OTP Code Template)</Label>
-                      <Input 
-                        value={smsSettings.otp_template || ""} 
-                        onChange={e => setSmsSettings((p: any) => ({ ...p, otp_template: e.target.value }))} 
+                      <Input
+                        value={smsSettings.otp_template || ""}
+                        onChange={e => setSmsSettings((p: any) => ({ ...p, otp_template: e.target.value }))}
                         className="rounded-xl"
                       />
                       <p className="text-[10px] text-muted-foreground">অবশ্যই টেমপ্লেটে <code>{"{otp}"}</code> প্লেসহোল্ডারটি ব্যবহার করবেন।</p>
@@ -2502,17 +2498,17 @@ export default function AdminSettings() {
                           <Label className="font-bold text-xs">অর্ডার সফল হলে এসএমএস পাঠান</Label>
                           <p className="text-[9px] text-muted-foreground">অর্ডার সফল হলে গ্রাহককে এসএমএস পাঠাবে</p>
                         </div>
-                        <Switch 
-                          checked={smsSettings.order_success_sms_enabled} 
-                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, order_success_sms_enabled: v }))} 
+                        <Switch
+                          checked={smsSettings.order_success_sms_enabled}
+                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, order_success_sms_enabled: v }))}
                         />
                       </div>
                       {smsSettings.order_success_sms_enabled && (
                         <div className="space-y-2 pt-2">
                           <Label className="text-xs">অর্ডার সফল এসএমএস টেমপ্লেট</Label>
-                          <Textarea 
-                            value={smsSettings.order_success_sms_template || ""} 
-                            onChange={e => setSmsSettings((p: any) => ({ ...p, order_success_sms_template: e.target.value }))} 
+                          <Textarea
+                            value={smsSettings.order_success_sms_template || ""}
+                            onChange={e => setSmsSettings((p: any) => ({ ...p, order_success_sms_template: e.target.value }))}
                             className="rounded-xl min-h-[80px]"
                           />
                           <p className="text-[9px] text-muted-foreground">প্লেসহোল্ডারসমূহ: <code>{"{name}"}</code>, <code>{"{order_number}"}</code>, <code>{"{total}"}</code></p>
@@ -2526,17 +2522,17 @@ export default function AdminSettings() {
                           <Label className="font-bold text-xs">স্ট্যাটাস আপডেট এসএমএস</Label>
                           <p className="text-[9px] text-muted-foreground">অর্ডার স্ট্যাটাস পরিবর্তিত হলে গ্রাহককে এসএমএস পাঠাবে</p>
                         </div>
-                        <Switch 
-                          checked={smsSettings.status_update_sms_enabled} 
-                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, status_update_sms_enabled: v }))} 
+                        <Switch
+                          checked={smsSettings.status_update_sms_enabled}
+                          onCheckedChange={v => setSmsSettings((p: any) => ({ ...p, status_update_sms_enabled: v }))}
                         />
                       </div>
                       {smsSettings.status_update_sms_enabled && (
                         <div className="space-y-2 pt-2">
                           <Label className="text-xs">স্ট্যাটাস আপডেট এসএমএস টেমপ্লেট</Label>
-                          <Textarea 
-                            value={smsSettings.status_update_sms_template || ""} 
-                            onChange={e => setSmsSettings((p: any) => ({ ...p, status_update_sms_template: e.target.value }))} 
+                          <Textarea
+                            value={smsSettings.status_update_sms_template || ""}
+                            onChange={e => setSmsSettings((p: any) => ({ ...p, status_update_sms_template: e.target.value }))}
                             className="rounded-xl min-h-[80px]"
                           />
                           <p className="text-[9px] text-muted-foreground">প্লেসহোল্ডারসমূহ: <code>{"{name}"}</code>, <code>{"{order_number}"}</code>, <code>{"{status}"}</code></p>
@@ -2547,9 +2543,9 @@ export default function AdminSettings() {
                 </div>
 
                 <div className="pt-2">
-                  <Button 
+                  <Button
                     type="submit"
-                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95" 
+                    className="gap-1.5 rounded-xl px-6 bg-primary text-primary-foreground hover:bg-primary/95"
                     disabled={saving === "sms_settings"}
                   >
                     {saving === "sms_settings" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} সেটিংস সেভ করুন
@@ -2561,7 +2557,7 @@ export default function AdminSettings() {
         </TabsContent>
       </Tabs>
 
-      <MediaPicker 
+      <MediaPicker
         isOpen={activePickerField !== null}
         onClose={() => setActivePickerField(null)}
         onSelect={(url) => {
