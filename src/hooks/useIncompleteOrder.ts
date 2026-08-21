@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeBDPhone } from "@/lib/phoneValidation";
 
 const SESSION_KEY = "incomplete_order_session";
 
@@ -161,14 +162,15 @@ export function useIncompleteOrder({ pageSource, products }: UseIncompleteOrderO
       }
       isSavingRef.current = true;
 
-      customerInfoRef.current = { name, phone, email };
+      const cleanPhone = phone?.trim() ? normalizeBDPhone(phone.trim()) : null;
+      customerInfoRef.current = { name, phone: cleanPhone || phone, email };
 
       const currentProducts = productsRef.current;
       const currentPageSource = pageSourceRef.current;
 
       const payload: Record<string, any> = {
         customer_name: name?.trim() || null,
-        customer_phone: phone?.trim() || null,
+        customer_phone: cleanPhone,
         customer_email: email?.trim() || null,
         product_info: currentProducts,
         page_source: currentPageSource,

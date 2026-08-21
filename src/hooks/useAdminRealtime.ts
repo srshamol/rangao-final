@@ -40,6 +40,7 @@ export function useAdminRealtime() {
         qc.invalidateQueries({ queryKey: ["finance-kpi"] });
         qc.invalidateQueries({ queryKey: ["finance-transactions"] });
         qc.invalidateQueries({ queryKey: ["finance-daily-sales"] });
+        qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
       })
 
       // ── Order Items (affects top products, finance) ───────────────────────

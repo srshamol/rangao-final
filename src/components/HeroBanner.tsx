@@ -146,16 +146,21 @@ const HeroBanner = () => {
 
   const stats = useMemo(() => {
     const isAuto = statsConfig?.mode === "auto";
-    const customers = isAuto ? (autoStats?.customers || 5000) : (statsConfig?.customers || 5000);
-    const orders = isAuto ? (autoStats?.orders || 10000) : (statsConfig?.orders || 10000);
-    const reviews = isAuto ? (autoStats?.reviews || 4800) : (statsConfig?.reviews || 4800);
-    const products = isAuto ? (autoStats?.products || 200) : (statsConfig?.products || 200);
+    const customers = isAuto ? (autoStats?.customers ?? 0) : (statsConfig?.customers ?? 5000);
+    const orders = isAuto ? (autoStats?.orders ?? 0) : (statsConfig?.orders ?? 10000);
+    const reviews = isAuto ? (autoStats?.reviews ?? 0) : (statsConfig?.reviews ?? 4800);
+    const products = isAuto ? (autoStats?.products ?? 0) : (statsConfig?.products ?? 200);
+
+    const custSuffix = statsConfig?.suffixes?.customers || "+";
+    const ordSuffix = statsConfig?.suffixes?.orders || "+";
+    const revSuffix = statsConfig?.suffixes?.reviews || "+";
+    const prodSuffix = statsConfig?.suffixes?.products || "+";
 
     return [
-      { value: `${toBanglaDigits(customers)}+`, label: "সন্তুষ্ট গ্রাহক" },
-      { value: `${toBanglaDigits(orders)}+`, label: "ডেলিভারি সম্পন্ন" },
-      { value: `${toBanglaDigits(reviews)}+`, label: "গ্রাহক রিভিউ" },
-      { value: `${toBanglaDigits(products)}+`, label: "প্রিমিয়াম পণ্য" }
+      { value: `${toBanglaDigits(customers)}${custSuffix}`, label: statsConfig?.labels?.customers || "সন্তুষ্ট গ্রাহক" },
+      { value: `${toBanglaDigits(orders)}${ordSuffix}`, label: statsConfig?.labels?.orders || "ডেলিভারি সম্পন্ন" },
+      { value: `${toBanglaDigits(reviews)}${revSuffix}`, label: statsConfig?.labels?.reviews || "গ্রাহক রিভিউ" },
+      { value: `${toBanglaDigits(products)}${prodSuffix}`, label: statsConfig?.labels?.products || "প্রিমিয়াম পণ্য" }
     ];
   }, [autoStats, statsConfig]);
 

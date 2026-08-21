@@ -16,6 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 export default function OrderControl() {
   const { toast } = useToast();
@@ -93,10 +94,17 @@ export default function OrderControl() {
 
   const blockMutation = useMutation({
     mutationFn: async () => {
-      if (!blockValue.trim()) throw new Error("মান দিন");
+      let finalVal = blockValue.trim();
+      if (!finalVal) throw new Error("মান দিন");
+      if (blockType === "phone") {
+        if (!isValidBDPhone(finalVal)) {
+          throw new Error("সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)");
+        }
+        finalVal = normalizeBDPhone(finalVal);
+      }
       const { error } = await supabase
         .from("blocked_entities")
-        .insert({ type: blockType, value: blockValue.trim(), reason: blockReason || null } as any);
+        .insert({ type: blockType, value: finalVal, reason: blockReason || null } as any);
       if (error) throw error;
     },
     onSuccess: () => {

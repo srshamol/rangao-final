@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Key, Shield, User as UserIcon, Mail, Phone } from "lucide-react";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 export default function AdminProfile() {
   const { user, signOut } = useAuth();
@@ -87,15 +88,19 @@ export default function AdminProfile() {
       }
     }
 
-    if (phone.trim()) {
-      const bdPhoneRegex = /^(01[3-9]\d{8})$/;
-      if (!bdPhoneRegex.test(phone.trim())) {
+    let phoneToSave = phone.trim();
+    if (phoneToSave) {
+      if (!isValidBDPhone(phoneToSave)) {
         toast({
           title: "❌ ভুল ইনপুট",
-          description: "১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)",
+          description: "সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)",
           variant: "destructive",
         });
         return;
+      }
+      phoneToSave = normalizeBDPhone(phoneToSave);
+      if (phone !== phoneToSave) {
+        setPhone(phoneToSave);
       }
     }
 

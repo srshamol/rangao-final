@@ -9,6 +9,7 @@ import { Phone, MessageCircle, Mail, Pencil, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 interface Props { order: any; items: any[]; }
 
@@ -35,12 +36,21 @@ export default function OrderOverviewTab({ order, items }: Props) {
   const [saving, setSaving] = useState(false);
 
   const saveCustomerInfo = async () => {
+    let cleanPhone = form.customer_phone.trim();
+    if (cleanPhone) {
+      if (!isValidBDPhone(cleanPhone)) {
+        toast({ title: "ভুল মোবাইল নাম্বার", description: "সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)", variant: "destructive" });
+        return;
+      }
+      cleanPhone = normalizeBDPhone(cleanPhone);
+    }
+
     setSaving(true);
     try {
       const updatedAddress = { ...(address as any), address: form.address };
       const { error } = await supabase.from("orders").update({
         customer_name: form.customer_name,
-        customer_phone: form.customer_phone,
+        customer_phone: cleanPhone,
         customer_email: form.customer_email || null,
         shipping_address: updatedAddress,
       }).eq("id", order.id);
@@ -50,6 +60,7 @@ export default function OrderOverviewTab({ order, items }: Props) {
         details: "কাস্টমার তথ্য এডিট করা হয়েছে", staff_name: "Admin"
       });
       toast({ title: "✅ কাস্টমার তথ্য আপডেট হয়েছে" });
+      setForm(p => ({ ...p, customer_phone: cleanPhone }));
       qc.invalidateQueries({ queryKey: ["admin-order", order.id] });
       setEditing(false);
     } catch (e: any) {

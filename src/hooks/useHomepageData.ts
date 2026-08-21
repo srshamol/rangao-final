@@ -218,15 +218,16 @@ export function useAutoStatistics() {
   return useQuery({
     queryKey: ["homepage-statistics-auto"],
     queryFn: async () => {
-      const [products, orders, reviews] = await Promise.all([
+      const [products, deliveredOrders, reviews] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("order_status", "delivered"),
         supabase.from("testimonials" as any).select("id", { count: "exact", head: true }).eq("is_active", true),
       ]);
+      const deliveredCount = deliveredOrders.count || 0;
       return {
         products: products.count || 0,
-        orders: orders.count || 0,
-        customers: Math.round((orders.count || 0) * 0.85),
+        orders: deliveredCount,
+        customers: deliveredCount,
         reviews: reviews.count || 0,
       };
     },

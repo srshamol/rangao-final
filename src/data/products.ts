@@ -22,6 +22,8 @@ export interface Product {
   specs: { label: string; value: string }[];
   stock: number;
   featured: boolean;
+  isFreeDelivery?: boolean;
+  is_free_delivery?: boolean;
   rating: number;
   reviewCount: number;
 }

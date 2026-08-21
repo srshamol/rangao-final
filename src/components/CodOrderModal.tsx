@@ -12,6 +12,7 @@ import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { checkOrderAllowed, getClientIP } from "@/lib/orderControl";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 interface Props {
   open: boolean;
@@ -301,8 +302,16 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
+  const isProductFreeDelivery = Boolean(
+    (product as any).isFreeDelivery ||
+    (product as any).is_free_delivery ||
+    (product as any).tags?.includes("ফ্রি ডেলিভারি") ||
+    (product as any).tags?.includes("free_delivery")
+  );
+
   const subtotal = product.price * localQuantity;
-  const deliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
+  const baseDeliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
+  const deliveryCharge = isProductFreeDelivery ? 0 : baseDeliveryCharge;
 
   let discountAmount = 0;
   if (appliedCoupon) {
@@ -386,12 +395,14 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
       }
       const userAgent = navigator.userAgent;
 
+      const normalizedPhone = normalizeBDPhone(phone);
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
           order_number: "",
           customer_name: name.trim(),
-          customer_phone: phone.trim(),
+          customer_phone: normalizedPhone,
           shipping_address: {
             division: shippingLabel,
             address: address.trim(),
@@ -712,10 +723,13 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("আপনার নাম দিন"); return; }
-    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
-    if (!phone.trim() || !bdPhoneRegex.test(phone.trim())) {
-      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+    if (!phone.trim() || !isValidBDPhone(phone)) {
+      toast.error("সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)");
       return;
+    }
+    const normalizedPhone = normalizeBDPhone(phone);
+    if (phone !== normalizedPhone) {
+      setPhone(normalizedPhone);
     }
     if (!address.trim()) { toast.error("আপনার ঠিকানা দিন"); return; }
     if (submitting) return;
@@ -724,7 +738,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
     try {
       // Check order control (rate limiting + block check)
       const clientIP = await getClientIP();
-      const check = await checkOrderAllowed(phone, clientIP);
+      const check = await checkOrderAllowed(normalizedPhone, clientIP);
       if (!check.allowed) {
         const whatsapp = storeSettings?.contactInfo?.whatsapp || "";
         toast.custom((t) => (
@@ -800,7 +814,19 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={phone} onChange={(e) => { setPhone(e.target.value); setIsOtpVerified(false); saveCodDraft({ phone: e.target.value }); }} placeholder="ফোন নাম্বার" className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm" type="tel" />
+              <Input
+                value={phone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^\d+]/g, "");
+                  setPhone(val);
+                  setIsOtpVerified(false);
+                  saveCodDraft({ phone: val });
+                }}
+                placeholder="01XXXXXXXXX"
+                className="rounded-xl pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                type="tel"
+                maxLength={15}
+              />
             </div>
           </div>
 
@@ -828,7 +854,14 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
 
           {/* Shipping Method */}
           <div className="space-y-2">
-            <h3 className="font-bengali text-xs sm:text-sm font-semibold text-foreground">শিপিং মেথড</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bengali text-xs sm:text-sm font-semibold text-foreground">শিপিং মেথড</h3>
+              {isProductFreeDelivery && (
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-bengali bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  🎉 ফ্রি ডেলিভারি প্রযোজ্য
+                </span>
+              )}
+            </div>
             <div className="space-y-1 rounded-xl border bg-card p-1">
               {shippingOptions.map((opt) => (
                 <label
@@ -845,7 +878,13 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
                     </div>
                     <span className="font-bengali text-xs sm:text-sm text-foreground">{opt.label}</span>
                   </div>
-                  <span className="font-display text-xs sm:text-sm font-bold text-foreground">Tk {opt.price.toFixed(2)}</span>
+                  <span className={`text-xs sm:text-sm font-bold ${
+                    (isProductFreeDelivery || deliveryCharge === 0) 
+                      ? "text-emerald-600 dark:text-emerald-400 font-bengali" 
+                      : "font-display text-foreground"
+                  }`}>
+                    {(isProductFreeDelivery || deliveryCharge === 0) ? "ফ্রি (Tk 0.00)" : `Tk ${opt.price.toFixed(2)}`}
+                  </span>
                   <input type="radio" name="shipping" className="sr-only" checked={shipping === opt.id} onChange={() => { setShipping(opt.id); saveCodDraft({ shipping: opt.id }); }} />
                 </label>
               ))}
@@ -928,7 +967,9 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity }: Props) => {
             </div>
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="font-bengali font-semibold text-muted-foreground">ডেলিভারি চার্জ</span>
-              <span className="font-display font-bold text-foreground">{formatPrice(deliveryCharge)}</span>
+              <span className={`font-display font-bold ${deliveryCharge === 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                {deliveryCharge === 0 ? "৳০ (ফ্রি ডেলিভারি)" : formatPrice(deliveryCharge)}
+              </span>
             </div>
             {discountAmount > 0 && (
               <div className="flex justify-between text-xs sm:text-sm text-red-600 font-semibold animate-fade-in">

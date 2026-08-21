@@ -285,6 +285,17 @@ const ProductDetail = () => {
     refetchProduct();
   }, [refetchProduct]);
 
+  const productId = dbProduct?.id;
+  const { data: seoData } = useQuery({
+    queryKey: ["product-seo-details", productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${productId}`).maybeSingle();
+      return data?.value || null;
+    },
+    enabled: !!productId
+  });
+
   const product = useMemo(() => {
     if (!dbProduct) return null;
 
@@ -313,6 +324,14 @@ const ProductDetail = () => {
       : dbProduct.rating || 4.9;
     const computedReviewCount = hasReviews ? dbReviews.length : dbProduct.review_count || 48;
 
+    const isFreeDel = Boolean(
+      (dbProduct as any).is_free_delivery ||
+      (dbProduct as any).isFreeDelivery ||
+      dbProduct.tags?.includes("ফ্রি ডেলিভারি") ||
+      dbProduct.tags?.includes("free_delivery") ||
+      (seoData as any)?.is_free_delivery
+    );
+
     return {
       id: dbProduct.id,
       name: dbProduct.name,
@@ -328,12 +347,14 @@ const ProductDetail = () => {
       reviewCount: computedReviewCount,
       category: dbProduct.category || "",
       categoryLabel: categories.find(c => c.slug === dbProduct.category)?.name || dbProduct.category || "হোম ডেকোর",
+      isFreeDelivery: isFreeDel,
+      is_free_delivery: isFreeDel,
       features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
         ? dbProduct.tags
         : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
       specs: finalSpecs
     };
-  }, [dbProduct, dbReviews, categories]);
+  }, [dbProduct, dbReviews, categories, seoData]);
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
@@ -451,17 +472,6 @@ const ProductDetail = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
-
-  const productId = dbProduct?.id;
-  const { data: seoData } = useQuery({
-    queryKey: ["product-seo-details", productId],
-    queryFn: async () => {
-      if (!productId) return null;
-      const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${productId}`).maybeSingle();
-      return data?.value || null;
-    },
-    enabled: !!productId
-  });
 
   const productKeywords = useMemo(() => {
     if (!product) return "";
@@ -741,10 +751,15 @@ const ProductDetail = () => {
                       className="space-y-5"
                     >
                       {/* Category + Rating row */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-block rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-bold text-accent">
                           {product.categoryLabel}
                         </span>
+                        {product.isFreeDelivery && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 font-bengali shadow-sm">
+                            <Truck className="h-3.5 w-3.5" /> ফ্রি ডেলিভারি
+                          </span>
+                        )}
                         <div className="flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 fill-accent text-accent" />
                           <span className="font-display text-sm font-bold text-foreground">{product.rating}</span>
@@ -797,6 +812,12 @@ const ProductDetail = () => {
                           <p className="mt-2 font-bengali text-xs text-success">
                             আপনি সাশ্রয় করছেন {formatPrice(product.originalPrice! - product.price)}
                           </p>
+                        )}
+                        {product.isFreeDelivery && (
+                          <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 font-bengali">
+                            <Truck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            <span>🎉 এই প্রোডাক্টে সারা বাংলাদেশে সম্পূর্ণ ফ্রি ডেলিভারি সুবিধা প্রযোজ্য!</span>
+                          </div>
                         )}
                       </div>
 

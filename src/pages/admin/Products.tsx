@@ -253,9 +253,16 @@ export default function AdminProducts() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-medium text-sm">{p.name}</p>
-                          {p.brand && <p className="text-xs text-muted-foreground">{p.brand}</p>}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {p.brand && <span className="text-xs text-muted-foreground">{p.brand}</span>}
+                            {(p.is_free_delivery || p.tags?.includes("ফ্রি ডেলিভারি") || p.tags?.includes("free_delivery")) && (
+                              <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-bengali py-0 h-4">
+                                🚚 ফ্রি ডেলিভারি
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>

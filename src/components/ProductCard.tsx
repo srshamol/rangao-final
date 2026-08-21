@@ -25,6 +25,8 @@ export interface CardProduct {
   images: string[];
   stock: number;
   featured: boolean;
+  isFreeDelivery?: boolean;
+  is_free_delivery?: boolean;
   rating: number;
   reviewCount: number;
   category: string;
@@ -32,6 +34,13 @@ export interface CardProduct {
 
 /** Convert Supabase DBProduct → CardProduct */
 export function dbToCard(p: DBProduct): CardProduct {
+  const isFreeDel = Boolean(
+    (p as any).is_free_delivery || 
+    (p as any).isFreeDelivery || 
+    (p as any).tags?.includes("ফ্রি ডেলিভারি") ||
+    (p as any).tags?.includes("free_delivery")
+  );
+
   return {
     id: p.id,
     name: p.name,
@@ -42,6 +51,8 @@ export function dbToCard(p: DBProduct): CardProduct {
     images: p.images?.length ? p.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
     stock: p.stock_quantity,
     featured: p.featured,
+    isFreeDelivery: isFreeDel,
+    is_free_delivery: isFreeDel,
     rating: p.rating || 0,
     reviewCount: p.review_count || 0,
     category: p.category,
@@ -134,6 +145,15 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
               >
                 <Eye className="mr-2 inline-block h-4 w-4" /> ডিটেলস দেখুন
               </motion.div>
+            </div>
+
+            {/* Top Left Badges */}
+            <div className="absolute left-3 top-3 flex flex-col gap-1.5 z-10">
+              {product.isFreeDelivery && (
+                <span className="rounded-full bg-emerald-600/95 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm flex items-center gap-1 font-bengali">
+                  🚚 ফ্রি ডেলিভারি
+                </span>
+              )}
             </div>
 
             <div className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm backdrop-blur-md ${

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, Plus, X, Upload, Image as ImageIcon, GripVertical, Star, Trash2, 
-  Save, Eye, Loader2, Bold, Highlighter, Link, List, ListOrdered, Palette 
+  Save, Eye, Loader2, Bold, Highlighter, Link, List, ListOrdered, Palette, Truck, CheckCircle
 } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
 
@@ -278,6 +278,7 @@ export default function ProductForm() {
     short_description: "",
     status: "active" as string,
     featured: false,
+    is_free_delivery: false,
     tags: [] as string[],
     images: [] as string[],
   });
@@ -316,6 +317,9 @@ export default function ProductForm() {
         if (val.canonical_url) {
           setIsUrlEdited(true);
         }
+        if (val.is_free_delivery !== undefined) {
+          setForm((f) => ({ ...f, is_free_delivery: Boolean(val.is_free_delivery) }));
+        }
         setFaqs(val.faqs && val.faqs.length > 0 ? val.faqs : [{ question: "", answer: "" }]);
       }
     };
@@ -346,6 +350,12 @@ export default function ProductForm() {
 
   useEffect(() => {
     if (existing) {
+      const isFreeDel = Boolean(
+        (existing as any).is_free_delivery ||
+        existing.tags?.includes("ফ্রি ডেলিভারি") ||
+        existing.tags?.includes("free_delivery")
+      );
+
       setForm({
         name: existing.name,
         sku: existing.sku || "",
@@ -360,6 +370,7 @@ export default function ProductForm() {
         short_description: existing.short_description || "",
         status: existing.status || "active",
         featured: existing.featured || false,
+        is_free_delivery: isFreeDel,
         tags: existing.tags || [],
         images: existing.images || [],
       });
@@ -438,40 +449,59 @@ export default function ProductForm() {
         }
       }
 
+      let updatedTags = [...form.tags];
+      if (form.is_free_delivery) {
+        if (!updatedTags.includes("ফ্রি ডেলিভারি")) {
+          updatedTags.push("ফ্রি ডেলিভারি");
+        }
+      } else {
+        updatedTags = updatedTags.filter((t) => t !== "ফ্রি ডেলিভারি" && t !== "free_delivery");
+      }
+
       const payload = {
         ...form,
+        tags: updatedTags,
         specifications: specs.filter((s) => s.label && s.value) as any,
       };
+
+      const seoSettingsValue = {
+        seo_title: seoForm.title,
+        seo_description: seoForm.description,
+        canonical_url: seoForm.canonical_url,
+        is_free_delivery: form.is_free_delivery,
+        faqs: faqs.filter((f) => f.question && f.answer),
+      };
+
       if (isEdit) {
-        const { error } = await supabase.from("products").update(payload as any).eq("id", id);
-        if (error) throw error;
+        // Try updating with is_free_delivery, fallback without it if column not created yet
+        let updateRes = await supabase.from("products").update(payload as any).eq("id", id);
+        if (updateRes.error && updateRes.error.message?.includes("is_free_delivery")) {
+          const { is_free_delivery: _, ...fallbackPayload } = payload;
+          updateRes = await supabase.from("products").update(fallbackPayload as any).eq("id", id);
+        }
+        if (updateRes.error) throw updateRes.error;
 
         await supabase
           .from("store_settings" as any)
           .upsert({
             key: `product_seo_${id}`,
-            value: {
-              seo_title: seoForm.title,
-              seo_description: seoForm.description,
-              canonical_url: seoForm.canonical_url,
-              faqs: faqs.filter(f => f.question && f.answer)
-            }
+            value: seoSettingsValue,
           }, { onConflict: "key" });
       } else {
-        const { data, error } = await supabase.from("products").insert(payload as any).select("id").single();
-        if (error) throw error;
+        let insertRes = await supabase.from("products").insert(payload as any).select("id").single();
+        if (insertRes.error && insertRes.error.message?.includes("is_free_delivery")) {
+          const { is_free_delivery: _, ...fallbackPayload } = payload;
+          insertRes = await supabase.from("products").insert(fallbackPayload as any).select("id").single();
+        }
+        if (insertRes.error) throw insertRes.error;
 
-        if (data?.id) {
+        const newId = insertRes.data?.id;
+        if (newId) {
           await supabase
             .from("store_settings" as any)
             .upsert({
-              key: `product_seo_${data.id}`,
-              value: {
-                seo_title: seoForm.title,
-                seo_description: seoForm.description,
-                canonical_url: seoForm.canonical_url,
-                faqs: faqs.filter(f => f.question && f.answer)
-              }
+              key: `product_seo_${newId}`,
+              value: seoSettingsValue,
             }, { onConflict: "key" });
         }
       }
@@ -683,6 +713,53 @@ export default function ProductForm() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Delivery Options */}
+      <Card className={form.is_free_delivery ? "border-emerald-500/40 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-sm" : ""}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Truck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> ডেলিভারি সুবিধা (Delivery Option)
+            </CardTitle>
+            <Badge 
+              variant={form.is_free_delivery ? "default" : "outline"}
+              className={form.is_free_delivery ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bengali" : "font-bengali text-muted-foreground"}
+            >
+              {form.is_free_delivery ? "✓ ফ্রি ডেলিভারি সক্রিয়" : "স্ট্যান্ডার্ড ডেলিভারি"}
+            </Badge>
+          </div>
+          <CardDescription>
+            এই নির্দিষ্ট প্রোডাক্টের জন্য ফ্রি ডেলিভারি অন বা অফ করুন
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card/70 backdrop-blur-sm">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <label htmlFor="free-delivery-toggle" className="text-sm sm:text-base font-semibold cursor-pointer select-none text-foreground flex items-center gap-1.5">
+                  🚚 এই প্রোডাক্টে ফ্রি ডেলিভারি (Free Delivery)
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+                সক্রিয় থাকলে গ্রাহক এই প্রোডাক্ট অর্ডার করার সময় কোনো ডেলিভারি চার্জ (ঢাকা/ঢাকার বাইরে) প্রযোজ্য হবে না এবং প্রোডাক্ট কার্ড, ডিটেলস ও চেকআউটে আকর্ষণীয় "ফ্রি ডেলিভারি" ব্যাজ প্রদর্শিত হবে।
+              </p>
+            </div>
+            <Switch
+              id="free-delivery-toggle"
+              checked={form.is_free_delivery}
+              onCheckedChange={(checked) => {
+                setForm((f) => ({
+                  ...f,
+                  is_free_delivery: checked,
+                  tags: checked
+                    ? (f.tags.includes("ফ্রি ডেলিভারি") ? f.tags : [...f.tags, "ফ্রি ডেলিভারি"])
+                    : f.tags.filter((t) => t !== "ফ্রি ডেলিভারি" && t !== "free_delivery"),
+                }));
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
 

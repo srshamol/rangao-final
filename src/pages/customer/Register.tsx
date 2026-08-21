@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 export default function CustomerRegister() {
   const { signUp } = useCustomer();
@@ -27,15 +28,16 @@ export default function CustomerRegister() {
     e.preventDefault();
     if (!name || !email || !password || !phone) { toast.error("সব ফিল্ড পূরণ করুন"); return; }
     
-    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
-    if (!bdPhoneRegex.test(phone.trim())) {
-      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)");
+    if (!isValidBDPhone(phone)) {
+      toast.error("সঠিক বাংলাদেশী মোবাইল নম্বর দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)");
       return;
     }
 
+    const normalizedPhone = normalizeBDPhone(phone);
+
     if (password.length < 6) { toast.error("পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে"); return; }
     setLoading(true);
-    const { error } = await signUp(email, password, name, phone);
+    const { error } = await signUp(email, password, name, normalizedPhone);
     setLoading(false);
     if (error) {
       toast.error(error.message);
@@ -71,10 +73,19 @@ export default function CustomerRegister() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">ফোন নম্বর</label>
+                <label className="text-sm font-medium">ফোন নাম্বার *</label>
                 <div className="relative">
                   <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className="rounded-xl pl-10" autoComplete="tel" />
+                  <Input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                    placeholder="01XXXXXXXXX"
+                    className="rounded-xl pl-10"
+                    autoComplete="tel"
+                    maxLength={15}
+                    required
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">

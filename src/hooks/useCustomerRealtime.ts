@@ -48,6 +48,7 @@ export function useCustomerRealtime(userId?: string) {
           qc.invalidateQueries({ queryKey: ["my-orders"] });
           qc.invalidateQueries({ queryKey: ["customer-order"] }); // covers ["customer-order", id]
           qc.invalidateQueries({ queryKey: ["customer-order-items"] }); // covers ["customer-order-items", id]
+          qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
         }
       )
 

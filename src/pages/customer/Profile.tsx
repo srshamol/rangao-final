@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 export default function CustomerProfile() {
   const { profile, updateProfile } = useCustomer();
@@ -33,18 +34,22 @@ export default function CustomerProfile() {
   }, [profile]);
 
   const handleSave = async () => {
-    if (form.phone.trim()) {
-      const bdPhoneRegex = /^(01[3-9]\d{8})$/;
-      if (!bdPhoneRegex.test(form.phone.trim())) {
-        toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+    let phoneToSave = form.phone.trim();
+    if (phoneToSave) {
+      if (!isValidBDPhone(phoneToSave)) {
+        toast.error("সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)");
         return;
+      }
+      phoneToSave = normalizeBDPhone(phoneToSave);
+      if (form.phone !== phoneToSave) {
+        setForm(f => ({ ...f, phone: phoneToSave }));
       }
     }
     setSaving(true);
     try {
       await updateProfile({
         full_name: form.full_name,
-        phone: form.phone,
+        phone: phoneToSave,
         email: form.email,
         default_address: { address: form.address, division: form.division },
       } as any);

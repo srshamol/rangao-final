@@ -55,25 +55,25 @@ const StatisticsSection = () => {
 
   const stats = [
     {
-      value: isAuto ? (autoStats?.customers || 0) : (config?.customers || 5000),
+      value: isAuto ? (autoStats?.customers ?? 0) : (config?.customers ?? 5000),
       label: config?.labels?.customers || "সন্তুষ্ট গ্রাহক",
       suffix: config?.suffixes?.customers || "+",
       icon: config?.icons?.customers || "👥",
     },
     {
-      value: isAuto ? (autoStats?.orders || 0) : (config?.orders || 10000),
+      value: isAuto ? (autoStats?.orders ?? 0) : (config?.orders ?? 10000),
       label: config?.labels?.orders || "ডেলিভারি সম্পন্ন",
       suffix: config?.suffixes?.orders || "+",
       icon: config?.icons?.orders || "📦",
     },
     {
-      value: isAuto ? (autoStats?.reviews || 0) : (config?.reviews || 4800),
+      value: isAuto ? (autoStats?.reviews ?? 0) : (config?.reviews ?? 4800),
       label: config?.labels?.reviews || "গ্রাহক রিভিউ",
       suffix: config?.suffixes?.reviews || "+",
       icon: config?.icons?.reviews || "⭐",
     },
     {
-      value: isAuto ? (autoStats?.products || 0) : (config?.products || 200),
+      value: isAuto ? (autoStats?.products ?? 0) : (config?.products ?? 200),
       label: config?.labels?.products || "প্রিমিয়াম পণ্য",
       suffix: config?.suffixes?.products || "+",
       icon: config?.icons?.products || "🎨",

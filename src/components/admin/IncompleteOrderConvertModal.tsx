@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, User, Phone, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
+import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 
 interface ProductInfo {
   name: string;
@@ -44,16 +45,18 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
 
   const products = order.product_info || [];
   const subtotal = products.reduce((s, p) => s + p.price * (p.quantity || 1), 0);
-  const deliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
+  const isFreeDel = products.some((p: any) => p.is_free_delivery || p.isFreeDelivery || p.tags?.includes("ফ্রি ডেলিভারি") || p.tags?.includes("free_delivery"));
+  const baseDeliveryCharge = shippingOptions.find((s) => s.id === shipping)!.price;
+  const deliveryCharge = isFreeDel ? 0 : baseDeliveryCharge;
   const total = subtotal + deliveryCharge;
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("নাম দিন"); return; }
-    const bdPhoneRegex = /^(01[3-9]\d{8})$/;
-    if (!phone.trim() || !bdPhoneRegex.test(phone.trim())) {
-      toast.error("১১ ডিজিটের সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)");
+    if (!phone.trim() || !isValidBDPhone(phone)) {
+      toast.error("সঠিক বাংলাদেশী মোবাইল নাম্বার দিন (যেমন: 01XXXXXXXXX, 8801XXXXXXXXX বা +8801XXXXXXXXX)");
       return;
     }
+    const normalizedPhone = normalizeBDPhone(phone);
     if (!address.trim()) { toast.error("ঠিকানা দিন"); return; }
     setSubmitting(true);
 
@@ -65,7 +68,7 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
         .insert({
           order_number: "",
           customer_name: name.trim(),
-          customer_phone: phone.trim(),
+          customer_phone: normalizedPhone,
           customer_email: order.customer_email || null,
           shipping_address: { division: shippingLabel, address: address.trim() },
           payment_method: "ক্যাশ অন ডেলিভারি",
@@ -152,10 +155,17 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold">ফোন *</label>
+              <label className="text-sm font-semibold">ফোন নাম্বার *</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="rounded-xl pl-10" type="tel" />
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                  placeholder="01XXXXXXXXX"
+                  className="rounded-xl pl-10"
+                  type="tel"
+                  maxLength={15}
+                />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -187,7 +197,9 @@ export default function IncompleteOrderConvertModal({ open, onOpenChange, order,
                     </div>
                     <span>{opt.label}</span>
                   </div>
-                  <span className="font-bold">৳{opt.price}</span>
+                  <span className={`font-bold ${isFreeDel ? "text-emerald-600 font-bengali" : ""}`}>
+                    {isFreeDel ? "ফ্রি (৳০)" : `৳${opt.price}`}
+                  </span>
                   <input type="radio" className="sr-only" checked={shipping === opt.id} onChange={() => setShipping(opt.id)} />
                 </label>
               ))}

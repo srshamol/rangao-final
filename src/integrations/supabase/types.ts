@@ -463,6 +463,7 @@ export type Database = {
           featured: boolean | null
           id: string
           images: string[] | null
+          is_free_delivery?: boolean | null
           low_stock_alert: number | null
           name: string
           rating: number | null
@@ -486,6 +487,7 @@ export type Database = {
           featured?: boolean | null
           id?: string
           images?: string[] | null
+          is_free_delivery?: boolean | null
           low_stock_alert?: number | null
           name: string
           rating?: number | null
@@ -509,6 +511,7 @@ export type Database = {
           featured?: boolean | null
           id?: string
           images?: string[] | null
+          is_free_delivery?: boolean | null
           low_stock_alert?: number | null
           name?: string
           rating?: number | null

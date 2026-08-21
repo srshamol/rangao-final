@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-// Ported logic from IncompleteOrderConvertModal to test phone validation and pricing in isolation
-const bdPhoneRegex = /^(01[3-9]\d{8})$/;
+import { isValidBDPhone, normalizeBDPhone } from "../lib/phoneValidation";
 
 interface ProductInfo {
   name: string;
@@ -55,19 +53,34 @@ function generateTelegramMessage({
 
 describe("Incomplete Orders Admin Feature Verification", () => {
   describe("Phone Number Validation", () => {
-    it("should accept valid Bangladeshi mobile numbers", () => {
-      expect(bdPhoneRegex.test("01796463912")).toBe(true);
-      expect(bdPhoneRegex.test("01912345678")).toBe(true);
-      expect(bdPhoneRegex.test("01312345678")).toBe(true);
-      expect(bdPhoneRegex.test("01800000000")).toBe(true);
+    it("should accept valid Bangladeshi mobile numbers (01..., 8801..., +8801...)", () => {
+      // 01(3-9)XXXXXXXX
+      expect(isValidBDPhone("01796463912")).toBe(true);
+      expect(isValidBDPhone("01912345678")).toBe(true);
+      expect(isValidBDPhone("01312345678")).toBe(true);
+      expect(isValidBDPhone("01800000000")).toBe(true);
+
+      // 8801(3-9)XXXXXXXX
+      expect(isValidBDPhone("8801796463912")).toBe(true);
+      expect(isValidBDPhone("8801812345678")).toBe(true);
+
+      // +8801(3-9)XXXXXXXX
+      expect(isValidBDPhone("+8801796463912")).toBe(true);
+      expect(isValidBDPhone("+8801912345678")).toBe(true);
+
+      // Normalization test
+      expect(normalizeBDPhone("+8801796463912")).toBe("01796463912");
+      expect(normalizeBDPhone("8801912345678")).toBe("01912345678");
+      expect(normalizeBDPhone("01800000000")).toBe("01800000000");
     });
 
     it("should reject invalid mobile numbers", () => {
-      expect(bdPhoneRegex.test("1796463912")).toBe(false); // short
-      expect(bdPhoneRegex.test("01296463912")).toBe(false); // 012 is not valid in BD (only 3-9)
-      expect(bdPhoneRegex.test("017964639123")).toBe(false); // long
-      expect(bdPhoneRegex.test("0179646391a")).toBe(false); // non-digits
-      expect(bdPhoneRegex.test("")).toBe(false);
+      expect(isValidBDPhone("1796463912")).toBe(false); // short
+      expect(isValidBDPhone("01296463912")).toBe(false); // 012 is not valid in BD (only 3-9)
+      expect(isValidBDPhone("+8801296463912")).toBe(false); // invalid operator with prefix
+      expect(isValidBDPhone("017964639123")).toBe(false); // too long
+      expect(isValidBDPhone("0179646391a")).toBe(false); // non-digits
+      expect(isValidBDPhone("")).toBe(false);
     });
   });
 
