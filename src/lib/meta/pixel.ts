@@ -1,9 +1,8 @@
-// Browser-side Meta Pixel (fbevents.js) Loader & Dispatcher
-
 declare global {
   interface Window {
     fbq: (...args: any[]) => void;
     _fbq: any;
+    _fb_initialized_pixels?: Set<string>;
   }
 }
 
@@ -27,14 +26,14 @@ export function isValidMetaPixelId(pixelId: string | null | undefined): boolean 
 export function initMetaPixel(pixelId: string, options?: { autoPageView?: boolean }): void {
   if (typeof window === "undefined") return;
   if (!isValidMetaPixelId(pixelId)) {
-    console.warn("[Meta Pixel] Invalid Pixel ID provided:", pixelId);
     return;
   }
 
   const cleanId = pixelId.trim();
 
-  // If already initialized with same ID, avoid duplicate execution
-  if (isLoaded && activePixelId === cleanId) {
+  // Guard against duplicate fbq('init') calls for the same pixel ID
+  window._fb_initialized_pixels = window._fb_initialized_pixels || new Set();
+  if (window._fb_initialized_pixels.has(cleanId)) {
     return;
   }
 
@@ -59,6 +58,7 @@ export function initMetaPixel(pixelId: string, options?: { autoPageView?: boolea
   }
 
   win.fbq("init", cleanId);
+  window._fb_initialized_pixels.add(cleanId);
   activePixelId = cleanId;
   isLoaded = true;
 

@@ -95,24 +95,28 @@ export function initializeScripts() {
     const pixelId = activeConfig.meta_pixel_id.trim();
     if (!loadedScripts.has(`meta-${pixelId}`)) {
       debugLog('meta', `Initializing Meta Pixel: ${pixelId}`);
-      (function(f: any, b: Document, e: string, v: string, n: any, t?: any, s?: any) {
-        if (f.fbq) return;
-        n = f.fbq = function() {
-          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-        };
-        if (!f._fbq) f._fbq = n;
-        n.push = n;
-        n.loaded = !0;
-        n.version = '2.0';
-        n.queue = [];
-        t = b.createElement(e);
-        t.async = !0;
-        t.src = v;
-        s = b.getElementsByTagName(e)[0];
-        s?.parentNode?.insertBefore(t, s);
-      })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-
-      window.fbq('init', pixelId);
+      try {
+        const { initMetaPixel } = require("./meta/pixel");
+        initMetaPixel(pixelId);
+      } catch {
+        (function(f: any, b: Document, e: string, v: string, n: any, t?: any, s?: any) {
+          if (f.fbq) return;
+          n = f.fbq = function() {
+            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          };
+          if (!f._fbq) f._fbq = n;
+          n.push = n;
+          n.loaded = !0;
+          n.version = '2.0';
+          n.queue = [];
+          t = b.createElement(e);
+          t.async = !0;
+          t.src = v;
+          s = b.getElementsByTagName(e)[0];
+          s?.parentNode?.insertBefore(t, s);
+        })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+        window.fbq('init', pixelId);
+      }
       loadedScripts.add(`meta-${pixelId}`);
     }
   }

@@ -10,17 +10,13 @@ export default function TrackingProvider() {
   const location = useLocation();
   const lastPathname = useRef("");
 
-  // Sync settings and initialize Meta Pixel when loaded or changed
+  // Sync settings and initialize tracking when loaded or changed
   useEffect(() => {
     captureAttribution();
 
     if (settings?.storeInfo?.tracking) {
       const tracking = settings.storeInfo.tracking;
       updateTrackingConfig(tracking);
-
-      if (tracking.meta_pixel_enabled && tracking.meta_pixel_id) {
-        initMetaPixel(tracking.meta_pixel_id);
-      }
     }
   }, [settings]);
 
