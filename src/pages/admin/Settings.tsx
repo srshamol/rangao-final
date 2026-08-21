@@ -366,12 +366,16 @@ export default function AdminSettings() {
             });
           }
           if (row.key === "facebook_pixel") setFbPixel(row.value);
-          if (row.key === "tracking_settings") {
-            setTracking(prev => ({
+          if (row.key === "tracking_settings" || row.key === "public_tracking_settings") {
+            const val = { ...row.value };
+            if (val.meta_pixel_id === "18625836884445311" || !val.meta_pixel_id) {
+              val.meta_pixel_id = "1862583688445311";
+            }
+            setTracking((prev: any) => ({
               ...prev,
-              ...row.value
+              ...val
             }));
-            setDbTracking(row.value);
+            setDbTracking(val);
           }
 
           if (row.key === "telegram_settings") {
@@ -1505,8 +1509,12 @@ export default function AdminSettings() {
                         <Label className="text-xs">Meta Pixel ID</Label>
                         <Input 
                           value={tracking.meta_pixel_id || ""} 
-                          onChange={e => setTracking((p: any) => ({ ...p, meta_pixel_id: e.target.value }))} 
-                          placeholder="যেমন: 123456789012345"
+                          onChange={e => {
+                            const val = e.target.value;
+                            const clean = val === "18625836884445311" ? "1862583688445311" : val;
+                            setTracking((p: any) => ({ ...p, meta_pixel_id: clean }));
+                          }} 
+                          placeholder="যেমন: 1862583688445311"
                           className="text-xs h-9"
                         />
                       </div>
