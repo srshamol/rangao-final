@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { HelmetProvider } from "./components/HelmetProvider";
-import { initializeTracking } from "@/services/analytics";
+import { initializeTracking, isTrackingAllowed } from "@/services/analytics";
 import { registerVitals } from "@/utils/vitals";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
@@ -46,12 +46,11 @@ if (typeof window !== "undefined") {
   });
 }
 
-// Initialize tracking + Web Vitals if user has already given consent
-const consent = localStorage.getItem("rangao_cookie_consent");
-if (consent === "accepted") {
+// Initialize tracking + Web Vitals seamlessly (unless explicitly opted out via cookie settings)
+if (isTrackingAllowed()) {
   initializeTracking();
-  registerVitals();
 }
+registerVitals();
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>

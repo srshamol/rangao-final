@@ -30,6 +30,8 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const About = lazy(() => import("./pages/About"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
+const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Customer Lazy Pages
@@ -83,7 +85,6 @@ const queryClient = new QueryClient({
   },
 });
 
-import CookieConsent from "@/components/CookieConsent";
 import CustomerRealtime from "@/components/CustomerRealtime";
 
 const App = () => (
@@ -96,7 +97,6 @@ const App = () => (
           <SettingsSync />
           <CustomerRealtime />
           <StorageInitializer />
-          <CookieConsent />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <TrackingProvider />
@@ -113,6 +113,8 @@ const App = () => (
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/:id" element={<BlogPost />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/cookie-policy" element={<CookiePolicy />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
                 {/* Customer Auth & Account */}
                 <Route path="/login" element={<CustomerLogin />} />

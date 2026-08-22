@@ -168,6 +168,8 @@ const Footer = () => {
                 { label: "সমস্ত প্রোডাক্ট", href: "/products" },
                 { label: "আমাদের সম্পর্কে", href: "/about" },
                 { label: "ব্লগ/টিপস", href: "/blog" },
+                { label: "কুকি পলিসি", href: "/cookie-policy" },
+                { label: "প্রাইভেসি পলিসি", href: "/privacy-policy" },
               ].map((item) => (
                 <Link key={item.label} to={item.href} className="group flex items-center gap-1.5 text-sm text-primary-foreground/50 transition-all duration-200 hover:text-accent hover:pl-1">
                   {item.label}
@@ -241,9 +243,13 @@ const Footer = () => {
         </div>
 
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-primary-foreground/8 pt-8 md:flex-row">
-          <p className="text-xs text-primary-foreground/35">
-            © {new Date().getFullYear()} Rangao. সর্বস্বত্ব সংরক্ষিত।
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-primary-foreground/35">
+            <p>© {new Date().getFullYear()} Rangao. সর্বস্বত্ব সংরক্ষিত।</p>
+            <span className="hidden md:inline">•</span>
+            <Link to="/privacy-policy" className="hover:text-accent transition-colors">প্রাইভেসি পলিসি</Link>
+            <span>•</span>
+            <Link to="/cookie-policy" className="hover:text-accent transition-colors">কুকি পলিসি</Link>
+          </div>
           <div className="flex items-center gap-4">
             <p className="text-xs text-primary-foreground/25">
               ডিজাইন ও ডেভেলপমেন্ট — রাঙাও ডিজিটাল
