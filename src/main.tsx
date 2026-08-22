@@ -4,6 +4,7 @@ import "./index.css";
 import { HelmetProvider } from "./components/HelmetProvider";
 import { initializeTracking } from "@/services/analytics";
 import { registerVitals } from "@/utils/vitals";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Production resilience: Auto-reload on chunk load failures due to new deployments
 if (typeof window !== "undefined") {
@@ -54,5 +55,6 @@ if (consent === "accepted") {
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
     <App />
+    <SpeedInsights />
   </HelmetProvider>
 );
