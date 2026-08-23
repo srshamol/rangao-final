@@ -9,6 +9,8 @@ import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tool
 import { DollarSign, Truck, TrendingUp, Clock, Wallet, RotateCcw, Download, Activity } from "lucide-react";
 import { format, subDays, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 
+import { getSteadfastBalance } from "@/lib/integrations/steadfast";
+
 type DateFilter = "today" | "week" | "month";
 
 export default function Finance() {
@@ -41,16 +43,16 @@ export default function Finance() {
     queryKey: ["steadfast-balance"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
-        if (error) throw error;
-        return data?.current_balance ?? data?.balance ?? 0;
+        return await getSteadfastBalance();
       } catch (err) {
-        console.warn("Steadfast Courier Edge Function is offline or restricted in local dev environment:", err);
+        console.warn("Steadfast balance query warning:", err);
         return 0;
       }
     },
     staleTime: 60000,
   });
+
+
 
   const { data: dailySales } = useQuery({
     queryKey: ["finance-daily-sales"],

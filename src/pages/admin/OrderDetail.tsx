@@ -25,6 +25,11 @@ import { useStoreSettings } from "@/hooks/useStoreSettings";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+  createSteadfastOrder,
+  cleanSteadfastAddress,
+} from "@/lib/integrations/steadfast";
+
 
 const statusLabels: Record<string, string> = {
   pending: "পেন্ডিং", confirmed: "কনফার্মড", hold: "হোল্ড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
@@ -209,29 +214,27 @@ export default function OrderDetail() {
     setSteadfastLoading(true);
     try {
       const sd = typeof order.shipping_address === "object" ? order.shipping_address : {};
-      const address = (sd as any)?.address || (sd as any)?.city || (sd as any)?.area || "";
-      const { data: result, error } = await supabase.functions.invoke("steadfast-courier", {
-        body: {
-          action: "create_order",
-          invoice: order.order_number,
-          recipient_name: order.customer_name,
-          recipient_phone: order.customer_phone,
-          recipient_address: address,
-          cod_amount: Number(order.total_amount),
-          note: order.notes || "",
-        },
+      const address = cleanSteadfastAddress(sd) || order.customer_city || "ঢাকা, বাংলাদেশ";
+
+      const apiResult = await createSteadfastOrder({
+        invoice: order.order_number,
+        recipient_name: order.customer_name || "Customer",
+        recipient_phone: order.customer_phone,
+        recipient_address: address,
+        cod_amount: Number(order.total_amount) || 0,
+        note: order.notes || "",
       });
-      if (error) throw error;
-      if (result?.status !== 200 && !result?.consignment) {
-        throw new Error(result?.message || JSON.stringify(result?.errors) || "Steadfast API ত্রুটি");
-      }
-      const consignment = result.consignment || {};
+
+      const consignment = apiResult.consignment || apiResult || {};
+      const trackingCode = consignment.tracking_code || "";
+      const consignmentId = consignment.consignment_id || "";
+
       await supabase.from("orders").update({
         shipping_address: {
           ...(sd as any || {}),
           courier_company: "Steadfast",
-          tracking_number: consignment.tracking_code || "",
-          consignment_id: consignment.consignment_id || "",
+          tracking_number: trackingCode,
+          consignment_id: consignmentId,
           courier_status: consignment.status || "pending",
           booked_at: new Date().toISOString(),
         },
@@ -239,7 +242,7 @@ export default function OrderDetail() {
       }).eq("id", order.id);
       await supabase.from("order_history").insert({
         order_id: order.id, action: "courier_booked",
-        details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${consignment.tracking_code}`, staff_name: "Admin"
+        details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${trackingCode}`, staff_name: "Admin"
       });
 
       // Send Telegram notification
@@ -251,7 +254,7 @@ export default function OrderDetail() {
           `<b>অর্ডার নং:</b> #${order.order_number}\n` +
           `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
           `<b>মোবাইল:</b> ${order.customer_phone}\n` +
-          `<b>ট্র্যাকিং কোড:</b> <code>${consignment.tracking_code}</code>\n` +
+          `<b>ট্র্যাকিং কোড:</b> <code>${trackingCode}</code>\n` +
           `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
           `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
 
@@ -260,11 +263,11 @@ export default function OrderDetail() {
         console.error("Error triggering telegram courier booking notification:", tgErr);
       }
 
-      toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${consignment.tracking_code}` });
+      toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${trackingCode || "সফল"}` });
       qc.invalidateQueries({ queryKey: ["admin-order", id] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
     } catch (e: any) {
-      toast({ title: "Steadfast ব্যর্থ", description: e.message, variant: "destructive" });
+      toast({ title: "Steadfast ব্যর্থ", description: e.message || "Steadfast-এ বুকিং করা যায়নি।", variant: "destructive" });
     } finally {
       setSteadfastLoading(false);
     }

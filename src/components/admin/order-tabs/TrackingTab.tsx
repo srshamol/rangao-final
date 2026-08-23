@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Truck, RefreshCw, Bell, MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getSteadfastStatusByTracking } from "@/lib/integrations/steadfast";
 
 interface Props { order: any; }
 
@@ -50,13 +51,10 @@ export default function OrderTrackingTab({ order }: Props) {
     }
     setRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("steadfast-courier", {
-        body: { action: "status_by_tracking", tracking_code: shipping.tracking_number },
-      });
-      if (error) throw error;
-
+      const data = await getSteadfastStatusByTracking(shipping.tracking_number);
       const newStatus = data?.delivery_status || shipping.courier_status;
       const updatedAddress = { ...shipping, courier_status: newStatus, last_tracking_update: new Date().toISOString() };
+
 
       // Map to order status
       let orderStatus = order.order_status;

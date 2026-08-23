@@ -21,6 +21,14 @@ import OrderConfirmModal from "@/components/admin/OrderConfirmModal";
 import CourierResultCards from "@/components/admin/CourierResultCards";
 
 import { checkCourier } from "@/lib/integrations/bdcourier";
+import {
+  createSteadfastOrder,
+  getSteadfastStatusByTracking,
+  cleanSteadfastAddress,
+  cleanBangladeshiPhone,
+  invokeSteadfastEdge,
+} from "@/lib/integrations/steadfast";
+
 
 const statusLabels: Record<string, string> = {
   pending: "পেন্ডিং", confirmed: "কনফার্মড", hold: "হোল্ড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
@@ -136,30 +144,26 @@ export default function AdminOrders() {
     setSteadfastLoading(order.id);
     try {
       const shippingData = typeof order.shipping_address === "object" ? order.shipping_address : {};
-      const address = shippingData?.address || shippingData?.city || shippingData?.area || "";
+      const address = cleanSteadfastAddress(shippingData) || order.customer_city || "ঢাকা, বাংলাদেশ";
 
-      const { data: apiResult, error: apiError } = await supabase.functions.invoke("steadfast-courier", {
-        body: {
-          action: "create_order",
-          invoice: order.order_number,
-          recipient_name: order.customer_name,
-          recipient_phone: order.customer_phone,
-          recipient_address: address,
-          cod_amount: Number(order.total_amount),
-          note: order.notes || "",
-        },
+      const apiResult = await createSteadfastOrder({
+        invoice: order.order_number,
+        recipient_name: order.customer_name || "Customer",
+        recipient_phone: order.customer_phone,
+        recipient_address: address,
+        cod_amount: Number(order.total_amount) || 0,
+        note: order.notes || "",
       });
-      if (apiError) throw apiError;
-      if (apiResult?.status !== 200 && !apiResult?.consignment) {
-        throw new Error(apiResult?.message || JSON.stringify(apiResult?.errors) || "Steadfast API ত্রুটি");
-      }
 
-      const consignment = apiResult.consignment || {};
+      const consignment = apiResult.consignment || apiResult || {};
+      const trackingCode = consignment.tracking_code || "";
+      const consignmentId = consignment.consignment_id || "";
+
       const updatedAddress = {
         ...shippingData,
         courier_company: "Steadfast",
-        tracking_number: consignment.tracking_code || "",
-        consignment_id: consignment.consignment_id || "",
+        tracking_number: trackingCode,
+        consignment_id: consignmentId,
         courier_status: consignment.status || "pending",
         booked_at: new Date().toISOString(),
       };
@@ -167,7 +171,7 @@ export default function AdminOrders() {
       await supabase.from("orders").update({ shipping_address: updatedAddress, order_status: "processing" as any }).eq("id", order.id);
       await supabase.from("order_history" as any).insert({
         order_id: order.id, action: "courier_booked",
-        details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${consignment.tracking_code}`, staff_name: "Admin"
+        details: `Steadfast-এ পাঠানো। ট্র্যাকিং: ${trackingCode}`, staff_name: "Admin"
       });
 
       // Send Telegram notification
@@ -179,7 +183,7 @@ export default function AdminOrders() {
           `<b>অর্ডার নং:</b> #${order.order_number}\n` +
           `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
           `<b>মোবাইল:</b> ${order.customer_phone}\n` +
-          `<b>ট্র্যাকিং কোড:</b> <code>${consignment.tracking_code}</code>\n` +
+          `<b>ট্র্যাকিং কোড:</b> <code>${trackingCode}</code>\n` +
           `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
           `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
 
@@ -188,11 +192,11 @@ export default function AdminOrders() {
         console.error("Error triggering telegram courier booking notification:", tgErr);
       }
 
-      toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${consignment.tracking_code}` });
+      toast({ title: "✅ Steadfast-এ পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${trackingCode || "সফল"}` });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
     } catch (e: any) {
-      toast({ title: "Steadfast ব্যর্থ", description: e.message, variant: "destructive" });
+      toast({ title: "Steadfast ব্যর্থ", description: e.message || "Steadfast-এ বুকিং করা যায়নি।", variant: "destructive" });
     } finally {
       setSteadfastLoading(null);
     }
@@ -209,50 +213,52 @@ export default function AdminOrders() {
       let updated = 0;
       for (const order of trackable) {
         const sd = order.shipping_address as any;
-        const { data: result } = await supabase.functions.invoke("steadfast-courier", {
-          body: { action: "status_by_tracking", tracking_code: sd?.tracking_number },
-        });
-        const deliveryStatus = result?.delivery_status;
-        let newStatus: string | null = null;
-        if (deliveryStatus === "in_transit" || deliveryStatus === "dispatched") newStatus = "shipped";
-        else if (deliveryStatus === "delivered") newStatus = "delivered";
-        else if (deliveryStatus === "cancelled" || deliveryStatus === "cancelled_delivery") newStatus = "courier_cancelled";
+        try {
+          const result = await getSteadfastStatusByTracking(sd?.tracking_number);
+          const deliveryStatus = result?.delivery_status;
+          let newStatus: string | null = null;
+          if (deliveryStatus === "in_transit" || deliveryStatus === "dispatched") newStatus = "shipped";
+          else if (deliveryStatus === "delivered") newStatus = "delivered";
+          else if (deliveryStatus === "cancelled" || deliveryStatus === "cancelled_delivery") newStatus = "courier_cancelled";
 
-        if (newStatus && newStatus !== order.order_status) {
-          await supabase.from("orders").update({
-            order_status: newStatus as any,
-            shipping_address: { ...(sd || {}), courier_status: deliveryStatus }
-          }).eq("id", order.id);
-          await supabase.from("order_history" as any).insert({
-            order_id: order.id, action: "auto_status_sync",
-            details: `Steadfast স্ট্যাটাস: ${deliveryStatus} → ${newStatus}`, staff_name: "System"
-          });
+          if (newStatus && newStatus !== order.order_status) {
+            await supabase.from("orders").update({
+              order_status: newStatus as any,
+              shipping_address: { ...(sd || {}), courier_status: deliveryStatus }
+            }).eq("id", order.id);
+            await supabase.from("order_history" as any).insert({
+              order_id: order.id, action: "auto_status_sync",
+              details: `Steadfast স্ট্যাটাস: ${deliveryStatus} → ${newStatus}`, staff_name: "System"
+            });
 
-          // Send Telegram notification for auto-synced status changes
-          try {
-            const { sendTelegramNotification } = await import("@/lib/telegram");
-            const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
-            const newStatusBangla = statusLabels[newStatus] || newStatus;
-            const autoMessage = `🔄 <b>অর্ডার স্ট্যাটাস অটো-আপডেট (Steadfast)!</b>\n\n` +
-              `<b>অর্ডার নং:</b> #${order.order_number}\n` +
-              `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
-              `<b>মোবাইল:</b> ${order.customer_phone}\n` +
-              `<b>Steadfast স্ট্যাটাস:</b> ${deliveryStatus}\n` +
-              `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
-              `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
-            await sendTelegramNotification(autoMessage, { isStatusUpdate: true });
-          } catch (tgErr) {
-            console.error("Error triggering auto-sync telegram notification:", tgErr);
+            // Send Telegram notification for auto-synced status changes
+            try {
+              const { sendTelegramNotification } = await import("@/lib/telegram");
+              const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
+              const newStatusBangla = statusLabels[newStatus] || newStatus;
+              const autoMessage = `🔄 <b>অর্ডার স্ট্যাটাস অটো-আপডেট (Steadfast)!</b>\n\n` +
+                `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+                `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
+                `<b>মোবাইল:</b> ${order.customer_phone}\n` +
+                `<b>Steadfast স্ট্যাটাস:</b> ${deliveryStatus}\n` +
+                `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
+                `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
+              await sendTelegramNotification(autoMessage, { isStatusUpdate: true });
+            } catch (tgErr) {
+              console.error("Error triggering auto-sync telegram notification:", tgErr);
+            }
+
+            updated++;
           }
-
-          updated++;
+        } catch (itemErr) {
+          console.warn(`Order #${order.order_number} tracking sync failed:`, itemErr);
         }
       }
       toast({ title: `✅ সিঙ্ক সম্পন্ন`, description: `${updated}টি অর্ডার আপডেট হয়েছে` });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
     } catch (e: any) {
-      toast({ title: "সিঙ্ক ব্যর্থ", description: e.message, variant: "destructive" });
+      toast({ title: "সিঙ্ক ব্যর্থ", description: e.message || "স্ট্যাটাস সিঙ্ক ব্যর্থ হয়েছে", variant: "destructive" });
     } finally {
       setSyncingAll(false);
     }
@@ -275,17 +281,14 @@ export default function AdminOrders() {
         const sd = typeof o.shipping_address === "object" ? o.shipping_address : {};
         return {
           invoice: o.order_number,
-          recipient_name: o.customer_name,
-          recipient_phone: o.customer_phone,
-          recipient_address: sd?.address || sd?.city || sd?.area || "",
-          cod_amount: Number(o.total_amount),
+          recipient_name: o.customer_name || "Customer",
+          recipient_phone: cleanBangladeshiPhone(o.customer_phone),
+          recipient_address: cleanSteadfastAddress(sd) || o.customer_city || "ঢাকা, বাংলাদেশ",
+          cod_amount: Number(o.total_amount) || 0,
           note: o.notes || "",
         };
       });
-      const { data: result, error } = await supabase.functions.invoke("steadfast-courier", {
-        body: { action: "bulk_create", orders: bulkData },
-      });
-      if (error) throw error;
+      await invokeSteadfastEdge("bulk_create", { orders: bulkData });
 
       // Update each order status
       for (const order of selectedOrders) {
@@ -314,7 +317,7 @@ export default function AdminOrders() {
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
     } catch (e: any) {
-      toast({ title: "বাল্ক শিপিং ব্যর্থ", description: e.message, variant: "destructive" });
+      toast({ title: "বাল্ক শিপিং ব্যর্থ", description: e.message || "বাল্ক বুকিং ব্যর্থ হয়েছে", variant: "destructive" });
     } finally {
       setBulkLoading(false);
     }

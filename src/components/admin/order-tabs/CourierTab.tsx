@@ -9,6 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Truck, Loader2, CheckCircle, Wallet, Zap } from "lucide-react";
+import {
+  createSteadfastOrder,
+  getSteadfastBalance,
+  cleanSteadfastAddress,
+} from "@/lib/integrations/steadfast";
 
 interface Props {
   order: any;
@@ -24,45 +29,33 @@ export default function OrderCourierTab({ order, onStatusChange }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const address = shippingData?.address || shippingData?.city || "";
+  const address = cleanSteadfastAddress(shippingData) || order.customer_city || "ঢাকা, বাংলাদেশ";
   const isAlreadyBooked = !!shippingData?.consignment_id;
 
   const checkBalance = async () => {
     setBalanceLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("steadfast-courier", {
-        body: { action: "get_balance" },
-      });
-      if (error) throw error;
-      setBalance(data?.current_balance ?? data?.balance ?? 0);
+      const currentBal = await getSteadfastBalance();
+      setBalance(currentBal);
     } catch (err: any) {
-      toast({ title: "ব্যালেন্স চেক ব্যর্থ", description: err.message, variant: "destructive" });
+      toast({ title: "ব্যালেন্স চেক ব্যর্থ", description: err.message || "ব্যালেন্স তথ্য পাওয়া যায়নি।", variant: "destructive" });
     } finally { setBalanceLoading(false); }
   };
 
   const handleSteadfastTransfer = async () => {
     setSaving(true);
     try {
-      // Call Steadfast API
-      const { data: apiResult, error: apiError } = await supabase.functions.invoke("steadfast-courier", {
-        body: {
-          action: "create_order",
-          invoice: order.order_number,
-          recipient_name: order.customer_name,
-          recipient_phone: order.customer_phone,
-          recipient_address: address,
-          cod_amount: Number(order.total_amount),
-          note: specialNote || order.notes || "",
-          delivery_type: 0,
-        },
+      const apiResult = await createSteadfastOrder({
+        invoice: order.order_number,
+        recipient_name: order.customer_name || "Customer",
+        recipient_phone: order.customer_phone,
+        recipient_address: address,
+        cod_amount: Number(order.total_amount) || 0,
+        note: specialNote || order.notes || "",
+        delivery_type: 0,
       });
-      if (apiError) throw apiError;
 
-      if (apiResult?.status !== 200 && !apiResult?.consignment) {
-        throw new Error(apiResult?.message || apiResult?.errors ? JSON.stringify(apiResult.errors) : "Steadfast API ত্রুটি");
-      }
-
-      const consignment = apiResult.consignment || {};
+      const consignment = apiResult.consignment || apiResult || {};
       const trackingCode = consignment.tracking_code || "";
       const consignmentId = consignment.consignment_id || "";
 
@@ -90,13 +83,14 @@ export default function OrderCourierTab({ order, onStatusChange }: Props) {
         staff_name: "Admin"
       });
 
-      toast({ title: "✅ Steadfast-এ সফলভাবে পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${trackingCode}` });
+      toast({ title: "✅ Steadfast-এ সফলভাবে পাঠানো হয়েছে!", description: `ট্র্যাকিং: ${trackingCode || "সফল"}` });
       qc.invalidateQueries({ queryKey: ["admin-order", order.id] });
       onStatusChange("shipped");
     } catch (err: any) {
-      toast({ title: "Steadfast ট্রান্সফার ব্যর্থ", description: err.message, variant: "destructive" });
+      toast({ title: "Steadfast ট্রান্সফার ব্যর্থ", description: err.message || "ট্রান্সফার ব্যর্থ হয়েছে।", variant: "destructive" });
     } finally { setSaving(false); }
   };
+
 
   return (
     <div className="space-y-4 mt-4">

@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { format, subDays, startOfDay } from "date-fns";
+import { getSteadfastBalance } from "@/lib/integrations/steadfast";
+
 
 const statusColors: Record<string, string> = {
   pending: "bg-amber-500/15 text-amber-700 border-amber-500/20",
@@ -94,11 +96,9 @@ export default function Dashboard() {
     queryKey: ["steadfast-balance-dashboard"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("steadfast-courier", { body: { action: "get_balance" } });
-        if (error) throw error;
-        return data?.current_balance ?? data?.balance ?? 0;
+        return await getSteadfastBalance();
       } catch (err) {
-        console.warn("Steadfast Courier Edge Function is offline or restricted in local dev environment:", err);
+        console.warn("Steadfast Courier query warning:", err);
         return 0;
       }
     },

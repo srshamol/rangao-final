@@ -23,6 +23,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BookOpen } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
+import { testSteadfastConnection } from "@/lib/integrations/steadfast";
+
 
 interface DeliveryCharges {
   dhaka_inside: number;
@@ -255,9 +257,50 @@ export default function AdminSettings() {
   const [newPlatform, setNewPlatform] = useState("facebook");
   const [newUrl, setNewUrl] = useState("");
 
+  const [testingSteadfast, setTestingSteadfast] = useState(false);
+  const [steadfastTestResult, setSteadfastTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleTestSteadfast = async () => {
+    setTestingSteadfast(true);
+    setSteadfastTestResult(null);
+    try {
+      // Auto-save courier settings first if not saved yet
+      await supabase.from("store_settings").upsert({
+        key: "courier_settings",
+        value: courier,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+
+      const result = await testSteadfastConnection();
+      setSteadfastTestResult(result);
+      if (result.success) {
+        toast({
+          title: "✅ Steadfast কানেকশন সফল!",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "❌ Steadfast কানেকশন ব্যর্থ",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      const msg = err.message || "Steadfast কানেকশন টেস্ট করা সম্ভব হয়নি।";
+      setSteadfastTestResult({ success: false, message: msg });
+      toast({
+        title: "❌ Steadfast কানেকশন ব্যর্থ",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingSteadfast(false);
+    }
+  };
 
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [activePickerField, setActivePickerField] = useState<string | null>(null);
+
   const primaryLogoInputRef = useRef<HTMLInputElement>(null);
   const mobileLogoInputRef = useRef<HTMLInputElement>(null);
   const whiteLogoInputRef = useRef<HTMLInputElement>(null);
@@ -1320,7 +1363,20 @@ export default function AdminSettings() {
                 <Separator />
 
                 <div className="space-y-4">
-                  <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">🔑 Steadfast API ক্রেডেনশিয়ালস</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-primary flex items-center gap-1.5">🔑 Steadfast API ক্রেডেনশিয়ালস</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestSteadfast}
+                      disabled={testingSteadfast || !courier.api_key || !courier.secret_key}
+                      className="gap-1.5 text-xs h-8"
+                    >
+                      {testingSteadfast ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-amber-500" />}
+                      কানেকশন টেস্ট করুন
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label>Steadfast API Key</Label>
@@ -1341,6 +1397,21 @@ export default function AdminSettings() {
                       />
                     </div>
                   </div>
+
+                  {steadfastTestResult && (
+                    <div className={`p-3 rounded-lg text-xs flex items-center gap-2 border ${
+                      steadfastTestResult.success 
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
+                        : "bg-destructive/10 text-destructive border-destructive/20"
+                    }`}>
+                      {steadfastTestResult.success ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+                      )}
+                      <span>{steadfastTestResult.message}</span>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
