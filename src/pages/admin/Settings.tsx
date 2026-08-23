@@ -15,8 +15,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   Loader2, Save, Store, Truck, CreditCard, Settings2, BarChart3,
   CheckCircle2, XCircle, Send, Plus, Trash2, Smartphone, Globe,
-  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud
+  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud, Zap
 } from "lucide-react";
+
 import { mediaService } from "@/lib/mediaService";
 import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings, AboutUsSettings, CoreValueItem } from "@/hooks/useStoreSettings";
 import { Textarea } from "@/components/ui/textarea";
