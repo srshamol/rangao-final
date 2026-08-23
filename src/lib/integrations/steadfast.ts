@@ -55,11 +55,26 @@ export function cleanSteadfastAddress(shippingData: any): string {
 function extractErrorMessage(result: any, error: any): string {
   if (result) {
     if (result.message && typeof result.message === "string") {
-      return result.message;
+      const rawMsg = result.message.trim();
+      if (rawMsg.toLowerCase().includes("account is not active")) {
+        return "আপনার Steadfast অ্যাকাউন্টটি এখনও সক্রিয় (Active) নয়। Steadfast মার্চেন্ট পোর্টালে (portal.steadfast.com.bd) লগইন করে আপনার অ্যাকাউন্ট ভেরিফাই/অ্যাক্টিভ করুন অথবা Steadfast সাপোর্টে যোগাযোগ করুন।";
+      }
+      if (rawMsg.toLowerCase().includes("unauthorized") || rawMsg.toLowerCase().includes("invalid api credentials")) {
+        return "Steadfast API Key বা Secret Key সঠিক নয়। Settings > কুরিয়ার সেটিংস এ গিয়ে সঠিক ক্রেডেনশিয়াল দিন।";
+      }
+      if (rawMsg.toLowerCase().includes("invoice has already been taken") || rawMsg.toLowerCase().includes("already exists")) {
+        return "এই ইনভয়েস নম্বরে ইতোমধ্যেই Steadfast-এ পার্সেল তৈরি করা হয়েছে।";
+      }
+      return rawMsg;
     }
     if (result.error && typeof result.error === "string") {
-      return result.error;
+      const rawErr = result.error.trim();
+      if (rawErr.toLowerCase().includes("account is not active")) {
+        return "আপনার Steadfast অ্যাকাউন্টটি এখনও সক্রিয় (Active) নয়। Steadfast মার্চেন্ট পোর্টালে (portal.steadfast.com.bd) লগইন করে আপনার অ্যাকাউন্ট ভেরিফাই/অ্যাক্টিভ করুন অথবা Steadfast সাপোর্টে যোগাযোগ করুন।";
+      }
+      return rawErr;
     }
+
     if (result.errors && typeof result.errors === "object") {
       const errorStrings = Object.entries(result.errors).map(([field, msgs]) => {
         const fieldNameMap: Record<string, string> = {
