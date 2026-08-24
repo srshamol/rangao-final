@@ -23,6 +23,10 @@ import type { StoreInfo, ContactInfo, SocialLinkItem, SEOSettings, AboutUsSettin
 import { Textarea } from "@/components/ui/textarea";
 import { BookOpen } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
 import { testSteadfastConnection } from "@/lib/integrations/steadfast";
 
@@ -324,12 +328,34 @@ export default function AdminSettings() {
     }
   };
 
-  const deleteFile = (field: "logo_url" | "mobile_logo_url" | "white_logo_url" | "favicon_url") => {
+  const [deleteFieldTarget, setDeleteFieldTarget] = useState<"logo_url" | "mobile_logo_url" | "white_logo_url" | "favicon_url" | null>(null);
+  const [deleteSocialId, setDeleteSocialId] = useState<string | null>(null);
+  const [deleteCoreValueIndex, setDeleteCoreValueIndex] = useState<number | null>(null);
+
+  const confirmDeleteFile = () => {
+    if (!deleteFieldTarget) return;
     setStoreInfo(prev => ({
       ...prev,
-      [field]: ""
+      [deleteFieldTarget]: ""
     }));
     toast({ title: "🗑️ ফাইল মুছে ফেলা হয়েছে", description: "পরিবর্তন সংরক্ষণ করতে নিচে সেভ করুন বাটনে ক্লিক করুন।" });
+    setDeleteFieldTarget(null);
+  };
+
+  const confirmRemoveSocialLink = () => {
+    if (!deleteSocialId) return;
+    const nextLinks = (contactInfo.social_links || []).filter(item => item.id !== deleteSocialId);
+    setContactInfo(prev => ({ ...prev, social_links: nextLinks }));
+    setDeleteSocialId(null);
+  };
+
+  const confirmRemoveCoreValue = () => {
+    if (deleteCoreValueIndex === null) return;
+    setAboutUsSettings(prev => ({
+      ...prev,
+      core_values: (prev.core_values || []).filter((_, idx) => idx !== deleteCoreValueIndex)
+    }));
+    setDeleteCoreValueIndex(null);
   };
 
   const handleTestTelegram = async () => {
@@ -738,7 +764,7 @@ export default function AdminSettings() {
                           <img src={storeInfo.logo_url} alt="Primary logo preview" className="max-h-16 object-contain" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                             <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setActivePickerField("logo_url")}>Replace</Button>
-                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => deleteFile("logo_url")}>Delete</Button>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setDeleteFieldTarget("logo_url")}>Delete</Button>
                           </div>
                         </>
                       ) : (
@@ -769,7 +795,7 @@ export default function AdminSettings() {
                           <img src={storeInfo.mobile_logo_url} alt="Mobile logo preview" className="max-h-16 object-contain" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                             <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setActivePickerField("mobile_logo_url")}>Replace</Button>
-                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => deleteFile("mobile_logo_url")}>Delete</Button>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setDeleteFieldTarget("mobile_logo_url")}>Delete</Button>
                           </div>
                         </>
                       ) : (
@@ -800,7 +826,7 @@ export default function AdminSettings() {
                           <img src={storeInfo.white_logo_url} alt="White logo preview" className="max-h-16 object-contain" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                             <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setActivePickerField("white_logo_url")}>Replace</Button>
-                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => deleteFile("white_logo_url")}>Delete</Button>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setDeleteFieldTarget("white_logo_url")}>Delete</Button>
                           </div>
                         </>
                       ) : (
@@ -887,7 +913,7 @@ export default function AdminSettings() {
                       <UploadCloud className="h-4 w-4" /> Pick/Upload
                     </Button>
                     {storeInfo.favicon_url && (
-                      <Button type="button" variant="destructive" className="gap-1 rounded-xl" onClick={() => deleteFile("favicon_url")}>
+                      <Button type="button" variant="destructive" className="gap-1 rounded-xl" onClick={() => setDeleteFieldTarget("favicon_url")}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
@@ -2644,6 +2670,69 @@ export default function AdminSettings() {
         }}
         type="images"
       />
+
+      {/* Delete Logo/Favicon Confirmation Dialog */}
+      <AlertDialog open={!!deleteFieldTarget} onOpenChange={(open) => !open && setDeleteFieldTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">ইমেজ ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই ইমেজ ফাইলটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmDeleteFile}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Social Link Confirmation Dialog */}
+      <AlertDialog open={!!deleteSocialId} onOpenChange={(open) => !open && setDeleteSocialId(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">সোশ্যাল লিঙ্ক ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই সোশ্যাল লিঙ্কটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveSocialLink}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Core Value Confirmation Dialog */}
+      <AlertDialog open={deleteCoreValueIndex !== null} onOpenChange={(open) => !open && setDeleteCoreValueIndex(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">কোর ভ্যালু ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই কোর ভ্যালুটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveCoreValue}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

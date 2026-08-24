@@ -10,11 +10,16 @@ import { ArrowLeft, Heart, Trash2, ShoppingCart } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { getProductUrl } from "@/lib/utils";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 export default function CustomerWishlist() {
   const { user } = useCustomer();
   const { addToCart } = useCart();
   const qc = useQueryClient();
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["my-wishlist", user?.id],
@@ -85,7 +90,7 @@ export default function CustomerWishlist() {
                           }}>
                             <ShoppingCart className="h-3 w-3" /> কার্টে
                           </Button>
-                          <Button size="sm" variant="ghost" className="rounded-lg text-xs text-destructive" onClick={() => removeItem.mutate(item.id)}>
+                          <Button size="sm" variant="ghost" className="rounded-lg text-xs text-destructive hover:bg-destructive/10" onClick={() => setDeleteTargetId(item.id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
@@ -99,6 +104,32 @@ export default function CustomerWishlist() {
         )}
       </main>
       <Footer />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">উইশলিস্ট থেকে অপসারণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই পণ্যটি আপনার উইশলিস্ট থেকে মুছে ফেলতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={() => {
+                if (deleteTargetId) {
+                  removeItem.mutate(deleteTargetId);
+                  setDeleteTargetId(null);
+                }
+              }}
+            >
+              মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

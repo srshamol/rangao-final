@@ -244,8 +244,67 @@ Deno.serve(async (req) => {
       }
 
       case 'status_by_tracking': {
-        const tracking = encodeURIComponent(String(params.tracking_code || '').trim());
+        const rawTracking = String(params.tracking_code || '').trim();
+        const tracking = encodeURIComponent(rawTracking);
         const result = await requestSteadfast(`/status_by_trackingcode/${tracking}`, {
+          method: 'GET',
+          headers,
+        });
+
+        let data = result.data || {};
+
+        // If API didn't return weight or delivery_charge, fetch from Steadfast tracking portal
+        if (!data.weight && !data.delivery_charge && !data.consignment?.weight && !data.consignment?.delivery_charge && rawTracking) {
+          try {
+            const publicRes = await fetch(`https://steadfast.com.bd/tracking?tracking_code=${encodeURIComponent(rawTracking)}`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              }
+            });
+            if (publicRes.ok) {
+              const html = await publicRes.text();
+
+              // Extract Weight: e.g. "Weight : 1.7KG"
+              const weightMatch = html.match(/Weight\s*:\s*([\d.]+\s*(?:KG|kg|g|gm)?)/i);
+              if (weightMatch) {
+                data.weight = weightMatch[1].trim();
+              }
+
+              // Extract Delivery Charge: e.g. "Delivery Charge : 95 TK"
+              const deliveryMatch = html.match(/Delivery\s*Charge\s*:\s*([\d.]+)\s*(?:TK|Tk|tk|৳)?/i);
+              if (deliveryMatch) {
+                data.delivery_charge = parseFloat(deliveryMatch[1]);
+              }
+
+              // Extract COD: e.g. "COD: ৳ 990"
+              const codMatch = html.match(/COD\s*:\s*(?:৳|TK|Tk)?\s*([\d.]+)/i);
+              if (codMatch) {
+                data.cod_amount = parseFloat(codMatch[1]);
+              }
+
+              // Extract Status if missing
+              if (!data.delivery_status) {
+                const statusMatch = html.match(/(?:Status\s*:\s*|class="[^"]*badge[^"]*">\s*)(Pending|In Review|Dispatched|In Transit|Out for Delivery|Delivered|Cancelled|Return)/i);
+                if (statusMatch) {
+                  data.delivery_status = statusMatch[1].toLowerCase().replace(/\s+/g, '_');
+                }
+              }
+            }
+          } catch (scrapeErr) {
+            console.warn("Public tracking fallback error:", scrapeErr);
+          }
+        }
+
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'status_by_cid': {
+        const cid = encodeURIComponent(String(params.consignment_id || params.cid || '').trim());
+        const result = await requestSteadfast(`/status_by_cid/${cid}`, {
           method: 'GET',
           headers,
         });

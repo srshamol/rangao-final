@@ -54,6 +54,7 @@ export default function OrderDetail() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showDelete, setShowDelete] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const [steadfastLoading, setSteadfastLoading] = useState(false);
   const { data: settings } = useStoreSettings();
 
@@ -101,15 +102,22 @@ export default function OrderDetail() {
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ status, note }: { status: string; note?: string }) => {
-      const { error } = await supabase.from("orders").update({ order_status: status as any }).eq("id", id);
+    mutationFn: async ({ status, note, paymentStatus }: { status: string; note?: string; paymentStatus?: string }) => {
+      const updateData: Record<string, any> = { order_status: status as any };
+      if (paymentStatus) {
+        updateData.payment_status = paymentStatus;
+      } else if (status === "delivered" && order?.payment_method === "cod" && order?.payment_status !== "completed") {
+        updateData.payment_status = "completed";
+      }
+
+      const { error } = await supabase.from("orders").update(updateData).eq("id", id);
       if (error) throw error;
       if (note) {
         await supabase.from("order_notes" as any).insert({ order_id: id, note, staff_name: "Admin" });
       }
       await supabase.from("order_history").insert({
         order_id: id!, action: "status_changed",
-        details: `স্ট্যাটাস পরিবর্তন: ${statusLabels[status] || status}${note ? ` — ${note}` : ""}`, staff_name: "Admin"
+        details: `স্ট্যাটাস পরিবর্তন: ${statusLabels[status] || status}${note ? ` — ${note}` : ""}${updateData.payment_status ? ` (পেমেন্ট: ${updateData.payment_status})` : ""}`, staff_name: "Admin"
       });
 
       // Send Facebook CAPI event for confirmed orders if Strict Purchase Mode is enabled
@@ -136,6 +144,8 @@ export default function OrderDetail() {
       qc.invalidateQueries({ queryKey: ["admin-order", id] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
+      qc.invalidateQueries({ queryKey: ["order-history", id] });
+      qc.invalidateQueries({ queryKey: ["order-notes", id] });
       toast({ title: "স্ট্যাটাস আপডেট হয়েছে" });
 
       // Send Telegram notification
@@ -315,7 +325,7 @@ export default function OrderDetail() {
               </Button>
             )}
             {canCancel && (
-              <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => updateStatus.mutate({ status: "cancelled" })}
+              <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => setShowCancel(true)}
                 disabled={updateStatus.isPending}>
                 <XCircle className="h-4 w-4" /> ক্যান্সেল
               </Button>
@@ -375,31 +385,55 @@ export default function OrderDetail() {
           <OrderConfirmationTab order={order} onStatusChange={(params) => updateStatus.mutate(params)} loading={updateStatus.isPending} />
         </TabsContent>
         <TabsContent value="courier">
-          <OrderCourierTab order={order} onStatusChange={(s) => updateStatus.mutate({ status: s })} />
+          <OrderCourierTab order={order} onStatusChange={(params: any) => typeof params === "string" ? updateStatus.mutate({ status: params }) : updateStatus.mutate(params)} />
         </TabsContent>
         <TabsContent value="tracking">
-          <OrderTrackingTab order={order} />
+          <OrderTrackingTab order={order} onStatusChange={(params: any) => typeof params === "string" ? updateStatus.mutate({ status: params }) : updateStatus.mutate(params)} />
         </TabsContent>
         <TabsContent value="delivery">
-          <OrderDeliveryTab order={order} onStatusChange={(s) => updateStatus.mutate({ status: s })} />
+          <OrderDeliveryTab order={order} onStatusChange={(params: any) => typeof params === "string" ? updateStatus.mutate({ status: params }) : updateStatus.mutate(params)} />
         </TabsContent>
         <TabsContent value="history">
           <OrderHistoryTab orderId={order.id} />
         </TabsContent>
       </Tabs>
 
+      {/* Cancel Confirmation */}
+      <AlertDialog open={showCancel} onOpenChange={setShowCancel}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">অর্ডার বাতিল নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে <strong>{order?.order_number}</strong> অর্ডারটি বাতিল (Cancel) করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">ফিরে যান</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={() => {
+                setShowCancel(false);
+                updateStatus.mutate({ status: "cancelled" });
+              }}
+            >
+              হ্যাঁ, বাতিল করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Confirmation */}
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl border-border/50">
           <AlertDialogHeader>
-            <AlertDialogTitle>অর্ডার ডিলিট করুন?</AlertDialogTitle>
+            <AlertDialogTitle className="font-display font-bold">অর্ডার ডিলিট করুন?</AlertDialogTitle>
             <AlertDialogDescription>
               অর্ডার <strong>{order.order_number}</strong> এবং সম্পর্কিত সমস্ত ডাটা স্থায়ীভাবে মুছে যাবে।
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>বাতিল</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
               onClick={deleteOrder}>
               🗑️ ডিলিট করুন
             </AlertDialogAction>

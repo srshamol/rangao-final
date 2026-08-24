@@ -17,6 +17,10 @@ import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 import { mediaService, MediaItem } from "@/lib/mediaService";
 import BrokenImageGuard from "@/components/BrokenImageGuard";
 import MediaPicker from "@/components/MediaPicker";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 interface BucketDiagnostic {
   name: string;
@@ -38,6 +42,8 @@ export default function MediaLibrary() {
   const [filterType, setFilterType] = useState<"all" | "images" | "videos" | "documents">("all");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showPicker, setShowPicker] = useState<boolean>(false);
+  const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // ================= TAB 2: OPTIMIZATION STATES =================
   const [scanning, setScanning] = useState(false);
@@ -240,22 +246,31 @@ export default function MediaLibrary() {
     toast({ title: "📋 লিঙ্ক কপি করা হয়েছে", description: "URL সাকসেসফুলি ক্লিপবোর্ডে কপি করা হয়েছে।" });
   };
 
-  const handleDeleteItem = async (item: MediaItem) => {
-    if (!confirm("আপনি কি নিশ্চিতভাবে এই ফাইলটি মুছে ফেলতে চান?")) return;
+  const handleDeleteItem = (item: MediaItem) => {
+    setDeleteTarget(item);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!deleteTarget) return;
     try {
-      await mediaService.delete(item);
+      await mediaService.delete(deleteTarget);
       toast({ title: "🗑️ ফাইল মুছে ফেলা হয়েছে" });
       loadLibrary();
-      setSelectedItems(prev => prev.filter(id => id !== item.id));
+      setSelectedItems(prev => prev.filter(id => id !== deleteTarget.id));
     } catch (e: any) {
       toast({ title: "❌ মুছতে ব্যর্থ", description: e.message, variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (!selectedItems.length) return;
-    if (!confirm(`আপনি কি নিশ্চিতভাবে নির্বাচিত ${selectedItems.length}টি ফাইল মুছে ফেলতে চান?`)) return;
-    
+    setBulkDeleteOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (!selectedItems.length) return;
     setLoading(true);
     try {
       let count = 0;
@@ -272,6 +287,8 @@ export default function MediaLibrary() {
     } catch (e: any) {
       toast({ title: "❌ বাল্ক মুছতে ব্যর্থ", description: e.message, variant: "destructive" });
       loadLibrary();
+    } finally {
+      setBulkDeleteOpen(false);
     }
   };
 
@@ -1118,6 +1135,48 @@ export default function MediaLibrary() {
           setShowPicker(false);
         }}
       />
+
+      {/* Single Item Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">ফাইল ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে <strong>"{deleteTarget?.name}"</strong> ফাইলটি স্থায়ীভাবে মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা সম্ভব হবে না।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmDeleteItem}
+            >
+              🗑️ মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">নির্বাচিত ফাইলসমূহ ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে নির্বাচিত <strong>{selectedItems.length}টি ফাইল</strong> মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা সম্ভব হবে না।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmBulkDelete}
+            >
+              🗑️ নির্বাচিত {selectedItems.length}টি ফাইল মুছুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -19,6 +19,10 @@ import {
   Image, Layout, Package, Star, Megaphone, Tag,
   Users, BarChart2, Mail, Globe, Layers, Loader2, BookOpen
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -279,12 +283,19 @@ export default function HomepageManager() {
     setExpandedSlide(heroSlides.length);
   };
 
+  const [deleteSlideIndex, setDeleteSlideIndex] = useState<number | null>(null);
+  const [deleteTrustIndex, setDeleteTrustIndex] = useState<number | null>(null);
+  const [deleteQuoteIndex, setDeleteQuoteIndex] = useState<number | null>(null);
+  const [deleteGalleryIndex, setDeleteGalleryIndex] = useState<number | null>(null);
+
   const updateSlide = (i: number, updates: Partial<HeroBannerSlide>) => {
     setHeroSlides((s) => s.map((sl, idx) => idx === i ? { ...sl, ...updates } : sl));
   };
 
-  const removeSlide = (i: number) => {
-    setHeroSlides((s) => s.filter((_, idx) => idx !== i));
+  const confirmRemoveSlide = () => {
+    if (deleteSlideIndex === null) return;
+    setHeroSlides((s) => s.filter((_, idx) => idx !== deleteSlideIndex));
+    setDeleteSlideIndex(null);
   };
 
   // ─── Trust items helpers ────────────────────────────────────────────────────
@@ -300,8 +311,10 @@ export default function HomepageManager() {
     setTrustItems((t) => t.map((item, idx) => idx === i ? { ...item, ...updates } : item));
   };
 
-  const removeTrustItem = (i: number) => {
-    setTrustItems((t) => t.filter((_, idx) => idx !== i));
+  const confirmRemoveTrustItem = () => {
+    if (deleteTrustIndex === null) return;
+    setTrustItems((t) => t.filter((_, idx) => idx !== deleteTrustIndex));
+    setDeleteTrustIndex(null);
   };
 
   // ─── Gallery helpers ────────────────────────────────────────────────────────
@@ -319,8 +332,10 @@ export default function HomepageManager() {
     setHomepageGallery((g) => g.map((item, idx) => idx === i ? { ...item, ...updates } : item));
   };
 
-  const removeGalleryItem = (i: number) => {
-    setHomepageGallery((g) => g.filter((_, idx) => idx !== i));
+  const confirmRemoveGalleryItem = () => {
+    if (deleteGalleryIndex === null) return;
+    setHomepageGallery((g) => g.filter((_, idx) => idx !== deleteGalleryIndex));
+    setDeleteGalleryIndex(null);
   };
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
@@ -357,11 +372,13 @@ export default function HomepageManager() {
     });
   };
 
-  const removeCustomQuote = (idx: number) => {
+  const confirmRemoveCustomQuote = () => {
+    if (deleteQuoteIndex === null) return;
     setNewsletter((prev: any) => {
-      const list = (prev.quotes_list || []).filter((_: any, i: number) => i !== idx);
+      const list = (prev.quotes_list || []).filter((_: any, i: number) => i !== deleteQuoteIndex);
       return { ...prev, quotes_list: list };
     });
+    setDeleteQuoteIndex(null);
   };
 
   // ─── Save all ──────────────────────────────────────────────────────────────
@@ -760,7 +777,7 @@ export default function HomepageManager() {
                                     <div className="col-span-1 flex justify-center pt-5">
                                       <button
                                         type="button"
-                                        onClick={() => removeTrustItem(idx)}
+                                        onClick={() => setDeleteTrustIndex(idx)}
                                         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-lg transition-colors"
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -815,7 +832,7 @@ export default function HomepageManager() {
                 <div className="flex items-center gap-2">
                   <Switch checked={slide.enabled} onCheckedChange={(v) => updateSlide(i, { enabled: v })} className="scale-75" />
                   <button
-                    onClick={(e) => { e.stopPropagation(); removeSlide(i); }}
+                    onClick={(e) => { e.stopPropagation(); setDeleteSlideIndex(i); }}
                     className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1600,7 +1617,7 @@ export default function HomepageManager() {
                     <div className="flex items-center justify-between border-b pb-2">
                       <span className="text-xs font-semibold text-accent uppercase tracking-wider">উক্তি #{i + 1}</span>
                       <button
-                        onClick={() => removeCustomQuote(i)}
+                        onClick={() => setDeleteQuoteIndex(i)}
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         title="উক্তি মুছুন"
                       >
@@ -1711,7 +1728,7 @@ export default function HomepageManager() {
                     size="sm"
                     variant="ghost"
                     className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
-                    onClick={() => removeGalleryItem(i)}
+                    onClick={() => setDeleteGalleryIndex(i)}
                   >
                     <Trash2 className="h-3.5 w-3.5" /> ডিলিট
                   </Button>
@@ -1811,6 +1828,90 @@ export default function HomepageManager() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Slide Confirmation */}
+      <AlertDialog open={deleteSlideIndex !== null} onOpenChange={(open) => !open && setDeleteSlideIndex(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">স্লাইড ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই হিরো ব্যানার স্লাইডটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveSlide}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Trust Item Confirmation */}
+      <AlertDialog open={deleteTrustIndex !== null} onOpenChange={(open) => !open && setDeleteTrustIndex(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">ট্রাস্ট আইটেম ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই ট্রাস্ট ফিচার আইটেমটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveTrustItem}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Quote Confirmation */}
+      <AlertDialog open={deleteQuoteIndex !== null} onOpenChange={(open) => !open && setDeleteQuoteIndex(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">উক্তি ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই ইসলামিক উক্তিটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveCustomQuote}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Gallery Item Confirmation */}
+      <AlertDialog open={deleteGalleryIndex !== null} onOpenChange={(open) => !open && setDeleteGalleryIndex(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">গ্যালারি আইটেম ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই গ্যালারি আইটেমটি ডিলিট করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={confirmRemoveGalleryItem}
+            >
+              🗑️ ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

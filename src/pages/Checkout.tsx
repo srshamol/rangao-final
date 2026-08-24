@@ -23,6 +23,10 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { isValidBDPhone, normalizeBDPhone } from "@/lib/phoneValidation";
 import { analytics } from "@/services/analytics";
 import { useIncompleteOrder } from "@/hooks/useIncompleteOrder";
@@ -39,6 +43,7 @@ type PaymentMethod = "cod" | "bkash" | "nagad" | "uddoktapay";
 
 const Checkout = () => {
   const { items, subtotal, removeFromCart, clearCart } = useCart();
+  const [deleteTargetProductId, setDeleteTargetProductId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user, profile } = useCustomer();
   const [form, setForm] = useState({
@@ -887,7 +892,7 @@ const Checkout = () => {
                             <p className="text-xs text-muted-foreground">{item.quantity}x {formatPrice(item.product.price)}</p>
                           </div>
                           <p className="font-display text-sm font-bold text-foreground">{formatPrice(item.product.price * item.quantity)}</p>
-                          <button type="button" onClick={() => removeFromCart(item.product.id)} className="text-destructive hover:text-destructive/80">
+                          <button type="button" onClick={() => setDeleteTargetProductId(item.product.id)} className="text-destructive hover:text-destructive/80 p-1">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -991,6 +996,32 @@ const Checkout = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Cart Item Confirmation */}
+      <AlertDialog open={!!deleteTargetProductId} onOpenChange={(open) => !open && setDeleteTargetProductId(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">কার্ট থেকে অপসারণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে এই পণ্যটি আপনার কার্ট থেকে মুছে ফেলতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={() => {
+                if (deleteTargetProductId) {
+                  removeFromCart(deleteTargetProductId);
+                  setDeleteTargetProductId(null);
+                }
+              }}
+            >
+              মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

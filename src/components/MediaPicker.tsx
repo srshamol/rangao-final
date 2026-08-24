@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { mediaService, MediaItem } from "@/lib/mediaService";
 import BrokenImageGuard from "./BrokenImageGuard";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 interface MediaPickerProps {
   isOpen: boolean;
@@ -31,6 +35,7 @@ export default function MediaPicker({
   const [loading, setLoading] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string>("");
+  const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
 
   // Upload state
   const [uploading, setUploading] = useState<boolean>(false);
@@ -116,16 +121,22 @@ export default function MediaPicker({
     }
   };
 
-  const handleDeleteItem = async (item: MediaItem, e: React.MouseEvent) => {
+  const handleDeleteItem = (item: MediaItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("আপনি কি নিশ্চিতভাবে এই ফাইলটি মুছে ফেলতে চান?")) return;
+    setDeleteTarget(item);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!deleteTarget) return;
     try {
-      await mediaService.delete(item);
+      await mediaService.delete(deleteTarget);
       toast({ title: "🗑️ ফাইল মুছে ফেলা হয়েছে" });
       loadLibrary();
-      if (selectedId === item.id) setSelectedId("");
+      if (selectedId === deleteTarget.id) setSelectedId("");
     } catch (err: any) {
       toast({ title: "মুছতে ব্যর্থ", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -397,6 +408,32 @@ export default function MediaPicker({
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Item Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">ফাইল ডিলিট নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে <strong>"{deleteTarget?.name}"</strong> ফাইলটি স্থায়ীভাবে মুছে ফেলতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl" onClick={(e) => { e.stopPropagation(); setDeleteTarget(null); }}>
+              বাতিল
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmDeleteItem();
+              }}
+            >
+              🗑️ মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

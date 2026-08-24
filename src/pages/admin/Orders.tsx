@@ -90,6 +90,7 @@ export default function AdminOrders() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [cancelTarget, setCancelTarget] = useState<any>(null);
   const pageSize = 20;
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -696,7 +697,7 @@ export default function AdminOrders() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-0.5 flex-wrap">
-                                {/* Status-specific primary actions */}
+                                 {/* Status-specific primary actions */}
                                 {order.order_status === "pending" && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-primary"
@@ -704,7 +705,7 @@ export default function AdminOrders() {
                                       <CheckCircle className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      onClick={() => setCancelTarget(order)} title="ক্যান্সেল">
                                       <XCircle className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7"
@@ -724,7 +725,7 @@ export default function AdminOrders() {
                                       <CheckCircle className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      onClick={() => setCancelTarget(order)} title="ক্যান্সেল">
                                       <XCircle className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7"
@@ -749,7 +750,7 @@ export default function AdminOrders() {
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      onClick={() => setCancelTarget(order)} title="ক্যান্সেল">
                                       <XCircle className="h-3.5 w-3.5" />
                                     </Button>
                                   </>
@@ -766,7 +767,7 @@ export default function AdminOrders() {
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      onClick={() => setCancelTarget(order)} title="ক্যান্সেল">
                                       <XCircle className="h-3.5 w-3.5" />
                                     </Button>
                                   </>
@@ -782,7 +783,7 @@ export default function AdminOrders() {
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                                      onClick={() => updateStatusMutation.mutate({ orderId: order.id, status: "cancelled" })} title="ক্যান্সেল">
+                                      onClick={() => setCancelTarget(order)} title="ক্যান্সেল">
                                       <XCircle className="h-3.5 w-3.5" />
                                     </Button>
                                   </>
@@ -876,18 +877,44 @@ export default function AdminOrders() {
         onHold={(note) => updateStatusMutation.mutate({ orderId: confirmOrder.id, status: "hold", note })}
       />
 
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold">অর্ডার বাতিল নিশ্চিতকরণ</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিতভাবে <strong>{cancelTarget?.order_number}</strong> অর্ডারটি বাতিল (Cancel) করতে চান?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল করবেন না</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+              onClick={() => {
+                if (cancelTarget) {
+                  updateStatusMutation.mutate({ orderId: cancelTarget.id, status: "cancelled" });
+                  setCancelTarget(null);
+                }
+              }}
+            >
+              হ্যাঁ, বাতিল করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl border-border/50">
           <AlertDialogHeader>
-            <AlertDialogTitle>অর্ডার ডিলিট করুন?</AlertDialogTitle>
+            <AlertDialogTitle className="font-display font-bold">অর্ডার ডিলিট করুন?</AlertDialogTitle>
             <AlertDialogDescription>
               অর্ডার <strong>{deleteTarget?.order_number}</strong> এবং এর সাথে সম্পর্কিত সমস্ত ডাটা স্থায়ীভাবে মুছে যাবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>বাতিল</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">বাতিল</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
               onClick={() => deleteTarget && deleteOrder(deleteTarget)}>
               🗑️ ডিলিট করুন
             </AlertDialogAction>
