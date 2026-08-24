@@ -15,7 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   Loader2, Save, Store, Truck, CreditCard, Settings2, BarChart3,
   CheckCircle2, XCircle, Send, Plus, Trash2, Smartphone, Globe,
-  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud, Zap
+  MessageSquare, Share2, Mail, MapPin, Eye, UploadCloud, Zap,
+  Copy, Check, RefreshCw
 } from "lucide-react";
 
 import { mediaService } from "@/lib/mediaService";
@@ -28,7 +29,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { trackLead, isValidTrackingId } from "@/lib/tracking";
-import { testSteadfastConnection } from "@/lib/integrations/steadfast";
+import { testSteadfastConnection, syncOrderTrackingFromSteadfast } from "@/lib/integrations/steadfast";
 
 
 interface DeliveryCharges {
@@ -300,6 +301,65 @@ export default function AdminSettings() {
       });
     } finally {
       setTestingSteadfast(false);
+    }
+  };
+
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [syncingAllOrders, setSyncingAllOrders] = useState(false);
+
+  const supabaseUrlSetting = import.meta.env.VITE_SUPABASE_URL || "https://your-project.supabase.co";
+  const webhookUrl = `${supabaseUrlSetting}/functions/v1/steadfast-courier`;
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    toast({ title: "📋 Webhook Callback URL কপি হয়েছে" });
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const handleSyncAllOrdersFromSettings = async () => {
+    setSyncingAllOrders(true);
+    try {
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("*")
+        .in("order_status", ["processing", "shipped", "confirmed"])
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const trackable = (orders || []).filter((o: any) =>
+        (o.shipping_address as any)?.tracking_number || (o.shipping_address as any)?.consignment_id
+      );
+
+      if (!trackable.length) {
+        toast({ title: "সিঙ্ক করার মতো সক্রিয় অর্ডার নেই" });
+        return;
+      }
+
+      let updatedCount = 0;
+      for (const ord of trackable) {
+        try {
+          const res = await syncOrderTrackingFromSteadfast(ord, { sendTelegram: true, staffName: "Settings Sync" });
+          if (res.changed) updatedCount++;
+        } catch (e) {
+          console.warn(`Order #${ord.order_number} sync err:`, e);
+        }
+      }
+
+      toast({
+        title: "✅ Steadfast ট্র্যাকিং সিঙ্ক সম্পন্ন!",
+        description: `${trackable.length}টি অর্ডারের মধ্যে ${updatedCount}টি স্ট্যাটাস আপডেট হয়েছে।`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "❌ সিঙ্ক ব্যর্থ",
+        description: err.message || "অর্ডার সিঙ্ক করা সম্ভব হয়নি।",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingAllOrders(false);
     }
   };
 
@@ -1439,6 +1499,45 @@ export default function AdminSettings() {
                       <span>{steadfastTestResult.message}</span>
                     </div>
                   )}
+
+                  {/* Steadfast Webhook & Auto-Sync Live Card */}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-3 mt-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-primary" />
+                        <h4 className="font-semibold text-xs text-foreground">Steadfast Webhook (স্বয়ংক্রিয় লাইভ ট্র্যাকিং)</h4>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs h-7.5 bg-background"
+                        onClick={handleSyncAllOrdersFromSettings}
+                        disabled={syncingAllOrders}
+                      >
+                        {syncingAllOrders ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        সব অর্ডার ট্র্যাকিং সিঙ্ক করুন
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Steadfast Merchant Portal &gt; Settings &gt; Webhook / API অপশনে নিচের <strong>Callback URL</strong> টি দিন। ফলে কোনো পার্সেল স্ট্যাটাস পরিবর্তন হওয়া মাত্রই স্বয়ংক্রিয়ভাবে Rangao-তে লাইভ ট্র্যাকিং আপডেট রেকর্ড হবে:
+                    </p>
+                    <div className="flex items-center gap-2 bg-background p-2 rounded-lg border border-border">
+                      <code className="text-xs font-mono text-primary flex-1 break-all select-all">
+                        {webhookUrl}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 px-2.5 text-xs gap-1 shrink-0"
+                        onClick={copyWebhookUrl}
+                      >
+                        {copiedWebhook ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedWebhook ? "কপি হয়েছে" : "কপি"}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <Separator />

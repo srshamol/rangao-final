@@ -27,6 +27,7 @@ import {
   cleanSteadfastAddress,
   cleanBangladeshiPhone,
   invokeSteadfastEdge,
+  syncOrderTrackingFromSteadfast,
 } from "@/lib/integrations/steadfast";
 
 
@@ -207,55 +208,29 @@ export default function AdminOrders() {
     setSyncingAll(true);
     try {
       const trackable = data?.orders.filter((o: any) => 
-        (o.order_status === "processing" || o.order_status === "shipped") && (o.shipping_address as any)?.tracking_number
+        (o.order_status === "processing" || o.order_status === "shipped" || o.order_status === "confirmed") &&
+        ((o.shipping_address as any)?.tracking_number || (o.shipping_address as any)?.consignment_id)
       ) || [];
-      if (!trackable.length) { toast({ title: "সিঙ্ক করার মতো অর্ডার নেই" }); return; }
+      if (!trackable.length) {
+        toast({ title: "সিঙ্ক করার মতো অর্ডার নেই", description: "কোনো ট্র্যাকিং নম্বরযুক্ত সক্রিয় অর্ডার পাওয়া যায়নি।" });
+        return;
+      }
 
       let updated = 0;
       for (const order of trackable) {
-        const sd = order.shipping_address as any;
         try {
-          const result = await getSteadfastStatusByTracking(sd?.tracking_number);
-          const deliveryStatus = result?.delivery_status;
-          let newStatus: string | null = null;
-          if (deliveryStatus === "in_transit" || deliveryStatus === "dispatched") newStatus = "shipped";
-          else if (deliveryStatus === "delivered") newStatus = "delivered";
-          else if (deliveryStatus === "cancelled" || deliveryStatus === "cancelled_delivery") newStatus = "courier_cancelled";
-
-          if (newStatus && newStatus !== order.order_status) {
-            await supabase.from("orders").update({
-              order_status: newStatus as any,
-              shipping_address: { ...(sd || {}), courier_status: deliveryStatus }
-            }).eq("id", order.id);
-            await supabase.from("order_history" as any).insert({
-              order_id: order.id, action: "auto_status_sync",
-              details: `Steadfast স্ট্যাটাস: ${deliveryStatus} → ${newStatus}`, staff_name: "System"
-            });
-
-            // Send Telegram notification for auto-synced status changes
-            try {
-              const { sendTelegramNotification } = await import("@/lib/telegram");
-              const oldStatusBangla = statusLabels[order.order_status] || order.order_status;
-              const newStatusBangla = statusLabels[newStatus] || newStatus;
-              const autoMessage = `🔄 <b>অর্ডার স্ট্যাটাস অটো-আপডেট (Steadfast)!</b>\n\n` +
-                `<b>অর্ডার নং:</b> #${order.order_number}\n` +
-                `<b>গ্রাহকের নাম:</b> ${order.customer_name}\n` +
-                `<b>মোবাইল:</b> ${order.customer_phone}\n` +
-                `<b>Steadfast স্ট্যাটাস:</b> ${deliveryStatus}\n` +
-                `<b>পূর্বের স্ট্যাটাস:</b> ${oldStatusBangla}\n` +
-                `<b>বর্তমান স্ট্যাটাস:</b> ${newStatusBangla}`;
-              await sendTelegramNotification(autoMessage, { isStatusUpdate: true });
-            } catch (tgErr) {
-              console.error("Error triggering auto-sync telegram notification:", tgErr);
-            }
-
+          const syncRes = await syncOrderTrackingFromSteadfast(order, { sendTelegram: true, staffName: "Bulk Sync" });
+          if (syncRes.changed) {
             updated++;
           }
         } catch (itemErr) {
           console.warn(`Order #${order.order_number} tracking sync failed:`, itemErr);
         }
       }
-      toast({ title: `✅ সিঙ্ক সম্পন্ন`, description: `${updated}টি অর্ডার আপডেট হয়েছে` });
+      toast({
+        title: `✅ Steadfast সিঙ্ক সম্পন্ন`,
+        description: `${trackable.length}টি অর্ডারের মধ্যে ${updated}টি স্ট্যাটাস আপডেট হয়েছে`,
+      });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders-stats"] });
     } catch (e: any) {
@@ -684,16 +659,17 @@ export default function AdminOrders() {
                               <Badge className={statusColors[order.order_status] || ""} variant="outline">
                                 {statusLabels[order.order_status] || order.order_status}
                               </Badge>
-                              {order.order_status === "processing" && (order.shipping_address as any)?.consignment_id && (
-                                <p className="text-[10px] font-mono text-purple-600 mt-0.5">
-                                  Parcel Id: #{(order.shipping_address as any).consignment_id}
-                                </p>
-                              )}
-                              {(order.order_status === "shipped" || order.order_status === "delivered") && (order.shipping_address as any)?.tracking_number && (
-                                <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                                  🚚 {(order.shipping_address as any).tracking_number}
-                                </p>
-                              )}
+                              {(order.shipping_address as any)?.consignment_id ? (
+                                <div className="font-mono text-purple-700 dark:text-purple-400 mt-1.5 leading-snug">
+                                  <div className="text-xs font-semibold text-purple-600/90 dark:text-purple-300">Parcel Id:</div>
+                                  <div className="text-xs font-bold tracking-tight">#{(order.shipping_address as any).consignment_id}</div>
+                                </div>
+                              ) : (order.shipping_address as any)?.tracking_number ? (
+                                <div className="font-mono text-purple-700 dark:text-purple-400 mt-1.5 leading-snug">
+                                  <div className="text-xs font-semibold text-purple-600/90 dark:text-purple-300">Parcel Id:</div>
+                                  <div className="text-xs font-bold tracking-tight">#{(order.shipping_address as any).tracking_number}</div>
+                                </div>
+                              ) : null}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-0.5 flex-wrap">

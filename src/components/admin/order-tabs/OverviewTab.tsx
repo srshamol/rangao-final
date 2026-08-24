@@ -482,7 +482,7 @@ export default function OrderOverviewTab({ order, items }: Props) {
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground font-mono">
                   কুরিয়ার: {address.courier_company || "Steadfast"}
-                  {address.tracking_number ? ` (#${address.tracking_number})` : ""}
+                  {address.consignment_id ? ` (Parcel #${address.consignment_id})` : address.tracking_number ? ` (#${address.tracking_number})` : ""}
                 </span>
               </div>
             </div>

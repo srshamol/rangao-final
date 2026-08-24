@@ -10,6 +10,7 @@ import { CheckCircle, Home, ShoppingBag, MapPin, Phone, User, CreditCard, Truck,
 import { motion } from "framer-motion";
 import { formatPrice } from "@/data/products";
 import { supabase } from "@/integrations/supabase/client";
+import { courierStatusBengali, parseShippingAddress, getCourierStatusBadgeClass } from "@/lib/integrations/steadfast";
 
 export interface OrderItem {
   id?: string;
@@ -226,6 +227,54 @@ function OrderTracker({ orderNumber }: { orderNumber?: string }) {
               <span>৳{Number(trackedOrder.total_amount).toLocaleString()}</span>
             </div>
           </div>
+
+          {/* Courier Tracking Details */}
+          {(() => {
+            const ship = parseShippingAddress(trackedOrder.shipping_address);
+            if (!ship.tracking_number && !ship.consignment_id) return null;
+            const updates = Array.isArray(ship.tracking_updates) ? ship.tracking_updates : [];
+            const isSteadfast = (ship.courier_company || "Steadfast").toLowerCase().includes("steadfast");
+
+            return (
+              <div className="border-t pt-3 space-y-2 bg-muted/20 p-3 rounded-xl border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-primary" /> {ship.courier_company || "Steadfast Courier"}
+                  </span>
+                  {ship.courier_status && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getCourierStatusBadgeClass(ship.courier_status)}`}>
+                      {courierStatusBengali[ship.courier_status] || ship.courier_status}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  <p>ট্র্যাকিং কোড: <strong className="font-mono text-foreground">{ship.tracking_number || "—"}</strong></p>
+                </div>
+                {updates.length > 0 && (
+                  <div className="space-y-1.5 border-l-2 border-primary/40 ml-1.5 pl-2.5 pt-1">
+                    {updates.slice(-2).map((u: any, i: number) => (
+                      <div key={i} className="text-[11px]">
+                        <p className="font-medium text-foreground">{courierStatusBengali[u.status] || u.status_display || u.status}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(u.timestamp).toLocaleString("bn-BD")}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isSteadfast && ship.tracking_number && (
+                  <a
+                    href={`https://steadfast.com.bd/tracking?tracking_code=${ship.tracking_number}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block pt-1"
+                  >
+                    <Button variant="outline" size="sm" className="text-xs h-7 rounded-lg">
+                      লাইভ কুরিয়ার ট্র্যাকিং দেখুন
+                    </Button>
+                  </a>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="border-t pt-3 text-sm text-muted-foreground">
             <p>📅 অর্ডার তারিখ: {new Date(trackedOrder.created_at).toLocaleDateString("bn-BD")}</p>

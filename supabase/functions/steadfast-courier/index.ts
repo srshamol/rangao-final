@@ -8,6 +8,25 @@ const corsHeaders = {
 
 const STEADFAST_BASE_URL = 'https://portal.packzy.com/api/v1';
 
+const courierStatusBengali: Record<string, string> = {
+  pending: "পেন্ডিং (পিকআপ রিকোয়েস্ট)",
+  in_review: "পর্যালোচনায় (In Review)",
+  picked: "পিকআপ সম্পন্ন",
+  pickup_done: "পিকআপ সম্পন্ন",
+  dispatched: "হাবে পাঠানো হয়েছে",
+  in_transit: "ট্রানজিটে আছে (গন্তব্যে যাচ্ছে)",
+  out_for_delivery: "ডেলিভারির উদ্দেশ্যে বের হয়েছে",
+  delivered: "ডেলিভারি সম্পন্ন ✅",
+  partial_delivered: "আংশিক ডেলিভারি",
+  delivered_approval_pending: "ডেলিভারি অনুমোদনের অপেক্ষায়",
+  cancelled: "ক্যান্সেলড ❌",
+  cancelled_approval_pending: "ক্যান্সেলেশন অনুমোদনের অপেক্ষায়",
+  hold: "হোল্ড (স্থগিত)",
+  return: "রিটার্ন প্রক্রিয়াধীন",
+  returned: "রিটার্ন সম্পন্ন",
+  unknown: "অজ্ঞাত অবস্থা",
+};
+
 function cleanPhone(rawPhone?: string): string {
   if (!rawPhone) return '';
   let cleaned = String(rawPhone).replace(/[^\d+]/g, '').trim();
@@ -25,20 +44,24 @@ function cleanPhone(rawPhone?: string): string {
   return cleaned;
 }
 
-async function getCredentials(reqAuthHeader?: string | null) {
-  let apiKey = Deno.env.get('STEADFAST_API_KEY') || '';
-  let secretKey = Deno.env.get('STEADFAST_SECRET_KEY') || '';
-
+async function getAdminClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-  // Use service role client if available to bypass RLS when reading courier credentials
-  const adminClient = supabaseUrl && (serviceRoleKey || anonKey)
-    ? createClient(supabaseUrl, serviceRoleKey || anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      })
-    : null;
+  if (supabaseUrl && (serviceRoleKey || anonKey)) {
+    return createClient(supabaseUrl, serviceRoleKey || anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return null;
+}
+
+async function getCredentials(reqAuthHeader?: string | null) {
+  let apiKey = Deno.env.get('STEADFAST_API_KEY') || '';
+  let secretKey = Deno.env.get('STEADFAST_SECRET_KEY') || '';
+
+  const adminClient = await getAdminClient();
 
   if (adminClient) {
     try {
@@ -58,6 +81,8 @@ async function getCredentials(reqAuthHeader?: string | null) {
   }
 
   // Fallback with user auth header if adminClient didn't get keys
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
   if ((!apiKey || !secretKey) && reqAuthHeader && supabaseUrl && anonKey) {
     try {
       const userClient = createClient(supabaseUrl, anonKey, {
@@ -110,6 +135,140 @@ async function requestSteadfast(endpoint: string, options: { method?: string; bo
   };
 }
 
+async function handleWebhookUpdate(webhookData: any, adminClient: any) {
+  if (!adminClient) {
+    return { status: "error", message: "Database admin client unavailable" };
+  }
+
+  const notificationType = webhookData.notification_type || 'delivery_status';
+  const invoice = webhookData.invoice ? String(webhookData.invoice).trim() : '';
+  const consignmentId = webhookData.consignment_id ? String(webhookData.consignment_id).trim() : '';
+  const trackingCode = webhookData.tracking_code ? String(webhookData.tracking_code).trim() : '';
+  const rawStatus = (webhookData.status || webhookData.delivery_status || '').toLowerCase().trim();
+  const trackingMessage = webhookData.tracking_message || webhookData.message || webhookData.note || '';
+  const updatedAt = webhookData.updated_at || new Date().toISOString();
+
+  if (!invoice && !consignmentId && !trackingCode) {
+    return { status: "error", message: "Missing invoice or consignment ID in webhook payload." };
+  }
+
+  // Look up order by invoice (order_number), consignment_id, or tracking_code
+  let query = adminClient.from('orders').select('*');
+  if (invoice) {
+    query = query.eq('order_number', invoice);
+  } else if (consignmentId) {
+    query = query.eq('shipping_address->>consignment_id', consignmentId);
+  } else if (trackingCode) {
+    query = query.eq('shipping_address->>tracking_number', trackingCode);
+  }
+
+  const { data: order, error: findError } = await query.maybeSingle();
+  if (findError || !order) {
+    console.warn(`Webhook: Order not found for invoice=${invoice}, cid=${consignmentId}, tracking=${trackingCode}`);
+    return { status: "error", message: "Order not found for given invoice / consignment ID." };
+  }
+
+  const currentAddress = (typeof order.shipping_address === 'object' && order.shipping_address) ? order.shipping_address : {};
+  const currentUpdates = Array.isArray(currentAddress.tracking_updates) ? [...currentAddress.tracking_updates] : [];
+
+  // Determine status - if tracking_update has no explicit status, use existing or infer
+  let effectiveStatus = rawStatus || currentAddress.courier_status || 'in_transit';
+  if (!rawStatus && trackingMessage) {
+    const lowerMsg = trackingMessage.toLowerCase();
+    if (lowerMsg.includes('deliver') && !lowerMsg.includes('out for')) effectiveStatus = 'delivered';
+    else if (lowerMsg.includes('out for delivery')) effectiveStatus = 'out_for_delivery';
+    else if (lowerMsg.includes('sorting') || lowerMsg.includes('hub') || lowerMsg.includes('transit')) effectiveStatus = 'in_transit';
+    else if (lowerMsg.includes('pick')) effectiveStatus = 'picked';
+    else if (lowerMsg.includes('cancel')) effectiveStatus = 'cancelled';
+    else if (lowerMsg.includes('return')) effectiveStatus = 'return';
+  }
+
+  // Determine new order_status
+  let newOrderStatus = order.order_status;
+  let paymentStatus = order.payment_status;
+
+  if (effectiveStatus === 'delivered') {
+    newOrderStatus = 'delivered';
+    if (order.payment_method === 'cod') {
+      paymentStatus = 'completed';
+    }
+  } else if (effectiveStatus === 'in_transit' || effectiveStatus === 'dispatched' || effectiveStatus === 'out_for_delivery' || effectiveStatus === 'picked') {
+    if (order.order_status === 'processing' || order.order_status === 'confirmed') {
+      newOrderStatus = 'shipped';
+    }
+  } else if (effectiveStatus === 'cancelled' || effectiveStatus === 'cancelled_delivery' || effectiveStatus === 'return' || effectiveStatus === 'returned') {
+    newOrderStatus = 'courier_cancelled';
+  }
+
+  // Build new tracking update entry
+  const newUpdateItem = {
+    status: effectiveStatus,
+    status_display: courierStatusBengali[effectiveStatus] || effectiveStatus,
+    message: trackingMessage || (courierStatusBengali[effectiveStatus] ? `Steadfast স্ট্যাটাস: ${courierStatusBengali[effectiveStatus]}` : ''),
+    timestamp: updatedAt,
+    source: notificationType === 'tracking_update' ? 'steadfast_tracking_update' : 'steadfast_webhook',
+  };
+
+  // Avoid duplicate adjacent updates with same status within 1 minute
+  const lastUpdate = currentUpdates[currentUpdates.length - 1];
+  const isDuplicate = lastUpdate && lastUpdate.status === effectiveStatus && lastUpdate.message === newUpdateItem.message;
+  
+  if (!isDuplicate) {
+    currentUpdates.push(newUpdateItem);
+  }
+
+  const updatedAddress = {
+    ...currentAddress,
+    courier_company: currentAddress.courier_company || 'Steadfast',
+    tracking_number: trackingCode || currentAddress.tracking_number,
+    consignment_id: consignmentId || currentAddress.consignment_id,
+    courier_status: effectiveStatus,
+    last_tracking_update: updatedAt,
+    tracking_updates: currentUpdates,
+  };
+
+  if (webhookData.delivery_charge !== undefined) {
+    updatedAddress.courier_delivery_charge = Number(webhookData.delivery_charge);
+  }
+  if (webhookData.cod_amount !== undefined) {
+    updatedAddress.courier_cod_amount = Number(webhookData.cod_amount);
+  }
+
+  const updatePayload: Record<string, any> = {
+    shipping_address: updatedAddress,
+    order_status: newOrderStatus,
+  };
+  if (paymentStatus) {
+    updatePayload.payment_status = paymentStatus;
+  }
+
+  const { error: updateError } = await adminClient
+    .from('orders')
+    .update(updatePayload)
+    .eq('id', order.id);
+
+  if (updateError) {
+    console.error('Failed to update order from webhook:', updateError);
+    return { status: "error", message: updateError.message || "Failed to update order." };
+  }
+
+  // Insert history record
+  const statusDisplay = courierStatusBengali[effectiveStatus] || effectiveStatus;
+  await adminClient.from('order_history').insert({
+    order_id: order.id,
+    action: 'steadfast_webhook_sync',
+    details: `Steadfast Webhook (${notificationType}): ${statusDisplay}${trackingMessage ? ` — ${trackingMessage}` : ''} (অর্ডার: ${newOrderStatus})`,
+    staff_name: 'Steadfast Webhook',
+  });
+
+  return {
+    status: "success",
+    message: "Webhook received successfully.",
+    order_number: order.order_number,
+    courier_status: effectiveStatus,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });
@@ -118,6 +277,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     const { apiKey, secretKey } = await getCredentials(authHeader);
+    const adminClient = await getAdminClient();
 
     const bodyText = await req.text();
     let parsedBody: any = {};
@@ -130,6 +290,17 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+    }
+
+    // Check if this request is a webhook from Steadfast (indicated by notification_type or consignment_id without internal action)
+    const isWebhook = parsedBody.action === 'webhook' || (!parsedBody.action && (parsedBody.notification_type || parsedBody.consignment_id || parsedBody.tracking_message));
+
+    if (isWebhook) {
+      const webhookResult = await handleWebhookUpdate(parsedBody, adminClient);
+      return new Response(JSON.stringify(webhookResult), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { action, ...params } = parsedBody;

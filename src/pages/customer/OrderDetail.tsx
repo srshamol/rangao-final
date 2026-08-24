@@ -7,8 +7,9 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Clock, MapPin, CreditCard, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Package, Clock, MapPin, CreditCard, ShoppingBag, Truck, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { courierStatusBengali, getCourierStatusBadgeClass } from "@/lib/integrations/steadfast";
 
 const statusLabels: Record<string, string> = {
   pending: "পেন্ডিং", confirmed: "কনফার্মড", in_review: "ইন-রিভিউ", processing: "প্রসেসিং",
@@ -214,24 +215,70 @@ export default function CustomerOrderDetail() {
             </Card>
 
             {/* Courier Tracking */}
-            {(address as any)?.tracking_number && (
-              <Card className="rounded-2xl border-border/40 bg-accent/5">
-                <CardHeader className="pb-2 flex flex-row items-center gap-2">
-                  <Clock className="h-4 w-4 text-accent" />
-                  <CardTitle className="text-sm font-bold">কুরিয়ার ট্র্যাকিং</CardTitle>
+            {((address as any)?.tracking_number || (address as any)?.consignment_id) && (
+              <Card className="rounded-2xl border-border/40 bg-accent/5 overflow-hidden">
+                <CardHeader className="pb-2.5 flex flex-row items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-sm font-bold">লাইভ কুরিয়ার ট্র্যাকিং</CardTitle>
+                  </div>
+                  {(address as any)?.courier_status && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[11px] font-semibold px-2 py-0.5 ${getCourierStatusBadgeClass(
+                        (address as any)?.courier_status
+                      )}`}
+                    >
+                      {courierStatusBengali[(address as any)?.courier_status] || (address as any)?.courier_status}
+                    </Badge>
+                  )}
                 </CardHeader>
-                <CardContent className="text-xs space-y-1.5 text-muted-foreground">
-                  <p>কুরিয়ার কোম্পানি: <strong className="text-foreground">{(address as any).courier_company}</strong></p>
-                  <p>ট্র্যাকিং নম্বর: <strong className="text-foreground font-mono">{(address as any).tracking_number}</strong></p>
-                  {((address as any).courier_company || "").toLowerCase() === "steadfast" && (
+                <CardContent className="text-xs space-y-3 text-muted-foreground pt-1">
+                  <div className="grid grid-cols-2 gap-2 bg-background/60 p-2.5 rounded-xl border border-border/40">
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">কুরিয়ার কোম্পানি</p>
+                      <p className="font-semibold text-foreground mt-0.5">{(address as any).courier_company || "Steadfast Courier"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">ট্র্যাকিং কোড</p>
+                      <p className="font-mono font-bold text-primary mt-0.5">{(address as any).tracking_number || "—"}</p>
+                    </div>
+                  </div>
+
+                  {/* Tracking Updates Mini Timeline if available */}
+                  {Array.isArray((address as any)?.tracking_updates) && (address as any).tracking_updates.length > 0 && (
+                    <div className="space-y-2 border-t border-border/50 pt-2.5">
+                      <p className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-primary" /> সর্বশেষ ট্র্যাকিং আপডেট
+                      </p>
+                      <div className="space-y-2 border-l-2 border-primary/30 ml-2 pl-3 py-1">
+                        {(address as any).tracking_updates.slice(-3).map((upd: any, idx: number) => (
+                          <div key={idx} className="relative text-[11px]">
+                            <div className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-primary" />
+                            <p className="font-semibold text-foreground">
+                              {courierStatusBengali[upd.status] || upd.status_display || upd.status}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(upd.timestamp).toLocaleString("bn-BD")}
+                            </p>
+                            {upd.message && upd.message !== courierStatusBengali[upd.status] && (
+                              <p className="text-[10px] text-foreground/75 mt-0.5">{upd.message}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {((address as any).courier_company || "steadfast").toLowerCase().includes("steadfast") && (
                     <a
-                      href={`https://www.steadfastcourier.com.bd/tracking?consignment_id=${(address as any).consignment_id || ""}&phone=${order.customer_phone}`}
+                      href={`https://steadfast.com.bd/tracking?tracking_code=${(address as any).tracking_number || ""}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block pt-1"
                     >
-                      <Button size="sm" variant="outline" className="w-full text-xs font-semibold rounded-lg">
-                        অনলাইন ট্র্যাকিং দেখুন
+                      <Button size="sm" variant="outline" className="w-full text-xs font-semibold rounded-xl gap-1.5 h-8">
+                        <ExternalLink className="h-3.5 w-3.5" /> অফিসিয়াল লাইভ ট্র্যাকিং দেখুন
                       </Button>
                     </a>
                   )}

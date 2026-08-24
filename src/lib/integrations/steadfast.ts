@@ -1,5 +1,14 @@
 import { supabaseAdmin as supabase } from "@/integrations/supabase/client";
 
+export interface TrackingUpdateItem {
+  status: string;
+  status_display?: string;
+  message?: string;
+  location?: string;
+  timestamp: string;
+  source?: "steadfast_api" | "steadfast_webhook" | "steadfast_portal" | "system" | "admin";
+}
+
 export interface SteadfastOrderPayload {
   invoice: string;
   recipient_name: string;
@@ -49,6 +58,38 @@ export interface SteadfastBalanceResponse {
   current_balance?: number;
   balance?: number;
   message?: string;
+}
+
+export const courierStatusBengali: Record<string, string> = {
+  pending: "পেন্ডিং (পিকআপ রিকোয়েস্ট)",
+  in_review: "পর্যালোচনায় (In Review)",
+  picked: "পিকআপ সম্পন্ন",
+  pickup_done: "পিকআপ সম্পন্ন",
+  dispatched: "হাবে পাঠানো হয়েছে",
+  in_transit: "ট্রানজিটে আছে (গন্তব্যে যাচ্ছে)",
+  out_for_delivery: "ডেলিভারির উদ্দেশ্যে বের হয়েছে",
+  delivered: "ডেলিভারি সম্পন্ন ✅",
+  partial_delivered: "আংশিক ডেলিভারি",
+  delivered_approval_pending: "ডেলিভারি অনুমোদনের অপেক্ষায়",
+  cancelled: "ক্যান্সেলড ❌",
+  cancelled_delivery: "ক্যান্সেলড ❌",
+  cancelled_approval_pending: "ক্যান্সেলেশন অনুমোদনের অপেক্ষায়",
+  hold: "হোল্ড (স্থগিত)",
+  return: "রিটার্ন প্রক্রিয়াধীন",
+  returned: "রিটার্ন সম্পন্ন",
+  unknown: "অজ্ঞাত অবস্থা",
+};
+
+export function getCourierStatusBadgeClass(status?: string): string {
+  if (!status) return "bg-gray-100 text-gray-700 border-gray-300";
+  const s = status.toLowerCase();
+  if (s.includes("delivered")) return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300";
+  if (s.includes("cancel") || s.includes("return")) return "bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300";
+  if (s.includes("out_for_delivery")) return "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300";
+  if (s.includes("transit") || s.includes("dispatch")) return "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300";
+  if (s.includes("picked")) return "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950 dark:text-teal-300";
+  if (s.includes("hold") || s.includes("review")) return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300";
+  return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300";
 }
 
 /**
@@ -379,6 +420,186 @@ export async function fetchSteadfastConsignmentDetails(params: {
     cod_charge: codCharge,
     tracking_code: trackingCode,
     consignment_id: consignmentId,
+  };
+}
+
+/**
+ * Appends a new tracking update to an array of tracking updates, avoiding immediate duplicates.
+ */
+export function appendTrackingUpdate(
+  existingUpdates: TrackingUpdateItem[] | undefined,
+  newUpdate: TrackingUpdateItem
+): TrackingUpdateItem[] {
+  const updates = Array.isArray(existingUpdates) ? [...existingUpdates] : [];
+  if (!newUpdate || !newUpdate.status) return updates;
+
+  // Deduplicate if identical status exists within 2 minutes
+  const last = updates[updates.length - 1];
+  if (last && last.status === newUpdate.status) {
+    const timeDiff = Math.abs(new Date(newUpdate.timestamp).getTime() - new Date(last.timestamp).getTime());
+    if (isNaN(timeDiff) || timeDiff < 120000) {
+      if (newUpdate.message && !last.message) {
+        last.message = newUpdate.message;
+      }
+      return updates;
+    }
+  }
+
+  updates.push(newUpdate);
+  return updates.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+/**
+ * Synchronizes Tracking Updates and consignment metrics from Steadfast Courier into the Order record.
+ */
+export async function syncOrderTrackingFromSteadfast(
+  order: any,
+  options: { sendTelegram?: boolean; staffName?: string } = {}
+) {
+  const shipping = parseShippingAddress(order?.shipping_address);
+  const trackingCode = shipping.tracking_number || "";
+  const consignmentId = shipping.consignment_id || "";
+  const invoice = order.order_number || "";
+
+  if (!trackingCode && !consignmentId && !invoice) {
+    throw new Error("অর্ডারে কোনো ট্র্যাকিং নম্বর, কনসাইনমেন্ট আইডি বা ইনভয়েস পাওয়া যায়নি।");
+  }
+
+  const details = await fetchSteadfastConsignmentDetails({
+    tracking_code: trackingCode,
+    consignment_id: consignmentId,
+    invoice,
+  });
+
+  const deliveryStatus = details.delivery_status || shipping.courier_status || "pending";
+  const nowIso = new Date().toISOString();
+
+  let newOrderStatus = order.order_status;
+  let paymentStatus = order.payment_status;
+
+  if (deliveryStatus === "delivered") {
+    newOrderStatus = "delivered";
+    if (order.payment_method === "cod") {
+      paymentStatus = "completed";
+    }
+  } else if (
+    deliveryStatus === "in_transit" ||
+    deliveryStatus === "dispatched" ||
+    deliveryStatus === "out_for_delivery" ||
+    deliveryStatus === "picked" ||
+    deliveryStatus === "pickup_done"
+  ) {
+    if (order.order_status === "processing" || order.order_status === "confirmed") {
+      newOrderStatus = "shipped";
+    }
+  } else if (
+    deliveryStatus === "cancelled" ||
+    deliveryStatus === "cancelled_delivery" ||
+    deliveryStatus === "return" ||
+    deliveryStatus === "returned"
+  ) {
+    newOrderStatus = "courier_cancelled";
+  }
+
+  const totalAmount = Number(order.total_amount) || 0;
+  const isCod = order.payment_method === "cod" || !order.payment_method;
+  const isInsideDhaka =
+    (shipping.city || shipping.address || "").toLowerCase().includes("dhaka") ||
+    (shipping.city || shipping.address || "").includes("ঢাকা");
+  const defaultCourierCharge = isInsideDhaka ? 60 : 120;
+
+  const syncedDeliveryCharge =
+    details.delivery_charge > 0
+      ? details.delivery_charge
+      : shipping.courier_delivery_charge !== undefined
+      ? parseNumericFee(shipping.courier_delivery_charge, defaultCourierCharge)
+      : defaultCourierCharge;
+
+  const syncedCodFee = isCod
+    ? details.cod_charge > 0
+      ? details.cod_charge
+      : shipping.courier_cod_charge !== undefined
+      ? parseNumericFee(shipping.courier_cod_charge, Math.round(totalAmount * 0.01))
+      : Math.round(totalAmount * 0.01)
+    : 0;
+
+  const syncedWeight = details.weight || shipping.parcel_weight || "1.0 kg";
+  const syncedPayable = isCod ? Math.max(0, totalAmount - syncedDeliveryCharge - syncedCodFee) : totalAmount;
+
+  // Build new Tracking Update Item
+  const newUpdateItem: TrackingUpdateItem = {
+    status: deliveryStatus,
+    status_display: courierStatusBengali[deliveryStatus] || deliveryStatus,
+    message: courierStatusBengali[deliveryStatus]
+      ? `Steadfast স্ট্যাটাস: ${courierStatusBengali[deliveryStatus]}`
+      : `Steadfast লাইভ ট্র্যাকিং আপডেট`,
+    timestamp: nowIso,
+    source: "steadfast_api",
+  };
+
+  const updatedTrackingUpdates = appendTrackingUpdate(shipping.tracking_updates, newUpdateItem);
+
+  const updatedAddress = {
+    ...shipping,
+    courier_company: shipping.courier_company || "Steadfast",
+    tracking_number: details.tracking_code || shipping.tracking_number,
+    consignment_id: details.consignment_id || shipping.consignment_id,
+    courier_status: deliveryStatus,
+    parcel_weight: syncedWeight,
+    courier_delivery_charge: syncedDeliveryCharge,
+    courier_cod_charge: syncedCodFee,
+    courier_payable: syncedPayable,
+    last_tracking_update: nowIso,
+    tracking_updates: updatedTrackingUpdates,
+  };
+
+  const updatePayload: Record<string, any> = {
+    shipping_address: updatedAddress,
+    order_status: newOrderStatus,
+  };
+  if (paymentStatus) {
+    updatePayload.payment_status = paymentStatus;
+  }
+
+  const { error: dbError } = await supabase.from("orders").update(updatePayload).eq("id", order.id);
+  if (dbError) throw dbError;
+
+  const statusBengali = courierStatusBengali[deliveryStatus] || deliveryStatus;
+  await supabase.from("order_history" as any).insert({
+    order_id: order.id,
+    action: "tracking_updated",
+    details: `Steadfast লাইভ ট্র্যাকিং সিঙ্ক: ${statusBengali} (অর্ডার স্ট্যাটাস: ${newOrderStatus})`,
+    staff_name: options.staffName || "System",
+  });
+
+  const changed = order.order_status !== newOrderStatus || shipping.courier_status !== deliveryStatus;
+
+  // Send Telegram notification if enabled and status changed
+  if (changed && options.sendTelegram !== false) {
+    try {
+      const { sendTelegramNotification } = await import("@/lib/telegram");
+      const autoMessage =
+        `🔄 <b>অর্ডার ট্র্যাকিং সিঙ্ক আপডেট (Steadfast)!</b>\n\n` +
+        `<b>অর্ডার নং:</b> #${order.order_number}\n` +
+        `<b>গ্রাহক:</b> ${order.customer_name} (${order.customer_phone})\n` +
+        `<b>ট্র্যাকিং কোড:</b> <code>${details.tracking_code || shipping.tracking_number || "—"}</code>\n` +
+        `<b>Steadfast স্ট্যাটাস:</b> ${statusBengali}\n` +
+        `<b>বর্তমান অর্ডার অবস্থা:</b> ${newOrderStatus}`;
+      await sendTelegramNotification(autoMessage, { isStatusUpdate: true });
+    } catch (tgErr) {
+      console.error("Error triggering auto-sync telegram notification:", tgErr);
+    }
+  }
+
+  return {
+    success: true,
+    changed,
+    old_order_status: order.order_status,
+    new_order_status: newOrderStatus,
+    courier_status: deliveryStatus,
+    courier_status_display: statusBengali,
+    updated_address: updatedAddress,
+    details,
   };
 }
 
