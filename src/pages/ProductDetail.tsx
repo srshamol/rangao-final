@@ -794,15 +794,12 @@ const ProductDetail = () => {
                         </div>
                       )}
 
-                      {/* Short Description + Full summary */}
-                      <div className="space-y-2">
+                      {/* Short Description */}
+                      {product.shortDescription && (
                         <p className="font-bengali text-sm font-medium leading-relaxed text-foreground/70 md:text-base">
-                          {product.shortDescription}
+                          {parseInlineStyles(product.shortDescription)}
                         </p>
-                        <p className="font-bengali text-xs leading-relaxed text-muted-foreground line-clamp-3 md:text-sm">
-                          {product.fullDescription}
-                        </p>
-                      </div>
+                      )}
 
                       {/* Price Block */}
                       <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-secondary/50 to-transparent p-4 md:p-5">
