@@ -435,16 +435,21 @@ const ProductDetail = () => {
       toast.error("অনুগ্রহ করে আপনার নাম ও রিভিউ লিখুন।");
       return;
     }
+    const targetProductId = dbProduct?.id || product?.id;
+    if (!targetProductId) {
+      toast.error("প্রোডাক্ট আইডি পাওয়া যায়নি।");
+      return;
+    }
     setSubmittingReview(true);
     try {
       const { error } = await supabase.from("testimonials" as any).insert({
-        customer_name: newReviewName,
-        review: newReviewText,
+        customer_name: newReviewName.trim(),
+        review: newReviewText.trim(),
         rating: newReviewRating,
         is_active: false,
         customer_location: "Verified Buyer",
         sort_order: 0,
-        product_id: id
+        product_id: targetProductId
       });
       if (error) throw error;
       toast.success("আপনার রিভিউটি সফলভাবে সাবমিট হয়েছে। এডমিন অনুমোদনের পর এটি ওয়েবসাইটে প্রকাশ করা হবে।");
