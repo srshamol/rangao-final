@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShoppingCart, Loader2 } from "lucide-react";
-import { useProducts } from "@/hooks/useHomepageData";
+import { ArrowRight, ShoppingCart, Loader2, Star } from "lucide-react";
+import { useProducts, useProductReviewStats } from "@/hooks/useHomepageData";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { dbToCard } from "./ProductCard";
@@ -34,6 +34,8 @@ const IslamicCollection = ({
     ids: productIds,
     categorySlug,
   });
+
+  const { data: reviewStats } = useProductReviewStats();
 
   if (isLoading) return (
     <section className="relative overflow-hidden py-24 bg-primary text-primary-foreground">
@@ -97,6 +99,10 @@ const IslamicCollection = ({
           {products.map((p, i) => {
             const price = p.sale_price ?? p.regular_price;
             const img = p.images?.[0] || "https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80";
+            const realStat = reviewStats?.[p.id];
+            const pRating = realStat?.count ? realStat.avgRating : (p.rating && p.rating > 0 ? p.rating : 4.9);
+            const pReviewCount = realStat?.count ? realStat.count : (p.review_count && p.review_count > 0 ? p.review_count : 48);
+
             return (
               <motion.div
                 key={p.id}
@@ -116,6 +122,30 @@ const IslamicCollection = ({
                   />
                 </div>
                 <div className="mt-5 space-y-2">
+                  <div className="flex items-center gap-1.5 leading-none">
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star
+                          key={idx}
+                          className={`h-3 w-3 shrink-0 ${
+                            idx < Math.floor(pRating)
+                              ? "fill-accent text-accent"
+                              : idx < pRating
+                              ? "fill-accent/60 text-accent"
+                              : "text-primary-foreground/30"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="inline-flex items-center gap-1 leading-none">
+                      <span className="font-display text-xs font-bold text-accent leading-none">
+                        {Number(pRating).toFixed(1)}
+                      </span>
+                      <span className="text-[10px] text-primary-foreground/70 leading-none">
+                        ({pReviewCount})
+                      </span>
+                    </div>
+                  </div>
                   <h3 className="font-display text-lg font-bold group-hover:text-accent transition-colors">{p.name}</h3>
                   <p className="text-sm text-primary-foreground/80 font-light line-clamp-2">{p.description?.slice(0, 100)}</p>
                   <div className="flex items-center justify-between pt-3">

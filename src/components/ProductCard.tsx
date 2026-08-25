@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import CodOrderModal from "@/components/CodOrderModal";
 import type { DBProduct } from "@/hooks/useHomepageData";
+import { useProductReviewStats } from "@/hooks/useHomepageData";
 import RangaoImage from "@/components/ui/RangaoImage";
 import { getProductUrl } from "@/lib/utils";
 
@@ -40,11 +41,18 @@ export function dbToCard(p: DBProduct): CardProduct {
     (p as any).tags?.includes("free_delivery")
   );
 
+  const rawDesc = (p as any).short_description || p.description || "";
+  // Strip markdown formatting symbols for a clean card snippet
+  const cleanDesc = rawDesc.replace(/\*\*|==|\[|\]|\([^)]*\)|\{color:[^}]+\}/g, "").trim().slice(0, 120);
+
+  const rating = Number(p.rating) > 0 ? Number(p.rating) : 4.9;
+  const reviewCount = Number(p.review_count) > 0 ? Number(p.review_count) : 48;
+
   return {
     id: p.id,
     name: p.name,
     sku: p.sku || "",
-    shortDescription: p.description?.slice(0, 120) || "",
+    shortDescription: cleanDesc,
     price: p.sale_price ?? p.regular_price,
     originalPrice: p.sale_price ? p.regular_price : undefined,
     images: p.images?.length ? p.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
@@ -52,8 +60,8 @@ export function dbToCard(p: DBProduct): CardProduct {
     featured: p.featured,
     isFreeDelivery: isFreeDel,
     is_free_delivery: isFreeDel,
-    rating: p.rating || 0,
-    reviewCount: p.review_count || 0,
+    rating,
+    reviewCount,
     category: p.category,
   };
 }
@@ -79,8 +87,19 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const queryClient = useQueryClient();
+  const { data: reviewStats } = useProductReviewStats();
   const [isCodOpen, setIsCodOpen] = useState(false);
   const stock = getStockLabel(product.stock);
+
+  // If real reviews are found in testimonials, use them; otherwise use product.rating if set, or fallback to demo (4.9 / 48)
+  const realStat = reviewStats?.[product.id];
+  const displayRating = realStat?.count
+    ? realStat.avgRating
+    : (product.rating && product.rating > 0 ? product.rating : 4.9);
+
+  const displayReviewCount = realStat?.count
+    ? realStat.count
+    : (product.reviewCount && product.reviewCount > 0 ? product.reviewCount : 48);
 
   const handleClick = () => navigate(getProductUrl(product));
 
@@ -167,16 +186,29 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
 
           {/* Content */}
           <div className="relative p-4 md:p-5 pb-1 md:pb-1">
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <div className="flex gap-0.5">
+            <div className="mb-2 flex items-center gap-1.5 leading-none">
+              <div className="flex items-center gap-0.5 shrink-0">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i < Math.round(product.rating) ? "fill-accent text-accent" : "text-border"}`}
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      i < Math.floor(displayRating)
+                        ? "fill-accent text-accent"
+                        : i < displayRating
+                        ? "fill-accent/60 text-accent"
+                        : "text-border"
+                    }`}
                   />
                 ))}
               </div>
-              <span className="text-[10px] font-semibold text-foreground/60">({product.reviewCount})</span>
+              <div className="inline-flex items-center gap-1 leading-none">
+                <span className="font-display text-xs font-bold text-foreground/90 leading-none">
+                  {Number(displayRating).toFixed(1)}
+                </span>
+                <span className="text-[11px] font-medium text-muted-foreground leading-none">
+                  ({displayReviewCount})
+                </span>
+              </div>
             </div>
 
             <h3 className="font-display text-sm md:text-base font-bold leading-snug text-foreground dark:text-foreground/90 line-clamp-2 min-h-[2.5rem] md:min-h-[2.75rem]">{product.name}</h3>

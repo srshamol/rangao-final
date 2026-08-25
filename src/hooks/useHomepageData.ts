@@ -193,6 +193,52 @@ export function useTestimonials(limit?: number) {
   });
 }
 
+// ─── Product Review Stats Hook (Aggregates real reviews by product_id) ─────────
+
+export interface ProductReviewStat {
+  count: number;
+  avgRating: number;
+}
+
+export function useProductReviewStats() {
+  return useQuery({
+    queryKey: ["all-product-review-stats"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("testimonials" as any)
+        .select("product_id, rating, is_active")
+        .eq("is_active", true)
+        .not("product_id", "is", null);
+
+      if (error) {
+        console.error("Error fetching product review stats:", error);
+        return {} as Record<string, ProductReviewStat>;
+      }
+
+      const stats: Record<string, { count: number; totalRating: number }> = {};
+      for (const t of (data || [])) {
+        if (!t.product_id) continue;
+        if (!stats[t.product_id]) {
+          stats[t.product_id] = { count: 0, totalRating: 0 };
+        }
+        stats[t.product_id].count += 1;
+        stats[t.product_id].totalRating += Number(t.rating) || 5;
+      }
+
+      const result: Record<string, ProductReviewStat> = {};
+      for (const prodId in stats) {
+        result[prodId] = {
+          count: stats[prodId].count,
+          avgRating: Number((stats[prodId].totalRating / stats[prodId].count).toFixed(1)),
+        };
+      }
+      return result;
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes cache
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 // ─── Brands Hook ─────────────────────────────────────────────────────────────
 
 export function useBrands() {

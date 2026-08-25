@@ -192,6 +192,33 @@ const renderFormattedDescription = (text: string) => {
 };
 
 
+const DEMO_REVIEWS = [
+  {
+    id: "demo-review-1",
+    customer_name: "রাফি আহমেদ",
+    customer_location: "Verified Buyer",
+    rating: 5,
+    review: "খুব সুন্দর প্রোডাক্ট! ফিনিশিং অত্যন্ত নিখুঁত এবং কাঠের কোয়ালিটি চমৎকার। ঘরে লাগানোর পর অসাধারণ দেখাচ্ছে।",
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: "demo-review-2",
+    customer_name: "তাসনিম সুলতানা",
+    customer_location: "Verified Buyer",
+    rating: 5,
+    review: "ডেলিভারি খুব দ্রুত পেয়েছি, বাবল র‍্যাপ দিয়ে খুব সুন্দর করে প্যাকিং করা ছিল। ক্যালিগ্রাফিটি দেওয়ালে অনেক সুন্দর মানিয়েছে। ধন্যবাদ!",
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: "demo-review-3",
+    customer_name: "ইমরান খান",
+    customer_location: "Verified Buyer",
+    rating: 4,
+    review: "কাঠের মান ভালো, ডিজাইনটাও নিখুঁত। কোয়ালিটি নিয়ে কোনো সন্দেহ নেই। রিকমেন্ডেড!",
+    created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+  }
+];
+
 const ProductDetail = () => {
   const { id: routeId, categorySlug, productSlug } = useParams<{ id?: string; categorySlug?: string; productSlug?: string }>();
   const id = routeId || productSlug;
@@ -273,19 +300,53 @@ const ProductDetail = () => {
     }
   });
 
-  // Extract active reviews from the merged product query
+  const productId = dbProduct?.id;
+
+  // Query active reviews directly from testimonials table for this product
+  const { data: directReviews = [], refetch: refetchDirectReviews } = useQuery({
+    queryKey: ["product-reviews", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      const { data, error } = await supabase
+        .from("testimonials" as any)
+        .select("*")
+        .eq("product_id", productId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching product reviews:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!productId,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Extract active reviews from both direct query and nested testimonials
   const dbReviews = useMemo(() => {
-    if (!dbProduct || !Array.isArray((dbProduct as any).testimonials)) return [];
-    return (dbProduct as any).testimonials
-      .filter((t: any) => t.is_active)
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [dbProduct]);
+    const list: any[] = [];
+    if (Array.isArray(directReviews) && directReviews.length > 0) {
+      list.push(...directReviews);
+    }
+    if (dbProduct && Array.isArray((dbProduct as any).testimonials)) {
+      for (const t of (dbProduct as any).testimonials) {
+        if (t?.is_active && !list.some((existing) => existing.id === t.id)) {
+          list.push(t);
+        }
+      }
+    }
+    return list.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }, [directReviews, dbProduct]);
 
   const refetchReviews = useCallback(() => {
     refetchProduct();
-  }, [refetchProduct]);
+    refetchDirectReviews();
+    if (productId) {
+      queryClient.invalidateQueries({ queryKey: ["product-reviews", productId] });
+    }
+  }, [refetchProduct, refetchDirectReviews, productId, queryClient]);
 
-  const productId = dbProduct?.id;
   const { data: seoData } = useQuery({
     queryKey: ["product-seo-details", productId],
     queryFn: async () => {
@@ -1096,41 +1157,36 @@ const ProductDetail = () => {
 
                     {/* Reviews List */}
                     <div className="space-y-4">
-                      <h3 className="font-display text-lg font-bold text-foreground">গ্রাহকদের মতামত</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-display text-lg font-bold text-foreground">গ্রাহকদের মতামত</h3>
+                        {dbReviews.length > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-bengali">
+                            <ShieldCheck className="h-3.5 w-3.5" /> {dbReviews.length}টি ভেরিফাইড রিভিউ
+                          </span>
+                        )}
+                      </div>
                       <div className="space-y-4 divide-y divide-border/30">
-                        {(dbReviews.length > 0 ? dbReviews : [
-                          {
-                            id: "d1",
-                            customer_name: "রাফি আহমেদ",
-                            customer_location: "Verified Buyer",
-                            rating: 5,
-                            review: "খুব সুন্দর প্রোডাক্ট! ফিনিশিং অত্যন্ত নিখুঁত এবং কাঠের কোয়ালিটি চমৎকার। ঘরে লাগানোর পর চমৎকার দেখাচ্ছে।",
-                            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-                          },
-                          {
-                            id: "d2",
-                            customer_name: "তাসনিম সুলতানা",
-                            customer_location: "Verified Buyer",
-                            rating: 5,
-                            review: "ডেলিভারি খুব দ্রুত পেয়েছি, বাবল র‍্যাপ দিয়ে খুব সুন্দর করে প্যাকিং করা ছিল। ক্যালিগ্রাফিটি দেওয়ালে অনেক সুন্দর মানিয়েছে। ধন্যবাদ!",
-                            created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-                          },
-                          {
-                            id: "d3",
-                            customer_name: "ইমরান খান",
-                            customer_location: "Verified Buyer",
-                            rating: 4,
-                            review: "কাঠের মান ভালো, ডিজাইনটাও নিখুঁত। কোয়ালিটি নিয়ে কোনো সন্দেহ নেই। রিকমেন্ডেড!",
-                            created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-                          }
-                        ]).map((r: any) => (
+                        {(dbReviews.length > 0 ? dbReviews : DEMO_REVIEWS).map((r: any) => (
                           <div key={r.id} className="pt-4 first:pt-0 space-y-2">
                             <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-semibold text-foreground text-sm">{r.customer_name}</p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {r.customer_location || "Verified Buyer"} • {new Date(r.created_at || r.date).toLocaleDateString("bn-BD")}
-                                </p>
+                              <div className="flex items-center gap-3">
+                                {r.customer_image_url ? (
+                                  <img
+                                    src={r.customer_image_url}
+                                    alt={r.customer_name}
+                                    className="h-9 w-9 rounded-full object-cover border border-border/50"
+                                  />
+                                ) : (
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-accent font-bold text-xs uppercase shadow-sm">
+                                    {r.customer_name?.charAt(0) || "U"}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-foreground text-sm">{r.customer_name}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {r.customer_location || "Verified Buyer"} • {new Date(r.created_at || r.date || Date.now()).toLocaleDateString("bn-BD")}
+                                  </p>
+                                </div>
                               </div>
                               <div className="flex gap-0.5">
                                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1138,7 +1194,7 @@ const ProductDetail = () => {
                                 ))}
                               </div>
                             </div>
-                            <p className="font-bengali text-sm text-foreground/80 leading-relaxed">
+                            <p className="font-bengali text-sm text-foreground/80 leading-relaxed pl-12">
                               {r.review}
                             </p>
                           </div>
