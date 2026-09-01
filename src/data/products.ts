@@ -8,9 +8,14 @@ export type Category =
   | "baby_frame" 
   | "natural_canvas";
 
+import type { VariationOption, ProductVariant } from "@/types/productVariations";
+export type { VariationOption, ProductVariant };
+
 export interface Product {
   id: string;
   name: string;
+  sku?: string;
+  brand?: string;
   shortDescription: string;
   fullDescription: string;
   features: string[];
@@ -26,6 +31,13 @@ export interface Product {
   is_free_delivery?: boolean;
   rating: number;
   reviewCount: number;
+  has_variants?: boolean;
+  hasVariants?: boolean;
+  variation_options?: VariationOption[];
+  variationOptions?: VariationOption[];
+  variants?: ProductVariant[];
+  paired_product_ids?: string[];
+  pairedProductIds?: string[];
 }
 
 export const categories: { id: Category; name: string; icon: string }[] = [

@@ -28,6 +28,10 @@ export interface DBProduct {
   status: string;
   tags: string[];
   created_at: string;
+  has_variants?: boolean | null;
+  variation_options?: any;
+  variants?: any;
+  paired_product_ids?: any;
 }
 
 export interface DBTestimonial {

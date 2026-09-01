@@ -399,14 +399,18 @@ const Checkout = () => {
       const isValidUUID = (id?: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || "");
 
-      const orderItems = items.map((i) => ({
-        order_id: order.id,
-        product_id: isValidUUID(i.product.id) ? i.product.id : null,
-        product_name: i.product.stock === 0 ? `${i.product.name} (প্রি-অর্ডার)` : i.product.name,
-        unit_price: i.product.price,
-        quantity: i.quantity,
-        total_price: i.product.price * i.quantity,
-      }));
+      const orderItems = items.map((i) => {
+        const isPreOrder = i.selectedVariant ? i.selectedVariant.stock_quantity === 0 : i.product.stock === 0;
+        const itemTitle = i.selectedVariant ? `${i.product.name} (${i.selectedVariant.title})` : i.product.name;
+        return {
+          order_id: order.id,
+          product_id: isValidUUID(i.product.id) ? i.product.id : null,
+          product_name: isPreOrder ? `${itemTitle} (প্রি-অর্ডার)` : itemTitle,
+          unit_price: i.product.price,
+          quantity: i.quantity,
+          total_price: i.product.price * i.quantity,
+        };
+      });
 
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
@@ -417,9 +421,13 @@ const Checkout = () => {
       // Send Telegram notification to admin
       try {
         const { sendTelegramNotification } = await import("@/lib/telegram");
-        const hasPreOrder = items.some((i) => i.product.stock === 0);
+        const hasPreOrder = items.some((i) => i.selectedVariant ? i.selectedVariant.stock_quantity === 0 : i.product.stock === 0);
         const itemsList = items
-          .map((i) => `• ${i.product.name}${i.product.stock === 0 ? " [প্রি-অর্ডার]" : ""} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`)
+          .map((i) => {
+            const isPreOrder = i.selectedVariant ? i.selectedVariant.stock_quantity === 0 : i.product.stock === 0;
+            const itemTitle = i.selectedVariant ? `${i.product.name} (${i.selectedVariant.title})` : i.product.name;
+            return `• ${itemTitle}${isPreOrder ? " [প্রি-অর্ডার]" : ""} (Qty: ${i.quantity}) - ৳${i.product.price * i.quantity}`;
+          })
           .join("\n");
 
         const message = `🛍️ <b>নতুন ${hasPreOrder ? "প্রি-অর্ডার / " : ""}অর্ডার এসেছে!</b>\n\n` +
@@ -884,19 +892,29 @@ const Checkout = () => {
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-4 rounded-2xl border bg-card p-6">
                     <h2 className="font-display text-lg font-bold text-card-foreground">অর্ডার সামারি</h2>
                     <div className="space-y-3">
-                      {items.map((item) => (
-                        <div key={item.product.id} className="flex items-center gap-3">
-                          <img src={item.product.images[0]} alt={item.product.name} className="h-14 w-14 rounded-lg object-cover" />
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-card-foreground line-clamp-1">{item.product.name}</p>
-                            <p className="text-xs text-muted-foreground">{item.quantity}x {formatPrice(item.product.price)}</p>
+                      {items.map((item) => {
+                        const itemKey = item.selectedVariant ? `${item.product.id}_${item.selectedVariant.id}` : item.product.id;
+                        const itemImg = item.selectedVariant?.image || item.product.images[0];
+
+                        return (
+                          <div key={itemKey} className="flex items-center gap-3">
+                            <img src={itemImg} alt={item.product.name} className="h-14 w-14 rounded-lg object-cover" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-card-foreground line-clamp-1">{item.product.name}</p>
+                              {item.selectedVariant && (
+                                <p className="text-[11px] font-semibold text-accent truncate">
+                                  {item.selectedVariant.title}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">{item.quantity}x {formatPrice(item.product.price)}</p>
+                            </div>
+                            <p className="font-display text-sm font-bold text-foreground shrink-0">{formatPrice(item.product.price * item.quantity)}</p>
+                            <button type="button" onClick={() => setDeleteTargetProductId(itemKey)} className="text-destructive hover:text-destructive/80 p-1 shrink-0">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
-                          <p className="font-display text-sm font-bold text-foreground">{formatPrice(item.product.price * item.quantity)}</p>
-                          <button type="button" onClick={() => setDeleteTargetProductId(item.product.id)} className="text-destructive hover:text-destructive/80 p-1">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="space-y-2 border-t pt-4">
                       <div className="flex justify-between text-sm text-muted-foreground">

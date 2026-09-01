@@ -500,11 +500,13 @@ export type Database = {
           created_at: string | null
           description: string | null
           featured: boolean | null
+          has_variants?: boolean | null
           id: string
           images: string[] | null
           is_free_delivery?: boolean | null
           low_stock_alert: number | null
           name: string
+          paired_product_ids?: Json | null
           rating: number | null
           regular_price: number
           review_count: number | null
@@ -516,6 +518,8 @@ export type Database = {
           stock_quantity: number
           tags: string[] | null
           updated_at: string | null
+          variants?: Json | null
+          variation_options?: Json | null
         }
         Insert: {
           brand?: string | null
@@ -524,11 +528,13 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           featured?: boolean | null
+          has_variants?: boolean | null
           id?: string
           images?: string[] | null
           is_free_delivery?: boolean | null
           low_stock_alert?: number | null
           name: string
+          paired_product_ids?: Json | null
           rating?: number | null
           regular_price?: number
           review_count?: number | null
@@ -540,6 +546,8 @@ export type Database = {
           stock_quantity?: number
           tags?: string[] | null
           updated_at?: string | null
+          variants?: Json | null
+          variation_options?: Json | null
         }
         Update: {
           brand?: string | null
@@ -548,11 +556,13 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           featured?: boolean | null
+          has_variants?: boolean | null
           id?: string
           images?: string[] | null
           is_free_delivery?: boolean | null
           low_stock_alert?: number | null
           name?: string
+          paired_product_ids?: Json | null
           rating?: number | null
           regular_price?: number
           review_count?: number | null
@@ -564,6 +574,8 @@ export type Database = {
           stock_quantity?: number
           tags?: string[] | null
           updated_at?: string | null
+          variants?: Json | null
+          variation_options?: Json | null
         }
         Relationships: []
       }

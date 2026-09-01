@@ -16,6 +16,9 @@ import {
   Save, Eye, Loader2, Bold, Highlighter, Link, List, ListOrdered, Palette, Truck, CheckCircle
 } from "lucide-react";
 import MediaPicker from "@/components/MediaPicker";
+import ProductVariationsSection from "@/components/admin/ProductVariationsSection";
+import ProductPairsWellWithSection from "@/components/admin/ProductPairsWellWithSection";
+import { type VariationOption, type ProductVariant } from "@/types/productVariations";
 
 import { mediaService } from "@/lib/mediaService";
 
@@ -283,6 +286,11 @@ export default function ProductForm() {
     images: [] as string[],
   });
   const [specs, setSpecs] = useState<SpecItem[]>([{ label: "", value: "" }]);
+  const [hasVariants, setHasVariants] = useState(false);
+  const [variationOptions, setVariationOptions] = useState<VariationOption[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [pairedProductIds, setPairedProductIds] = useState<string[]>([]);
+
   const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -298,17 +306,19 @@ export default function ProductForm() {
     isEdit ? [{ question: "", answer: "" }] : DEFAULT_FAQS
   );
 
-  // Load SEO & FAQ settings
+  // Load SEO & FAQ settings and variation fallback settings
   useEffect(() => {
-    const loadProductSEO = async () => {
+    const loadProductSettings = async () => {
       if (!isEdit || !id) return;
-      const { data } = await supabase
+      
+      // Load SEO
+      const { data: seoData } = await supabase
         .from("store_settings" as any)
         .select("value")
         .eq("key", `product_seo_${id}`)
         .maybeSingle();
-      if (data?.value) {
-        const val = data.value as any;
+      if (seoData?.value) {
+        const val = seoData.value as any;
         setSeoForm({
           title: val.seo_title || "",
           description: val.seo_description || "",
@@ -322,8 +332,28 @@ export default function ProductForm() {
         }
         setFaqs(val.faqs && val.faqs.length > 0 ? val.faqs : [{ question: "", answer: "" }]);
       }
+
+      // Load Variations fallback from store_settings if not in products table
+      const { data: varData } = await supabase
+        .from("store_settings" as any)
+        .select("value")
+        .eq("key", `product_variations_${id}`)
+        .maybeSingle();
+      if (varData?.value) {
+        const val = varData.value as any;
+        if (val.has_variants !== undefined) setHasVariants((prev) => prev || Boolean(val.has_variants));
+        if (Array.isArray(val.variation_options) && val.variation_options.length > 0) {
+          setVariationOptions((prev) => (prev.length > 0 ? prev : val.variation_options));
+        }
+        if (Array.isArray(val.variants) && val.variants.length > 0) {
+          setVariants((prev) => (prev.length > 0 ? prev : val.variants));
+        }
+        if (Array.isArray(val.paired_product_ids) && val.paired_product_ids.length > 0) {
+          setPairedProductIds((prev) => (prev.length > 0 ? prev : val.paired_product_ids));
+        }
+      }
     };
-    loadProductSEO();
+    loadProductSettings();
   }, [isEdit, id]);
 
   const { data: categories } = useQuery({
@@ -379,6 +409,22 @@ export default function ProductForm() {
           ? (existing.specifications as unknown as SpecItem[])
           : [{ label: "", value: "" }]
       );
+
+      // Load variations & paired products from database row
+      if ((existing as any).has_variants !== undefined) {
+        if ((existing as any).has_variants || ((existing as any).variants?.length > 0)) {
+          setHasVariants(true);
+        }
+      }
+      if (Array.isArray((existing as any).variation_options) && (existing as any).variation_options.length > 0) {
+        setVariationOptions((existing as any).variation_options);
+      }
+      if (Array.isArray((existing as any).variants) && (existing as any).variants.length > 0) {
+        setVariants((existing as any).variants);
+      }
+      if (Array.isArray((existing as any).paired_product_ids) && (existing as any).paired_product_ids.length > 0) {
+        setPairedProductIds((existing as any).paired_product_ids);
+      }
     }
   }, [existing]);
 
@@ -432,6 +478,18 @@ export default function ProductForm() {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      // Validate Variations if enabled
+      if (hasVariants) {
+        if (variants.length === 0) {
+          throw new Error("ভ্যারিয়েশন সক্রিয় করা আছে কিন্তু কোনো ভ্যারিয়েন্ট জেনারেট করা হয়নি। অনুগ্রহ করে ভ্যারিয়েন্ট জেনারেট করুন অথবা ভ্যারিয়েশন অপশনটি বন্ধ করুন।");
+        }
+
+        const skuList = variants.map((v) => v.sku?.trim()).filter(Boolean);
+        if (new Set(skuList).size !== skuList.length) {
+          throw new Error("একাধিক ভ্যারিয়েন্টের SKU একই রাখা যাবে না। অনুগ্রহ করে প্রতিটি ভ্যারিয়েন্টের জন্য স্বতন্ত্র ও ইউনিক SKU দিন।");
+        }
+      }
+
       // Check for duplicate canonical URL before saving
       if (seoForm.canonical_url?.trim()) {
         const canonical = seoForm.canonical_url.trim();
@@ -458,8 +516,17 @@ export default function ProductForm() {
         updatedTags = updatedTags.filter((t) => t !== "ফ্রি ডেলিভারি" && t !== "free_delivery");
       }
 
-      const payload = {
+      const totalStock = hasVariants && variants.length > 0
+        ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
+        : form.stock_quantity;
+
+      const payload: any = {
         ...form,
+        stock_quantity: totalStock,
+        has_variants: hasVariants,
+        variation_options: variationOptions,
+        variants: variants,
+        paired_product_ids: pairedProductIds,
         tags: updatedTags,
         specifications: specs.filter((s) => s.label && s.value) as any,
       };
@@ -472,37 +539,62 @@ export default function ProductForm() {
         faqs: faqs.filter((f) => f.question && f.answer),
       };
 
+      const variationSettingsValue = {
+        has_variants: hasVariants,
+        variation_options: variationOptions,
+        variants: variants,
+        paired_product_ids: pairedProductIds,
+      };
+
       if (isEdit) {
-        // Try updating with is_free_delivery, fallback without it if column not created yet
-        let updateRes = await supabase.from("products").update(payload as any).eq("id", id);
-        if (updateRes.error && updateRes.error.message?.includes("is_free_delivery")) {
-          const { is_free_delivery: _, ...fallbackPayload } = payload;
+        // Try updating with all columns; fallback if any column not migrated
+        let updateRes = await supabase.from("products").update(payload).eq("id", id);
+        if (updateRes.error) {
+          console.warn("Retrying update without custom columns fallback:", updateRes.error.message);
+          const { has_variants: _h, variation_options: _vo, variants: _v, paired_product_ids: _p, is_free_delivery: _f, ...fallbackPayload } = payload;
           updateRes = await supabase.from("products").update(fallbackPayload as any).eq("id", id);
         }
         if (updateRes.error) throw updateRes.error;
 
-        await supabase
-          .from("store_settings" as any)
-          .upsert({
-            key: `product_seo_${id}`,
-            value: seoSettingsValue,
-          }, { onConflict: "key" });
+        await Promise.all([
+          supabase
+            .from("store_settings" as any)
+            .upsert({
+              key: `product_seo_${id}`,
+              value: seoSettingsValue,
+            }, { onConflict: "key" }),
+          supabase
+            .from("store_settings" as any)
+            .upsert({
+              key: `product_variations_${id}`,
+              value: variationSettingsValue,
+            }, { onConflict: "key" }),
+        ]);
       } else {
-        let insertRes = await supabase.from("products").insert(payload as any).select("id").single();
-        if (insertRes.error && insertRes.error.message?.includes("is_free_delivery")) {
-          const { is_free_delivery: _, ...fallbackPayload } = payload;
+        let insertRes = await supabase.from("products").insert(payload).select("id").single();
+        if (insertRes.error) {
+          console.warn("Retrying insert without custom columns fallback:", insertRes.error.message);
+          const { has_variants: _h, variation_options: _vo, variants: _v, paired_product_ids: _p, is_free_delivery: _f, ...fallbackPayload } = payload;
           insertRes = await supabase.from("products").insert(fallbackPayload as any).select("id").single();
         }
         if (insertRes.error) throw insertRes.error;
 
         const newId = insertRes.data?.id;
         if (newId) {
-          await supabase
-            .from("store_settings" as any)
-            .upsert({
-              key: `product_seo_${newId}`,
-              value: seoSettingsValue,
-            }, { onConflict: "key" });
+          await Promise.all([
+            supabase
+              .from("store_settings" as any)
+              .upsert({
+                key: `product_seo_${newId}`,
+                value: seoSettingsValue,
+              }, { onConflict: "key" }),
+            supabase
+              .from("store_settings" as any)
+              .upsert({
+                key: `product_variations_${newId}`,
+                value: variationSettingsValue,
+              }, { onConflict: "key" }),
+          ]);
         }
       }
     },
@@ -762,6 +854,24 @@ export default function ProductForm() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Product Variations */}
+      <ProductVariationsSection
+        hasVariants={hasVariants}
+        onHasVariantsChange={setHasVariants}
+        options={variationOptions}
+        onOptionsChange={setVariationOptions}
+        variants={variants}
+        onVariantsChange={setVariants}
+        baseProduct={{
+          sku: form.sku,
+          regular_price: form.regular_price,
+          sale_price: form.sale_price,
+          cost_price: form.cost_price,
+          stock_quantity: form.stock_quantity,
+          images: form.images,
+        }}
+      />
 
       {/* Image Upload */}
       <Card>
@@ -1052,6 +1162,13 @@ export default function ProductForm() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Pairs Well With / Add-ons */}
+      <ProductPairsWellWithSection
+        currentProductId={isEdit ? id : undefined}
+        pairedProductIds={pairedProductIds}
+        onChange={setPairedProductIds}
+      />
 
       {/* SEO & FAQ Settings */}
       <Card>

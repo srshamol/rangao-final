@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { formatPrice, getStockLabel, PHONE_NUMBER } from "@/data/products";
+import { products as staticProducts, formatPrice, getStockLabel, PHONE_NUMBER } from "@/data/products";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,9 @@ import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import CodOrderModal from "@/components/CodOrderModal";
+import ProductVariationSelector from "@/components/product/ProductVariationSelector";
+import PairsWellWithSection from "@/components/product/PairsWellWithSection";
+import { type VariationOption, type ProductVariant, findMatchingVariant } from "@/types/productVariations";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
@@ -357,6 +360,20 @@ const ProductDetail = () => {
     enabled: !!productId
   });
 
+  const { data: variationSettingsData } = useQuery({
+    queryKey: ["product-variations-settings", productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data } = await supabase
+        .from("store_settings" as any)
+        .select("value")
+        .eq("key", `product_variations_${productId}`)
+        .maybeSingle();
+      return data?.value || null;
+    },
+    enabled: !!productId,
+  });
+
   const product = useMemo(() => {
     if (!dbProduct) return null;
 
@@ -393,6 +410,50 @@ const ProductDetail = () => {
       (seoData as any)?.is_free_delivery
     );
 
+    const hasVariants = Boolean(
+      (dbProduct as any).has_variants ||
+      (variationSettingsData as any)?.has_variants ||
+      (Array.isArray((dbProduct as any).variants) && (dbProduct as any).variants.length > 0) ||
+      (Array.isArray((variationSettingsData as any)?.variants) && (variationSettingsData as any)?.variants.length > 0)
+    );
+
+    const variationOptions: VariationOption[] = Array.isArray((dbProduct as any).variation_options) && (dbProduct as any).variation_options.length > 0
+      ? (dbProduct as any).variation_options
+      : Array.isArray((variationSettingsData as any)?.variation_options)
+      ? (variationSettingsData as any)?.variation_options
+      : [];
+
+    const variants: ProductVariant[] = Array.isArray((dbProduct as any).variants) && (dbProduct as any).variants.length > 0
+      ? (dbProduct as any).variants
+      : Array.isArray((variationSettingsData as any)?.variants)
+      ? (variationSettingsData as any)?.variants
+      : [];
+
+    let pairedProductIds: string[] = [];
+    if (Array.isArray((dbProduct as any).paired_product_ids) && (dbProduct as any).paired_product_ids.length > 0) {
+      pairedProductIds = (dbProduct as any).paired_product_ids;
+    } else if (typeof (dbProduct as any).paired_product_ids === "string") {
+      try {
+        const parsed = JSON.parse((dbProduct as any).paired_product_ids);
+        if (Array.isArray(parsed) && parsed.length > 0) pairedProductIds = parsed;
+      } catch {}
+    } else if (Array.isArray((variationSettingsData as any)?.paired_product_ids) && (variationSettingsData as any)?.paired_product_ids.length > 0) {
+      pairedProductIds = (variationSettingsData as any)?.paired_product_ids;
+    } else if (Array.isArray((dbProduct as any).pairedProductIds) && (dbProduct as any).pairedProductIds.length > 0) {
+      pairedProductIds = (dbProduct as any).pairedProductIds;
+    }
+
+    // Default smart fallback if no custom paired products are configured yet
+    if (pairedProductIds.length === 0) {
+      const fallbackPaired = staticProducts
+        .filter((p) => String(p.id) !== String(dbProduct.id) && slugify(p.name) !== slugify(dbProduct.name))
+        .slice(0, 2)
+        .map((p) => p.id);
+      if (fallbackPaired.length > 0) {
+        pairedProductIds = fallbackPaired;
+      }
+    }
+
     return {
       id: dbProduct.id,
       name: dbProduct.name,
@@ -410,12 +471,16 @@ const ProductDetail = () => {
       categoryLabel: categories.find(c => c.slug === dbProduct.category)?.name || dbProduct.category || "হোম ডেকোর",
       isFreeDelivery: isFreeDel,
       is_free_delivery: isFreeDel,
+      has_variants: hasVariants,
+      variation_options: variationOptions,
+      variants: variants,
+      paired_product_ids: pairedProductIds,
       features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
         ? dbProduct.tags
         : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
       specs: finalSpecs
     };
-  }, [dbProduct, dbReviews, categories, seoData]);
+  }, [dbProduct, dbReviews, categories, seoData, variationSettingsData]);
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
@@ -444,16 +509,120 @@ const ProductDetail = () => {
     }));
   }, [dbRelatedProducts]);
 
+  // Variations Selection State
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (product?.has_variants && product.variants && product.variants.length > 0) {
+      const firstActiveInStock =
+        product.variants.find((v) => v.is_active && v.stock_quantity > 0) ||
+        product.variants.find((v) => v.is_active) ||
+        product.variants[0];
+      if (firstActiveInStock?.options) {
+        setSelectedOptions(firstActiveInStock.options);
+      }
+    } else {
+      setSelectedOptions({});
+    }
+  }, [product?.id, product?.has_variants, product?.variants?.length]);
+
+  const activeVariant = useMemo(() => {
+    if (!product?.has_variants || !product.variants?.length) return null;
+    return findMatchingVariant(selectedOptions, product.variation_options || [], product.variants);
+  }, [product, selectedOptions]);
+
+  const displayPrice = activeVariant
+    ? (activeVariant.sale_price ?? activeVariant.regular_price)
+    : product?.price ?? 0;
+
+  const displayOriginalPrice = activeVariant
+    ? (activeVariant.sale_price ? activeVariant.regular_price : undefined)
+    : product?.originalPrice;
+
+  const displayStock = activeVariant
+    ? activeVariant.stock_quantity
+    : product?.stock ?? 0;
+
+  const displaySku = activeVariant?.sku || product?.sku;
+
   const dynamicWhatsAppLink = useMemo(() => {
     if (!product) return "";
     const number = settings?.contactInfo?.whatsapp || "8801XXXXXXXXX";
-    const message = `হ্যালো, আমি ${product.name} ${product.stock === 0 ? "প্রি-অর্ডার" : "অর্ডার"} করতে চাই।`;
+    const itemTitle = activeVariant ? `${product.name} (${activeVariant.title})` : product.name;
+    const message = `হ্যালো, আমি ${itemTitle} ${displayStock === 0 ? "প্রি-অর্ডার" : "অর্ডার"} করতে চাই।`;
     return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
-  }, [settings, product]);
+  }, [settings, product, activeVariant, displayStock]);
 
   const [selectedImage, setSelectedImage] = useState(0);
+  const [variantImageOverride, setVariantImageOverride] = useState<string | null>(null);
+
+  // Update main product image if a variant image exists; otherwise keep normal gallery
+  useEffect(() => {
+    if (activeVariant?.image) {
+      const imgIndex = product?.images?.findIndex((img) => img === activeVariant.image);
+      if (imgIndex !== undefined && imgIndex > -1) {
+        setSelectedImage(imgIndex);
+        setVariantImageOverride(null);
+      } else {
+        setVariantImageOverride(activeVariant.image);
+      }
+    } else {
+      // Otherwise keep normal product gallery
+      setVariantImageOverride(null);
+    }
+  }, [activeVariant?.id, activeVariant?.image, product?.images]);
+
+  const { addToCart, setIsOpen: setIsCartOpen } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [codModalOpen, setCodModalOpen] = useState(false);
+
+  const handleAddToCart = () => {
+    if (!product) return;
+
+    if (product.has_variants) {
+      if (!activeVariant) {
+        toast.error("অনুগ্রহ করে সব অপশন নির্বাচন করুন");
+        return;
+      }
+      if (activeVariant.stock_quantity <= 0) {
+        toast.error("নির্বাচিত ভ্যারিয়েন্টের স্টক শেষ হয়ে গেছে");
+        return;
+      }
+      addToCart(product, quantity, activeVariant);
+    } else {
+      if (displayStock <= 0) {
+        toast.error("পণ্যটির স্টক শেষ হয়ে গেছে");
+        return;
+      }
+      addToCart(product, quantity);
+    }
+
+    toast.success("পণ্যটি কার্টে যোগ করা হয়েছে!");
+    setIsCartOpen(true);
+  };
+
+  const handleOpenCodOrder = () => {
+    if (!product) return;
+
+    if (product.has_variants) {
+      if (!activeVariant) {
+        toast.error("অনুগ্রহ করে সব অপশন নির্বাচন করুন");
+        return;
+      }
+      if (activeVariant.stock_quantity <= 0) {
+        toast.error("নির্বাচিত ভ্যারিয়েন্টের স্টক শেষ হয়ে গেছে");
+        return;
+      }
+    } else {
+      if (displayStock <= 0) {
+        toast.error("পণ্যটির স্টক শেষ হয়ে গেছে");
+        return;
+      }
+    }
+
+    setCodModalOpen(true);
+  };
+
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const [liked, setLiked] = useState(false);
@@ -525,7 +694,6 @@ const ProductDetail = () => {
     }
   };
 
-  const { addToCart } = useCart();
   const imageRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -722,7 +890,7 @@ const ProductDetail = () => {
                     >
                       <motion.div style={{ y: parallaxY }} className="h-full w-full">
                         <RangaoImage
-                          src={product.images[selectedImage]}
+                          src={variantImageOverride || product.images[selectedImage] || product.images[0]}
                           alt={product.name}
                           width={600}
                           height={600}
@@ -802,10 +970,13 @@ const ProductDetail = () => {
                           key={i}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => setSelectedImage(i)}
+                          onClick={() => {
+                            setSelectedImage(i);
+                            setVariantImageOverride(null);
+                          }}
                           className={`relative aspect-square w-14 overflow-hidden rounded-lg border-2 transition-all duration-300 md:w-18 lg:w-20 md:rounded-xl ${
-                            selectedImage === i
-                              ? "border-accent ring-2 ring-accent/30 shadow-gold"
+                            !variantImageOverride && selectedImage === i
+                              ? "border-accent ring-2 ring-accent/30 shadow-gold opacity-100"
                               : "border-border/30 opacity-50 hover:opacity-100"
                           }`}
                         >
@@ -848,14 +1019,14 @@ const ProductDetail = () => {
                       </h1>
 
                       {/* Brand & SKU */}
-                      {(product.brand || product.sku) && (
+                      {(product.brand || displaySku) && (
                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           {product.brand && (
                             <span>ব্র্যান্ড: <strong className="text-foreground">{product.brand}</strong></span>
                           )}
-                          {product.brand && product.sku && <span className="text-border">|</span>}
-                          {product.sku && (
-                            <span>SKU: <strong className="text-foreground font-mono">{product.sku}</strong></span>
+                          {product.brand && displaySku && <span className="text-border">|</span>}
+                          {displaySku && (
+                            <span>SKU: <strong className="text-foreground font-mono">{displaySku}</strong></span>
                           )}
                         </div>
                       )}
@@ -870,19 +1041,19 @@ const ProductDetail = () => {
                       {/* Price Block */}
                       <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-secondary/50 to-transparent p-4 md:p-5">
                         <div className="flex items-baseline gap-3">
-                          <span className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{formatPrice(product.price)}</span>
-                          {product.originalPrice && (
+                          <span className="font-display text-3xl font-extrabold text-foreground md:text-4xl">{formatPrice(displayPrice)}</span>
+                          {displayOriginalPrice && (
                             <>
-                              <span className="text-base text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
+                              <span className="text-base text-muted-foreground line-through">{formatPrice(displayOriginalPrice)}</span>
                               <span className="rounded-lg bg-destructive/10 px-2.5 py-1 text-xs font-bold text-destructive">
                                 {discount}% ছাড়
                               </span>
                             </>
                           )}
                         </div>
-                        {discount > 0 && (
+                        {discount > 0 && displayOriginalPrice && (
                           <p className="mt-2 font-bengali text-xs text-success">
-                            আপনি সাশ্রয় করছেন {formatPrice(product.originalPrice! - product.price)}
+                            আপনি সাশ্রয় করছেন {formatPrice(displayOriginalPrice - displayPrice)}
                           </p>
                         )}
                         {product.isFreeDelivery && (
@@ -893,19 +1064,32 @@ const ProductDetail = () => {
                         )}
                       </div>
 
-                      {/* Stock */}
+                      {/* Stock Availability */}
                       <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
-                        product.stock === 0
+                        displayStock === 0
                           ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                          : product.stock <= 5
+                          : displayStock <= 5
                             ? "bg-amber-500/10 text-amber-600"
                             : "bg-success/10 text-success"
                       }`}>
                         <span className={`h-2 w-2 animate-pulse rounded-full ${
-                          product.stock === 0 ? "bg-purple-500" : product.stock <= 5 ? "bg-amber-500" : "bg-success"
+                          displayStock === 0 ? "bg-purple-500" : displayStock <= 5 ? "bg-amber-500" : "bg-success"
                         }`} />
                         {stock.text}
                       </div>
+
+                      {/* Product Variations Selector */}
+                      {product.has_variants && product.variation_options && product.variants && product.variants.length > 0 && (
+                        <ProductVariationSelector
+                          options={product.variation_options}
+                          variants={product.variants}
+                          selectedOptions={selectedOptions}
+                          onSelectOption={(optName, val) =>
+                            setSelectedOptions((prev) => ({ ...prev, [optName]: val }))
+                          }
+                          activeVariant={activeVariant}
+                        />
+                      )}
 
                       {/* Quantity Selector */}
                       <div className="space-y-2">
@@ -923,15 +1107,15 @@ const ProductDetail = () => {
                               {quantity}
                             </span>
                             <button
-                              onClick={() => setQuantity(product.stock === 0 ? quantity + 1 : Math.min(product.stock, quantity + 1))}
+                              onClick={() => setQuantity(displayStock === 0 ? quantity + 1 : Math.min(displayStock, quantity + 1))}
                               className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
-                              disabled={product.stock > 0 && quantity >= product.stock}
+                              disabled={displayStock > 0 && quantity >= displayStock}
                             >
                               <Plus className="h-4 w-4 text-muted-foreground" />
                             </button>
                           </div>
                           <span className="font-bengali text-xs text-muted-foreground">
-                            {product.stock === 0 ? "প্রি-অর্ডার" : `সর্বোচ্চ ${product.stock}টি`}
+                            {displayStock === 0 ? "প্রি-অর্ডার" : `সর্বোচ্চ ${displayStock}টি`}
                           </span>
                         </div>
                       </div>
@@ -942,18 +1126,20 @@ const ProductDetail = () => {
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                               size="lg"
+                              disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
                               className={`group relative w-full overflow-hidden rounded-2xl py-6.5 text-sm font-bold shadow-[0_4px_15px_-3px_rgba(197,168,92,0.35)] transition-all duration-300 border ${
-                                product.stock === 0
+                                displayStock === 0
                                   ? "bg-purple-600 text-white hover:bg-purple-700 hover:shadow-[0_8px_25px_-3px_rgba(147,51,234,0.45)] border-purple-500/20"
                                   : "bg-accent text-accent-foreground hover:from-accent/95 hover:to-accent/85 hover:shadow-[0_8px_25px_-3px_rgba(197,168,92,0.55)] border-accent/10 bg-gradient-to-r from-accent to-accent/90"
                               }`}
-                              onClick={() => {
-                                addToCart(product, quantity);
-                                toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
-                              }}
+                              onClick={handleAddToCart}
                             >
                               <ShoppingCart className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                              {product.stock === 0 ? "কার্টে যোগ করুন (প্রি-অর্ডার)" : "কার্টে যোগ করুন"}
+                              {product.has_variants && !activeVariant
+                                ? "অপশন নির্বাচন করুন"
+                                : displayStock === 0
+                                ? "কার্টে যোগ করুন (প্রি-অর্ডার)"
+                                : "কার্টে যোগ করুন"}
                             </Button>
                           </motion.div>
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -970,7 +1156,7 @@ const ProductDetail = () => {
                                 className="flex items-center justify-center"
                               >
                                 <WhatsAppIcon className="mr-2 h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                                {product.stock === 0 ? "WhatsApp এ প্রি-অর্ডার" : "WhatsApp এ অর্ডার"}
+                                {displayStock === 0 ? "WhatsApp এ প্রি-অর্ডার" : "WhatsApp এ অর্ডার"}
                               </a>
                             </Button>
                           </motion.div>
@@ -979,19 +1165,34 @@ const ProductDetail = () => {
                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                           <Button
                             size="lg"
+                            disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
                             className={`group relative w-full overflow-hidden rounded-2xl py-7 text-base font-extrabold text-white transition-all duration-300 ${
-                              product.stock === 0
+                              displayStock === 0
                                 ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_4px_20px_-3px_rgba(147,51,234,0.35)] hover:shadow-[0_8px_28px_-3px_rgba(147,51,234,0.55)]"
                                 : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54] shadow-[0_4px_20px_-3px_rgba(43,178,114,0.35)] hover:shadow-[0_8px_28px_-3px_rgba(43,178,114,0.55)]"
                             }`}
-                            onClick={() => setCodModalOpen(true)}
+                            onClick={handleOpenCodOrder}
                           >
                             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
                             <Banknote className="mr-2.5 h-5.5 w-5.5 shrink-0 transition-transform group-hover:scale-110" />
-                            {product.stock === 0 ? "প্রি-অর্ডার করুন (ক্যাশ অন ডেলিভারি)" : "ক্যাশ অন ডেলিভারিতে অর্ডার করুন"}
+                            {product.has_variants && !activeVariant
+                              ? "অপশন নির্বাচন করুন"
+                              : displayStock === 0
+                              ? "প্রি-অর্ডার করুন (ক্যাশ অন ডেলিভারি)"
+                              : "ক্যাশ অন ডেলিভারিতে অর্ডার করুন"}
                           </Button>
                         </motion.div>
                       </div>
+
+                      {/* Pairs Well With / Add-ons Section */}
+                      {product.paired_product_ids && product.paired_product_ids.length > 0 && (
+                        <div className="pt-2">
+                          <PairsWellWithSection
+                            mainProductId={product.id}
+                            pairedProductIds={product.paired_product_ids}
+                          />
+                        </div>
+                      )}
 
                       {/* Trust Badges - Premium Glass Cards */}
                       <div className="grid grid-cols-3 gap-2.5 pt-3">
@@ -1332,15 +1533,13 @@ const ProductDetail = () => {
                 {/* Add to Cart Icon Button */}
                 <Button
                   size="icon"
+                  disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
                   className={`h-12 w-12 rounded-xl border shrink-0 [&_svg]:!size-[22px] ${
-                    product.stock === 0
+                    displayStock === 0
                       ? "bg-purple-600/10 text-purple-600 border-purple-500/20 hover:bg-purple-600/20"
                       : "bg-accent/15 text-accent border-accent/20 hover:bg-accent/25"
                   }`}
-                  onClick={() => {
-                    addToCart(product, quantity);
-                    toast.success(`${product.name} ${product.stock === 0 ? "প্রি-অর্ডার কার্টে" : "কার্টে"} যোগ হয়েছে!`);
-                  }}
+                  onClick={handleAddToCart}
                   title="কার্টে যোগ করুন"
                 >
                   <ShoppingCart className="h-[22px] w-[22px]" />
@@ -1349,14 +1548,15 @@ const ProductDetail = () => {
                 {/* Order Now (Highlighted) */}
                 <Button
                   size="default"
+                  disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
                   className={`h-12 flex-1 rounded-xl text-sm sm:text-base font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] [&_svg]:!size-[20px] ${
-                    product.stock === 0
+                    displayStock === 0
                       ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
                       : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54]"
                   }`}
-                  onClick={() => setCodModalOpen(true)}
+                  onClick={handleOpenCodOrder}
                 >
-                  <Banknote className="mr-2 h-[20px] w-[20px] shrink-0" /> {product.stock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
+                  <Banknote className="mr-2 h-[20px] w-[20px] shrink-0" /> {product.has_variants && !activeVariant ? "অপশন নির্বাচন করুন" : displayStock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
                 </Button>
 
                 {/* Order on WhatsApp Icon Button */}
@@ -1518,7 +1718,13 @@ const ProductDetail = () => {
         )}
       </AnimatePresence>
 
-      <CodOrderModal open={codModalOpen} onOpenChange={setCodModalOpen} product={product} quantity={quantity} />
+      <CodOrderModal
+        open={codModalOpen}
+        onOpenChange={setCodModalOpen}
+        product={product}
+        quantity={quantity}
+        selectedVariant={activeVariant}
+      />
     </div>
   );
 };

@@ -52,64 +52,75 @@ const CartSidebar = () => {
               {/* Items */}
               <div className="flex-1 space-y-3 overflow-y-auto py-4">
                 <AnimatePresence>
-                  {items.map((item) => (
-                    <motion.div
-                      key={item.product.id}
-                      layout
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="flex gap-3 rounded-xl border bg-card p-3"
-                    >
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="h-20 w-20 rounded-lg object-cover"
-                      />
-                      <div className="flex flex-1 flex-col justify-between">
-                        <div>
-                          <h4 className="font-display text-sm font-bold text-card-foreground line-clamp-1">
-                            {item.product.name}
-                          </h4>
-                          <p className="font-display text-sm font-extrabold text-foreground">
-                            {formatPrice(item.product.price)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center overflow-hidden rounded-lg border">
+                  {items.map((item) => {
+                    const itemKey = item.selectedVariant ? `${item.product.id}_${item.selectedVariant.id}` : item.product.id;
+                    const itemImg = item.selectedVariant?.image || item.product.images[0];
+                    const itemMaxStock = item.selectedVariant ? item.selectedVariant.stock_quantity : item.product.stock;
+
+                    return (
+                      <motion.div
+                        key={itemKey}
+                        layout
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="flex gap-3 rounded-xl border bg-card p-3"
+                      >
+                        <img
+                          src={itemImg}
+                          alt={item.product.name}
+                          className="h-20 w-20 rounded-lg object-cover"
+                        />
+                        <div className="flex flex-1 flex-col justify-between">
+                          <div>
+                            <h4 className="font-display text-sm font-bold text-card-foreground line-clamp-1">
+                              {item.product.name}
+                            </h4>
+                            {item.selectedVariant && (
+                              <p className="text-[11px] font-semibold text-accent truncate">
+                                {item.selectedVariant.title}
+                              </p>
+                            )}
+                            <p className="font-display text-sm font-extrabold text-foreground mt-0.5">
+                              {formatPrice(item.product.price)}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center overflow-hidden rounded-lg border">
+                              <button
+                                onClick={() => {
+                                  if (item.quantity <= 1) {
+                                    setDeleteTargetProductId(itemKey);
+                                  } else {
+                                    updateQuantity(itemKey, item.quantity - 1);
+                                  }
+                                }}
+                                className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-secondary"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="flex h-8 w-8 items-center justify-center border-x text-xs font-bold">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                                className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-secondary"
+                                disabled={item.quantity >= itemMaxStock}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
                             <button
-                              onClick={() => {
-                                if (item.quantity <= 1) {
-                                  setDeleteTargetProductId(item.product.id);
-                                } else {
-                                  updateQuantity(item.product.id, item.quantity - 1);
-                                }
-                              }}
-                              className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-secondary"
+                              onClick={() => setDeleteTargetProductId(itemKey)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-destructive transition-colors hover:bg-destructive/10"
                             >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="flex h-8 w-8 items-center justify-center border-x text-xs font-bold">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                              className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-secondary"
-                              disabled={item.quantity >= item.product.stock}
-                            >
-                              <Plus className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                          <button
-                            onClick={() => setDeleteTargetProductId(item.product.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-destructive transition-colors hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
 
