@@ -284,3 +284,43 @@ describe("Cart Integration & Composite Keys", () => {
     expect(subtotal).toBe(4600);
   });
 });
+
+describe("Pairs Well With / Add-ons Conditional Visibility & Persistence", () => {
+  function serializeProductPayload(hasPairedProducts: boolean, pairedProductIds: string[]) {
+    const finalPairedProductIds = hasPairedProducts ? pairedProductIds : [];
+    return {
+      name: "Test Art",
+      paired_product_ids: finalPairedProductIds,
+    };
+  }
+
+  function shouldRenderPairsWellWithStorefront(pairedProductIds: any): boolean {
+    return Boolean(Array.isArray(pairedProductIds) && pairedProductIds.length > 0);
+  }
+
+  it("should only include paired_product_ids in payload when hasPairedProducts is enabled", () => {
+    const activeResult = serializeProductPayload(true, ["prod-1", "prod-2"]);
+    expect(activeResult.paired_product_ids).toEqual(["prod-1", "prod-2"]);
+    expect(activeResult.paired_product_ids.length).toBe(2);
+  });
+
+  it("should persist empty array [] when hasPairedProducts is disabled even if draft items exist", () => {
+    const disabledResult = serializeProductPayload(false, ["prod-1", "prod-2"]);
+    expect(disabledResult.paired_product_ids).toEqual([]);
+    expect(disabledResult.paired_product_ids.length).toBe(0);
+  });
+
+  it("should evaluate storefront visibility to true only when non-empty array of paired products exists", () => {
+    expect(shouldRenderPairsWellWithStorefront(["prod-1"])).toBe(true);
+    expect(shouldRenderPairsWellWithStorefront(["prod-1", "prod-2"])).toBe(true);
+  });
+
+  it("should evaluate storefront visibility to false when empty, null, undefined, or non-array", () => {
+    expect(shouldRenderPairsWellWithStorefront([])).toBe(false);
+    expect(shouldRenderPairsWellWithStorefront(null)).toBe(false);
+    expect(shouldRenderPairsWellWithStorefront(undefined)).toBe(false);
+    expect(shouldRenderPairsWellWithStorefront("prod-1")).toBe(false);
+    expect(shouldRenderPairsWellWithStorefront({})).toBe(false);
+  });
+});
+

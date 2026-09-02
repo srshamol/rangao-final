@@ -89,8 +89,8 @@
       "destination": "/api/robots"
     },
     {
-      "source": "/((?!assets|api|favicon.ico|placeholder.svg).*)",
-      "destination": "/index.html"
+      "source": "/((?!assets|api|favicon.ico|placeholder.svg|brand/.*).*)",
+      "destination": "/api/server-meta"
     }
   ],
   "crons": [

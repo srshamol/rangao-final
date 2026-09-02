@@ -41,7 +41,7 @@ const BlogPost = () => {
       
       if (isUuid) {
         const { data } = await supabase
-          .from("blog_posts")
+          .from("blog_posts" as any)
           .select("*")
           .eq("id", id)
           .maybeSingle();
@@ -49,11 +49,11 @@ const BlogPost = () => {
       } else {
         // Find matching slug by pulling active posts
         const { data: allPosts } = await supabase
-          .from("blog_posts")
+          .from("blog_posts" as any)
           .select("*")
           .eq("is_active", true);
         if (allPosts) {
-          const match = allPosts.find(p => generateSlug(p.title) === id);
+          const match = (allPosts as any[]).find(p => generateSlug(p.title) === id);
           if (match) return match;
         }
         return null;
@@ -65,11 +65,11 @@ const BlogPost = () => {
     queryKey: ["blog-posts-all"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("blog_posts")
+        .from("blog_posts" as any)
         .select("*")
         .eq("is_active", true)
         .limit(10);
-      return data || [];
+      return (data as any[]) || [];
     }
   });
 
@@ -109,7 +109,7 @@ const BlogPost = () => {
         .select("value")
         .eq("key", `blog_seo_${displayPost.id}`)
         .maybeSingle();
-      return data?.value || null;
+      return (data as any)?.value || null;
     },
     enabled: !!displayPost?.id
   });
@@ -131,9 +131,9 @@ const BlogPost = () => {
     if (!displayPost) return [];
     if (allActivePosts && allActivePosts.length > 1) {
       return allActivePosts
-        .filter((p) => p.id !== displayPost.id)
+        .filter((p: any) => p.id !== displayPost.id)
         .slice(0, 2)
-        .map(p => ({
+        .map((p: any) => ({
           id: p.id,
           title: p.title,
           image: p.image_url,
@@ -297,7 +297,7 @@ const BlogPost = () => {
       />
       <Breadcrumbs
         items={[
-          { label: "ব্লগ ও টিপস", path: "/blog" },
+          { label: "ব্লগ ও টিপস", url: "/blog" },
           { label: displayPost.title }
         ]}
       />

@@ -98,10 +98,10 @@ const IslamicCollection = ({
         <div className="grid gap-8 md:grid-cols-3">
           {products.map((p, i) => {
             const price = p.sale_price ?? p.regular_price;
-            const img = p.images?.[0] || "https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80";
+            const img = p.images?.[0] || "";
             const realStat = reviewStats?.[p.id];
-            const pRating = realStat?.count ? realStat.avgRating : (p.rating && p.rating > 0 ? p.rating : 4.9);
-            const pReviewCount = realStat?.count ? realStat.count : (p.review_count && p.review_count > 0 ? p.review_count : 48);
+            const pRating = realStat?.count ? realStat.avgRating : (p.rating && p.rating > 0 ? p.rating : 0);
+            const pReviewCount = realStat?.count ? realStat.count : (p.review_count && p.review_count > 0 ? p.review_count : 0);
 
             return (
               <motion.div
@@ -115,36 +115,50 @@ const IslamicCollection = ({
                 className="group relative overflow-hidden rounded-2xl border border-primary-foreground/15 bg-primary-foreground/[0.05] p-5 shadow-premium-soft transition-all duration-300 hover:border-accent/40 cursor-pointer"
               >
                 <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary/10">
-                  <img
-                    src={img}
-                    alt={p.name}
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
+                  {img ? (
+                    <img
+                      src={img}
+                      alt={p.name}
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-primary/20 text-accent font-bold text-sm">
+                      {p.name}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-5 space-y-2">
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {Array.from({ length: 5 }).map((_, idx) => (
-                        <Star
-                          key={idx}
-                          className={`h-3 w-3 shrink-0 ${
-                            idx < Math.floor(pRating)
-                              ? "fill-accent text-accent"
-                              : idx < pRating
-                              ? "fill-accent/60 text-accent"
-                              : "text-primary-foreground/30"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <div className="inline-flex items-center gap-1 leading-none">
-                      <span className="font-display text-xs font-bold text-accent leading-none">
-                        {Number(pRating).toFixed(1)}
+                  <div className="flex items-center gap-1.5 leading-none min-h-[14px]">
+                    {pReviewCount > 0 ? (
+                      <>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {Array.from({ length: 5 }).map((_, idx) => (
+                            <Star
+                              key={idx}
+                              className={`h-3 w-3 shrink-0 ${
+                                idx < Math.floor(pRating)
+                                  ? "fill-accent text-accent"
+                                  : idx < pRating
+                                  ? "fill-accent/60 text-accent"
+                                  : "text-primary-foreground/30"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <div className="inline-flex items-center gap-1 leading-none">
+                          <span className="font-display text-xs font-bold text-accent leading-none">
+                            {Number(pRating).toFixed(1)}
+                          </span>
+                          <span className="text-[10px] text-primary-foreground/70 leading-none">
+                            ({pReviewCount})
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-primary-foreground/60 font-bengali">
+                        ইসলামিক ওয়াল আর্ট
                       </span>
-                      <span className="text-[10px] text-primary-foreground/70 leading-none">
-                        ({pReviewCount})
-                      </span>
-                    </div>
+                    )}
                   </div>
                   <h3 className="font-display text-lg font-bold group-hover:text-accent transition-colors">{p.name}</h3>
                   <p className="text-sm text-primary-foreground/80 font-light line-clamp-2">{p.description?.slice(0, 100)}</p>

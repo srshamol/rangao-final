@@ -9,7 +9,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
   MessageCircle, Phone, Star, ChevronLeft, ChevronRight, X, ShieldCheck, Truck, Headset,
   ArrowRight, Check, Minus, Plus, ShoppingCart, Banknote, Heart, Share2,
-  ZoomIn, Package, Award, Clock, Loader2
+  ZoomIn, Package, Award, Clock, Loader2, RotateCcw, CheckCircle2
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -195,32 +195,7 @@ const renderFormattedDescription = (text: string) => {
 };
 
 
-const DEMO_REVIEWS = [
-  {
-    id: "demo-review-1",
-    customer_name: "রাফি আহমেদ",
-    customer_location: "Verified Buyer",
-    rating: 5,
-    review: "খুব সুন্দর প্রোডাক্ট! ফিনিশিং অত্যন্ত নিখুঁত এবং কাঠের কোয়ালিটি চমৎকার। ঘরে লাগানোর পর অসাধারণ দেখাচ্ছে।",
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "demo-review-2",
-    customer_name: "তাসনিম সুলতানা",
-    customer_location: "Verified Buyer",
-    rating: 5,
-    review: "ডেলিভারি খুব দ্রুত পেয়েছি, বাবল র‍্যাপ দিয়ে খুব সুন্দর করে প্যাকিং করা ছিল। ক্যালিগ্রাফিটি দেওয়ালে অনেক সুন্দর মানিয়েছে। ধন্যবাদ!",
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "demo-review-3",
-    customer_name: "ইমরান খান",
-    customer_location: "Verified Buyer",
-    rating: 4,
-    review: "কাঠের মান ভালো, ডিজাইনটাও নিখুঁত। কোয়ালিটি নিয়ে কোনো সন্দেহ নেই। রিকমেন্ডেড!",
-    created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
+
 
 const ProductDetail = () => {
   const { id: routeId, categorySlug, productSlug } = useParams<{ id?: string; categorySlug?: string; productSlug?: string }>();
@@ -355,7 +330,7 @@ const ProductDetail = () => {
     queryFn: async () => {
       if (!productId) return null;
       const { data } = await supabase.from("store_settings" as any).select("value").eq("key", `product_seo_${productId}`).maybeSingle();
-      return data?.value || null;
+      return (data as any)?.value || null;
     },
     enabled: !!productId
   });
@@ -369,7 +344,7 @@ const ProductDetail = () => {
         .select("value")
         .eq("key", `product_variations_${productId}`)
         .maybeSingle();
-      return data?.value || null;
+      return (data as any)?.value || null;
     },
     enabled: !!productId,
   });
@@ -389,18 +364,16 @@ const ProductDetail = () => {
       specs.push({ label: "SKU", value: dbProduct.sku });
     }
 
-    const finalSpecs = specs.length > 0 ? specs : [
-      { label: "উপাদান", value: "প্রিমিয়াম উড / অ্যাক্রিলিক" },
-      { label: "অরিজিন", value: "বাংলাদেশ" },
-      { label: "ফিনিশিং", value: "ম্যাট লেজার কাট" }
-    ];
+    const finalSpecs = specs;
 
-    // Compute dynamic rating and reviewCount from approved database reviews
+    // Compute dynamic rating and reviewCount strictly from approved database reviews
     const hasReviews = dbReviews && dbReviews.length > 0;
     const computedRating = hasReviews 
       ? Number((dbReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / dbReviews.length).toFixed(1))
-      : dbProduct.rating || 4.9;
-    const computedReviewCount = hasReviews ? dbReviews.length : dbProduct.review_count || 48;
+      : (Number(dbProduct.rating) > 0 ? Number(dbProduct.rating) : 0);
+    const computedReviewCount = hasReviews 
+      ? dbReviews.length 
+      : (Number(dbProduct.review_count) > 0 ? Number(dbProduct.review_count) : 0);
 
     const isFreeDel = Boolean(
       (dbProduct as any).is_free_delivery ||
@@ -443,28 +416,17 @@ const ProductDetail = () => {
       pairedProductIds = (dbProduct as any).pairedProductIds;
     }
 
-    // Default smart fallback if no custom paired products are configured yet
-    if (pairedProductIds.length === 0) {
-      const fallbackPaired = staticProducts
-        .filter((p) => String(p.id) !== String(dbProduct.id) && slugify(p.name) !== slugify(dbProduct.name))
-        .slice(0, 2)
-        .map((p) => p.id);
-      if (fallbackPaired.length > 0) {
-        pairedProductIds = fallbackPaired;
-      }
-    }
-
     return {
       id: dbProduct.id,
       name: dbProduct.name,
       brand: dbProduct.brand || "",
       sku: dbProduct.sku || "",
-      shortDescription: dbProduct.short_description || dbProduct.description?.slice(0, 120) || "প্রিমিয়াম কোয়ালিটির ইসলামিক ও হোম ডেকোর প্রোডাক্ট।",
+      shortDescription: dbProduct.short_description || dbProduct.description?.slice(0, 120) || "",
       fullDescription: dbProduct.description || "",
       price: dbProduct.sale_price ?? dbProduct.regular_price,
       originalPrice: dbProduct.sale_price ? dbProduct.regular_price : undefined,
-      images: dbProduct.images?.length ? dbProduct.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
-      stock: dbProduct.stock_quantity ?? 10,
+      images: Array.isArray(dbProduct.images) && dbProduct.images.length > 0 ? dbProduct.images : [],
+      stock: dbProduct.stock_quantity ?? 0,
       rating: computedRating,
       reviewCount: computedReviewCount,
       category: dbProduct.category || "",
@@ -475,12 +437,21 @@ const ProductDetail = () => {
       variation_options: variationOptions,
       variants: variants,
       paired_product_ids: pairedProductIds,
-      features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0
-        ? dbProduct.tags
-        : ["১০০% প্রিমিয়াম কোয়ালিটি", "নিখুঁত কাঠের ফিনিশিং", "দীর্ঘস্থায়ী ও আকর্ষণীয় ডিজাইন"],
+      features: Array.isArray(dbProduct.tags) && dbProduct.tags.length > 0 ? dbProduct.tags : [],
+      featured: Boolean((dbProduct as any).featured || false),
       specs: finalSpecs
     };
   }, [dbProduct, dbReviews, categories, seoData, variationSettingsData]);
+
+  // Canonical URL redirection: if accessed via legacy /product/:id, replace route with canonical /:categorySlug/:productSlug
+  useEffect(() => {
+    if (routeId && product) {
+      const canonicalPath = getProductUrl(product);
+      if (canonicalPath && canonicalPath !== `/product/${routeId}`) {
+        navigate(canonicalPath, { replace: true });
+      }
+    }
+  }, [routeId, product, navigate]);
 
   // Query related products dynamically from Supabase
   const { data: dbRelatedProducts = [] } = useQuery({
@@ -657,6 +628,8 @@ const ProductDetail = () => {
   const [newReviewName, setNewReviewName] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewText, setNewReviewText] = useState("");
+  const [newReviewOrderNumber, setNewReviewOrderNumber] = useState("");
+  const [newReviewPhone, setNewReviewPhone] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -672,23 +645,31 @@ const ProductDetail = () => {
     }
     setSubmittingReview(true);
     try {
-      const { error } = await supabase.from("testimonials" as any).insert({
-        customer_name: newReviewName.trim(),
-        review: newReviewText.trim(),
-        rating: newReviewRating,
-        is_active: false,
-        customer_location: "Verified Buyer",
-        sort_order: 0,
-        product_id: targetProductId
+      const { data: rpcRes, error } = await (supabase.rpc as any)("submit_product_review", {
+        p_product_id: targetProductId,
+        p_customer_name: newReviewName.trim(),
+        p_rating: newReviewRating,
+        p_review: newReviewText.trim(),
+        p_order_number: newReviewOrderNumber.trim() || null,
+        p_customer_phone: newReviewPhone.trim() || null,
+        p_customer_image_url: null,
       });
+
       if (error) throw error;
-      toast.success("আপনার রিভিউটি সফলভাবে সাবমিট হয়েছে। এডমিন অনুমোদনের পর এটি ওয়েবসাইটে প্রকাশ করা হবে।");
+      const resData = rpcRes as any;
+      if (resData?.is_verified) {
+        toast.success(resData.message || "ধন্যবাদ! আপনার ভেরিফাইড রিভিউ সফলভাবে জমা হয়েছে। এডমিন অনুমোদনের পর প্রদর্শিত হবে।");
+      } else {
+        toast.success(resData?.message || "আপনার রিভিউটি সফলভাবে জমা হয়েছে। এডমিন অনুমোদনের পর ওয়েবসাইটে প্রকাশ করা হবে।");
+      }
       setNewReviewName("");
       setNewReviewText("");
       setNewReviewRating(5);
+      setNewReviewOrderNumber("");
+      setNewReviewPhone("");
       refetchReviews();
     } catch (err: any) {
-      toast.error("রিভিউ সাবমিট করতে সমস্যা হয়েছে: " + err.message);
+      toast.error(err.message || "রিভিউ সাবমিট করতে সমস্যা হয়েছে");
     } finally {
       setSubmittingReview(false);
     }
@@ -745,11 +726,13 @@ const ProductDetail = () => {
         "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
         "priceValidUntil": "2027-12-31"
       },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": product.rating,
-        "reviewCount": product.reviewCount || 1
-      }
+      ...(product.reviewCount > 0 && product.rating > 0 ? {
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": product.rating,
+          "reviewCount": product.reviewCount
+        }
+      } : {})
     };
   }, [product, productKeywords, settings?.storeInfo?.website_url]);
 
@@ -938,6 +921,7 @@ const ProductDetail = () => {
                                 name: product.name,
                                 price: product.price,
                                 category: (product as any).categoryLabel || product.category || "General",
+                                quantity: 1,
                               });
                             }
                             setLiked(!liked);
@@ -1006,11 +990,17 @@ const ProductDetail = () => {
                             <Truck className="h-3.5 w-3.5" /> ফ্রি ডেলিভারি
                           </span>
                         )}
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-accent text-accent" />
-                          <span className="font-display text-sm font-bold text-foreground">{product.rating}</span>
-                          <span className="text-xs text-muted-foreground">({product.reviewCount.toLocaleString()}+)</span>
-                        </div>
+                        {product.reviewCount > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3.5 w-3.5 fill-accent text-accent" />
+                            <span className="font-display text-sm font-bold text-foreground">{product.rating}</span>
+                            <span className="text-xs text-muted-foreground">({product.reviewCount.toLocaleString()} রিভিউ)</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-bengali">
+                            নতুন কালেকশন
+                          </span>
+                        )}
                       </div>
 
                       {/* Title */}
@@ -1098,20 +1088,22 @@ const ProductDetail = () => {
                           <div className="flex items-center overflow-hidden rounded-xl border-2 border-border/50 bg-secondary/30">
                             <button
                               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                              className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
+                              aria-label="পরিমাণ ১ কমান"
+                              className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-accent"
                               disabled={quantity <= 1}
                             >
-                              <Minus className="h-4 w-4 text-muted-foreground" />
+                              <Minus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                             </button>
                             <span className="flex h-11 w-14 items-center justify-center border-x-2 border-border/50 font-display text-base font-bold text-foreground">
                               {quantity}
                             </span>
                             <button
                               onClick={() => setQuantity(displayStock === 0 ? quantity + 1 : Math.min(displayStock, quantity + 1))}
-                              className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary"
+                              aria-label="পরিমাণ ১ বাড়ান"
+                              className="flex h-11 w-11 items-center justify-center transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-accent"
                               disabled={displayStock > 0 && quantity >= displayStock}
                             >
-                              <Plus className="h-4 w-4 text-muted-foreground" />
+                              <Plus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                             </button>
                           </div>
                           <span className="font-bengali text-xs text-muted-foreground">
@@ -1185,7 +1177,7 @@ const ProductDetail = () => {
                       </div>
 
                       {/* Pairs Well With / Add-ons Section */}
-                      {product.paired_product_ids && product.paired_product_ids.length > 0 && (
+                      {Array.isArray(product.paired_product_ids) && product.paired_product_ids.length > 0 && (
                         <div className="pt-2">
                           <PairsWellWithSection
                             mainProductId={product.id}
@@ -1194,27 +1186,64 @@ const ProductDetail = () => {
                         </div>
                       )}
 
-                      {/* Trust Badges - Premium Glass Cards */}
-                      <div className="grid grid-cols-3 gap-2.5 pt-3">
-                        {[
-                          { icon: ShieldCheck, label: "অরিজিনাল", sub: "১০০% গ্যারান্টি" },
-                          { icon: Truck, label: "দ্রুত ডেলিভারি", sub: "সারাদেশে" },
-                          { icon: Headset, label: "সাপোর্ট", sub: "২৪/৭ সার্ভিস" },
-                        ].map(({ icon: Icon, label, sub }, i) => (
-                          <motion.div
-                            key={label}
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5 + i * 0.1 }}
-                            className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-gradient-to-br from-secondary/50 to-transparent p-3 text-center transition-all hover:border-accent/30 hover:shadow-md"
+                      {/* Authentic Trust & Delivery Details Card */}
+                      <div className="space-y-3 rounded-2xl border border-border/60 bg-gradient-to-br from-secondary/40 via-background to-secondary/20 p-4 sm:p-5 shadow-xs">
+                        {/* Delivery Details */}
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent shrink-0 mt-0.5">
+                            <Truck className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="text-xs space-y-1">
+                            <h4 className="font-bengali font-bold text-foreground text-sm">ডেলিভারি চার্জ ও সময়</h4>
+                            <p className="text-muted-foreground font-bengali">
+                              ঢাকা সিটি: <strong>৳{settings?.deliveryCharges?.dhaka_inside ?? 70}</strong> ({settings?.deliveryCharges?.delivery_time_inside ?? "৩-৫ কার্যদিবস"}) • ঢাকার বাইরে: <strong>৳{settings?.deliveryCharges?.dhaka_outside ?? 130}</strong> ({settings?.deliveryCharges?.delivery_time_outside ?? "৫-৭ কার্যদিবস"})
+                            </p>
+                            {product.isFreeDelivery ? (
+                              <p className="text-emerald-600 dark:text-emerald-400 font-bold font-bengali">
+                                ✓ এই প্রোডাক্টে সারা বাংলাদেশে সম্পূর্ণ ফ্রি ডেলিভারি প্রযোজ্য!
+                              </p>
+                            ) : (settings?.deliveryCharges?.free_delivery_min || 0) > 0 ? (
+                              <p className="text-accent font-semibold font-bengali">
+                                ৳{(settings?.deliveryCharges?.free_delivery_min || 0).toLocaleString()} টাকার অর্ডারে ফ্রি ডেলিভারি!
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="h-px bg-border/40" />
+
+                        {/* COD & Return Policy */}
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                            <span className="font-bengali font-medium text-foreground">
+                              {settings?.paymentMethods?.cod !== false ? "ক্যাশ অন ডেলিভারি সুবিধা" : "নিরাপদ পেমেন্ট"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RotateCcw className="h-4 w-4 text-accent shrink-0" />
+                            <Link to="/privacy-policy" className="font-bengali font-medium text-foreground hover:text-accent hover:underline">
+                              ৭ দিনের সহজ রিটার্ন পলিসি
+                            </Link>
+                          </div>
+                        </div>
+
+                        {/* Customer Support Helpline */}
+                        <div className="pt-2 border-t border-border/30 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5 font-bengali">
+                            <Headset className="h-3.5 w-3.5 text-accent" />
+                            যেকোনো প্রয়োজনে সহায়তা:
+                          </span>
+                          <a
+                            href={dynamicWhatsAppLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono font-bold text-accent hover:underline flex items-center gap-1"
                           >
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 transition-colors group-hover:bg-accent/20">
-                              <Icon className="h-4 w-4 text-accent" />
-                            </div>
-                            <span className="text-[11px] font-bold text-foreground">{label}</span>
-                            <span className="text-[9px] text-muted-foreground">{sub}</span>
-                          </motion.div>
-                        ))}
+                            <WhatsAppIcon className="h-3.5 w-3.5" />
+                            <span>{settings?.contactInfo?.phone || PHONE_NUMBER}</span>
+                          </a>
+                        </div>
                       </div>
                     </motion.div>
                   </div>
@@ -1235,221 +1264,250 @@ const ProductDetail = () => {
                     বিশেষত্ব
                   </TabsTrigger>
                   <TabsTrigger value="reviews" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
-                    রিভিউ
+                    রিভিউ ({dbReviews.length})
                   </TabsTrigger>
                   <TabsTrigger value="faq" className="rounded-xl font-bengali text-xs sm:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md">
                     প্রশ্নোত্তর
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Description Tab */}
-                <TabsContent value="description" className="space-y-8">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="prose-editorial"
-                  >
-                    {renderFormattedDescription(product.fullDescription)}
-                  </motion.div>
-                  {product.features.length > 0 && (
-                    <div className="space-y-3 pt-4">
-                      <h3 className="font-display text-base font-bold text-foreground">ট্যাগ</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {product.features.map((feature, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                          >
-                            <Link
-                              to={`/products?search=${encodeURIComponent(feature)}`}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-accent/30 hover:bg-secondary hover:text-foreground cursor-pointer"
+                  {/* Description Tab */}
+                  <TabsContent value="description" className="mt-8">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      className="rounded-2xl border border-border/30 bg-card p-6 sm:p-8 shadow-sm space-y-6"
+                    >
+                      {product.fullDescription && (
+                        <div className="font-bengali text-sm sm:text-base leading-relaxed text-foreground/80 space-y-4">
+                          {renderFormattedDescription(product.fullDescription)}
+                        </div>
+                      )}
+                      {product.features && product.features.length > 0 && (
+                        <div className="space-y-3 pt-4 border-t border-border/30">
+                          <h4 className="font-display text-base font-bold text-foreground">Tags:</h4>
+                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {product.features.map((feat, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm text-foreground/80 font-bengali">
+                                <CheckCircle2 className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                                <span>{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </motion.div>
+                  </TabsContent>
+
+                  {/* Specs Tab */}
+                  {product.specs && product.specs.length > 0 && (
+                    <TabsContent value="specs" className="mt-8">
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="rounded-2xl border border-border/30 bg-card p-6 sm:p-8 shadow-sm"
+                      >
+                        <div className="divide-y divide-border/30">
+                          {product.specs.map((spec, i) => (
+                            <div
+                              key={i}
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 text-sm transition-colors hover:bg-secondary/30 ${i % 2 === 0 ? "" : "bg-secondary/10"}`}
                             >
-                              <Check className="h-3.5 w-3.5 text-accent" />
-                              {feature}
-                            </Link>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Specs Tab */}
-                <TabsContent value="specs">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm"
-                  >
-                    <div className="border-b bg-gradient-to-r from-primary/5 to-transparent px-6 py-4">
-                      <h3 className="font-display text-base font-bold text-foreground">পণ্যের বিশেষত্ব</h3>
-                    </div>
-                    <div className="divide-y divide-border/30">
-                      {product.specs.map((spec, i) => (
-                        <motion.div
-                          key={spec.label}
-                          initial={{ opacity: 0 }}
-                          whileInView={{ opacity: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: i * 0.05 }}
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 px-4 py-3 sm:px-6 sm:py-4 text-sm transition-colors hover:bg-secondary/30 ${i % 2 === 0 ? "" : "bg-secondary/10"}`}
-                        >
-                          <span className="font-bengali font-medium text-muted-foreground">{spec.label}</span>
-                          <span className="font-display font-bold text-foreground text-left sm:text-right">{spec.value}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </motion.div>
-                </TabsContent>
-
-                {/* Reviews Tab */}
-                <TabsContent value="reviews">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="space-y-8"
-                  >
-                    {/* Summary Card */}
-                    <div className="flex flex-col md:flex-row items-center gap-6 rounded-2xl border border-border/30 bg-card p-6 shadow-sm">
-                      <div className="text-center w-full md:w-1/3">
-                        <p className="font-display text-5xl font-extrabold text-foreground">{product.rating}</p>
-                        <div className="mt-2 flex justify-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={`h-4 w-4 ${i < Math.floor(product.rating) ? "fill-accent text-accent" : "text-border"}`} />
+                              <span className="font-bengali font-medium text-muted-foreground">{spec.label}</span>
+                              <span className="font-display font-bold text-foreground text-left sm:text-right">{spec.value}</span>
+                            </div>
                           ))}
                         </div>
-                        <p className="mt-1.5 text-xs text-muted-foreground">
-                          {(dbReviews.length > 0 ? dbReviews.length : product.reviewCount).toLocaleString()} রিভিউ
-                        </p>
-                      </div>
-                      <div className="hidden md:block h-20 w-px bg-border/50" />
-                      <div className="flex-1 w-full space-y-2">
-                        {[5, 4, 3, 2, 1].map((star) => {
-                          let pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
-                          if (dbReviews.length > 0) {
-                            const count = dbReviews.filter((r: any) => Math.round(r.rating) === star).length;
-                            pct = Math.round((count / dbReviews.length) * 100) || 0;
-                          }
-                          return (
-                            <div key={star} className="flex items-center gap-2">
-                              <span className="w-3 text-xs font-medium text-muted-foreground">{star}</span>
-                              <Star className="h-3 w-3 fill-accent text-accent" />
-                              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  whileInView={{ width: `${pct}%` }}
-                                  viewport={{ once: true }}
-                                  transition={{ duration: 0.8, delay: 0.2 }}
-                                  className="h-full rounded-full bg-gradient-to-r from-accent to-accent/70"
-                                />
-                              </div>
-                              <span className="w-8 text-right text-xs font-medium text-muted-foreground">{pct}%</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                      </motion.div>
+                    </TabsContent>
+                  )}
 
-                    {/* Reviews List */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-display text-lg font-bold text-foreground">গ্রাহকদের মতামত</h3>
-                        {dbReviews.length > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-bengali">
-                            <ShieldCheck className="h-3.5 w-3.5" /> {dbReviews.length}টি ভেরিফাইড রিভিউ
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-4 divide-y divide-border/30">
-                        {(dbReviews.length > 0 ? dbReviews : DEMO_REVIEWS).map((r: any) => (
-                          <div key={r.id} className="pt-4 first:pt-0 space-y-2">
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-3">
-                                {r.customer_image_url ? (
-                                  <img
-                                    src={r.customer_image_url}
-                                    alt={r.customer_name}
-                                    className="h-9 w-9 rounded-full object-cover border border-border/50"
-                                  />
-                                ) : (
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-accent font-bold text-xs uppercase shadow-sm">
-                                    {r.customer_name?.charAt(0) || "U"}
-                                  </div>
-                                )}
-                                <div>
-                                  <p className="font-semibold text-foreground text-sm">{r.customer_name}</p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {r.customer_location || "Verified Buyer"} • {new Date(r.created_at || r.date || Date.now()).toLocaleDateString("bn-BD")}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex gap-0.5">
+                  {/* Reviews Tab */}
+                  <TabsContent value="reviews" className="mt-8">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      className="space-y-8"
+                    >
+                      {dbReviews.length > 0 ? (
+                        <>
+                          {/* Summary Card */}
+                          <div className="flex flex-col md:flex-row items-center gap-6 rounded-2xl border border-border/30 bg-card p-6 shadow-sm">
+                            <div className="text-center w-full md:w-1/3">
+                              <p className="font-display text-5xl font-extrabold text-foreground">{product.rating}</p>
+                              <div className="mt-2 flex justify-center gap-0.5">
                                 {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "fill-accent text-accent" : "text-border"}`} />
+                                  <Star key={i} className={`h-4 w-4 ${i < Math.floor(product.rating) ? "fill-accent text-accent" : "text-border"}`} />
                                 ))}
                               </div>
+                              <p className="mt-1.5 text-xs text-muted-foreground">
+                                {dbReviews.length.toLocaleString()}টি অনুমোদিত রিভিউ
+                              </p>
                             </div>
-                            <p className="font-bengali text-sm text-foreground/80 leading-relaxed pl-12">
-                              {r.review}
-                            </p>
+                            <div className="hidden md:block h-20 w-px bg-border/50" />
+                            <div className="flex-1 w-full space-y-2">
+                              {[5, 4, 3, 2, 1].map((star) => {
+                                const count = dbReviews.filter((r: any) => Math.round(r.rating) === star).length;
+                                const pct = Math.round((count / dbReviews.length) * 100) || 0;
+                                return (
+                                  <div key={star} className="flex items-center gap-2">
+                                    <span className="w-3 text-xs font-medium text-muted-foreground">{star}</span>
+                                    <Star className="h-3 w-3 fill-accent text-accent" />
+                                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                                      <motion.div
+                                        initial={{ width: 0 }}
+                                        whileInView={{ width: `${pct}%` }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.8, delay: 0.2 }}
+                                        className="h-full rounded-full bg-gradient-to-r from-accent to-accent/70"
+                                      />
+                                    </div>
+                                    <span className="w-8 text-right text-xs font-medium text-muted-foreground">{pct}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
 
-                    {/* Add Review Form */}
-                    <div className="border border-border/30 rounded-2xl p-6 bg-card space-y-4 shadow-sm">
-                      <h3 className="font-display text-lg font-bold text-foreground">একটি রিভিউ লিখুন</h3>
-                      <form onSubmit={handleSubmitReview} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-muted-foreground">আপনার নাম *</label>
-                            <Input
-                              placeholder="যেমন: রাফসান করিম"
-                              value={newReviewName}
-                              onChange={(e) => setNewReviewName(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-muted-foreground">রেটিং *</label>
-                            <div className="flex items-center gap-1.5 h-10">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  type="button"
-                                  onClick={() => setNewReviewRating(star)}
-                                  className="focus:outline-none transition-transform active:scale-90"
-                                >
-                                  <Star className={`h-6 w-6 ${star <= newReviewRating ? "fill-accent text-accent" : "text-muted-foreground/30 hover:text-accent/60"}`} />
-                                </button>
+                          {/* Reviews List */}
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-display text-lg font-bold text-foreground">গ্রাহকদের মতামত</h3>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-bengali">
+                                <ShieldCheck className="h-3.5 w-3.5" /> {dbReviews.length}টি অনুমোদিত রিভিউ
+                              </span>
+                            </div>
+                            <div className="space-y-4 divide-y divide-border/30">
+                              {dbReviews.map((r: any) => (
+                                <div key={r.id} className="pt-4 first:pt-0 space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                      {r.customer_image_url ? (
+                                        <img
+                                          src={r.customer_image_url}
+                                          alt={r.customer_name}
+                                          className="h-9 w-9 rounded-full object-cover border border-border/50"
+                                        />
+                                      ) : (
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-accent font-bold text-xs uppercase shadow-sm">
+                                          {r.customer_name?.charAt(0) || "U"}
+                                        </div>
+                                      )}
+                                      <div>
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="font-semibold text-foreground text-sm">{r.customer_name}</p>
+                                          {r.is_verified_purchase && (
+                                            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                                              <ShieldCheck className="h-3 w-3" /> ভেরিফাইড ক্রেতা
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">
+                                          {new Date(r.created_at || r.date || Date.now()).toLocaleDateString("bn-BD")}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      {Array.from({ length: 5 }).map((_, i) => (
+                                        <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "fill-accent text-accent" : "text-border"}`} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <p className="font-bengali text-sm text-foreground/80 leading-relaxed pl-12">
+                                    {r.review}
+                                  </p>
+                                </div>
                               ))}
                             </div>
                           </div>
+                        </>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-border/60 bg-card/50 p-8 text-center space-y-3">
+                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                            <Star className="h-6 w-6" />
+                          </div>
+                          <h3 className="font-display text-lg font-bold text-foreground">এখনো কোনো রিভিউ নেই</h3>
+                          <p className="max-w-md mx-auto text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                            আপনি কি পণ্যটি ক্রয় করেছেন? নিচের ফর্ম থেকে আপনার সৎ ও মূল্যবান অভিজ্ঞতা শেয়ার করুন।
+                          </p>
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-muted-foreground">রিভিউ বক্তব্য *</label>
-                          <Textarea
-                            placeholder="প্রোডাক্টটি কেমন লেগেছে? আপনার অভিজ্ঞতা লিখুন..."
-                            value={newReviewText}
-                            onChange={(e) => setNewReviewText(e.target.value)}
-                            rows={4}
-                            required
-                          />
-                        </div>
-                        <Button type="submit" disabled={submittingReview} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold">
-                          {submittingReview ? "রিভিউ জমা হচ্ছে..." : "রিভিউ জমা দিন"}
-                        </Button>
-                      </form>
-                    </div>
-                  </motion.div>
-                </TabsContent>
+                      )}
+
+                      {/* Add Review Form */}
+                      <div className="border border-border/30 rounded-2xl p-6 bg-card space-y-4 shadow-sm">
+                        <h3 className="font-display text-lg font-bold text-foreground">একটি রিভিউ লিখুন</h3>
+                        <form onSubmit={handleSubmitReview} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold text-muted-foreground">আপনার নাম *</label>
+                              <Input
+                                placeholder="যেমন: রাফসান করিম"
+                                value={newReviewName}
+                                onChange={(e) => setNewReviewName(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold text-muted-foreground">রেটিং *</label>
+                              <div className="flex items-center gap-1.5 h-10">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setNewReviewRating(star)}
+                                    className="focus:outline-none transition-transform active:scale-90"
+                                  >
+                                    <Star className={`h-6 w-6 ${star <= newReviewRating ? "fill-accent text-accent" : "text-muted-foreground/30 hover:text-accent/60"}`} />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold text-muted-foreground">
+                                অর্ডার নম্বর <span className="text-[10px] text-muted-foreground/70">(ঐচ্ছিক - ভেরিফাইড ব্যাজের জন্য)</span>
+                              </label>
+                              <Input
+                                placeholder="যেমন: ORD-260821-1234"
+                                value={newReviewOrderNumber}
+                                onChange={(e) => setNewReviewOrderNumber(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold text-muted-foreground">
+                                মোবাইল নম্বর <span className="text-[10px] text-muted-foreground/70">(ঐচ্ছিক - অর্ডারের সাথে মেলানোর জন্য)</span>
+                              </label>
+                              <Input
+                                placeholder="যেমন: 017xxxxxxxx"
+                                value={newReviewPhone}
+                                onChange={(e) => setNewReviewPhone(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground">রিভিউ বক্তব্য *</label>
+                            <Textarea
+                              placeholder="প্রোডাক্টটি কেমন লেগেছে? আপনার অভিজ্ঞতা লিখুন..."
+                              value={newReviewText}
+                              onChange={(e) => setNewReviewText(e.target.value)}
+                              rows={4}
+                              required
+                            />
+                          </div>
+
+                          <Button type="submit" disabled={submittingReview} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold">
+                            {submittingReview ? "রিভিউ জমা হচ্ছে..." : "রিভিউ জমা দিন"}
+                          </Button>
+                        </form>
+                      </div>
+                    </motion.div>
+                  </TabsContent>
 
                 {/* FAQ Tab */}
                 <TabsContent value="faq">
@@ -1528,13 +1586,49 @@ const ProductDetail = () => {
 
           {/* Sticky Bottom CTA (Mobile) */}
           {!codModalOpen && (
-            <div className="mobile-sticky-cta fixed left-0 right-0 z-[940] border-t border-border/40 bg-background/95 backdrop-blur-md px-4 py-3 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom) + 70px)" }}>
-              <div className="flex items-center gap-2.5">
+            <div
+              className="mobile-sticky-cta fixed left-0 right-0 z-[940] border-t border-border/50 bg-background/95 backdrop-blur-md px-3.5 py-2.5 shadow-[0_-8px_30px_rgba(16,42,32,0.12)] lg:hidden"
+              style={{ bottom: "calc(env(safe-area-inset-bottom) + 68px)" }}
+            >
+              {/* Top Variant/Price Summary Pill */}
+              <div className="flex items-center justify-between pb-2 text-xs border-b border-border/30 mb-2">
+                <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                  <span className="font-bold text-foreground truncate">
+                    {product.has_variants
+                      ? (activeVariant ? activeVariant.title : "অপশন সিলেক্ট করুন")
+                      : product.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-display font-extrabold text-foreground text-sm">
+                    {formatPrice(displayPrice)}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      displayStock <= 0
+                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                        : displayStock <= 5
+                        ? "bg-amber-500/10 text-amber-600"
+                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {displayStock <= 0
+                      ? "স্টক শেষ"
+                      : displayStock <= 5
+                      ? `বাকি ${displayStock}টি`
+                      : "স্টকে আছে"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bottom Action Buttons */}
+              <div className="flex items-center gap-2">
                 {/* Add to Cart Icon Button */}
                 <Button
                   size="icon"
                   disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
-                  className={`h-12 w-12 rounded-xl border shrink-0 [&_svg]:!size-[22px] ${
+                  aria-label="কার্টে যোগ করুন"
+                  className={`h-11 w-11 rounded-xl border shrink-0 [&_svg]:!size-[20px] focus-visible:ring-2 focus-visible:ring-accent ${
                     displayStock === 0
                       ? "bg-purple-600/10 text-purple-600 border-purple-500/20 hover:bg-purple-600/20"
                       : "bg-accent/15 text-accent border-accent/20 hover:bg-accent/25"
@@ -1542,28 +1636,29 @@ const ProductDetail = () => {
                   onClick={handleAddToCart}
                   title="কার্টে যোগ করুন"
                 >
-                  <ShoppingCart className="h-[22px] w-[22px]" />
+                  <ShoppingCart className="h-[20px] w-[20px]" aria-hidden="true" />
                 </Button>
 
                 {/* Order Now (Highlighted) */}
                 <Button
                   size="default"
                   disabled={product.has_variants ? (!activeVariant || activeVariant.stock_quantity <= 0) : displayStock <= 0}
-                  className={`h-12 flex-1 rounded-xl text-sm sm:text-base font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] [&_svg]:!size-[20px] ${
+                  aria-label={product.has_variants && !activeVariant ? "অপশন নির্বাচন করুন" : displayStock === 0 ? "প্রি-অর্ডার করুন" : "ক্যাশ অন ডেলিভারিতে অর্ডার করুন"}
+                  className={`h-11 flex-1 rounded-xl text-sm font-extrabold text-white shadow-[0_3px_15px_-3px_rgba(43,178,114,0.3)] [&_svg]:!size-[18px] focus-visible:ring-2 focus-visible:ring-accent ${
                     displayStock === 0
                       ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500"
                       : "bg-gradient-to-r from-success to-[#22995e] hover:from-[#2bb272] hover:to-[#1f8c54]"
                   }`}
                   onClick={handleOpenCodOrder}
                 >
-                  <Banknote className="mr-2 h-[20px] w-[20px] shrink-0" /> {product.has_variants && !activeVariant ? "অপশন নির্বাচন করুন" : displayStock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
+                  <Banknote className="mr-1.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" /> {product.has_variants && !activeVariant ? "অপশন নির্বাচন করুন" : displayStock === 0 ? "প্রি-অর্ডার করুন" : "অর্ডার করুন"}
                 </Button>
 
                 {/* Order on WhatsApp Icon Button */}
                 <Button
                   asChild
                   size="icon"
-                  className="h-12 w-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_3px_15px_-3px_rgba(16,185,129,0.3)] shrink-0 cursor-pointer [&_svg]:!size-[22px]"
+                  className="h-11 w-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_3px_15px_-3px_rgba(16,185,129,0.3)] shrink-0 cursor-pointer [&_svg]:!size-[20px]"
                   title="WhatsApp এ অর্ডার করুন"
                 >
                   <a
@@ -1573,7 +1668,7 @@ const ProductDetail = () => {
                     onClick={() => analytics.contact("whatsapp")}
                     className="flex items-center justify-center"
                   >
-                    <WhatsAppIcon className="h-[22px] w-[22px]" />
+                    <WhatsAppIcon className="h-[20px] w-[20px]" />
                   </a>
                 </Button>
               </div>

@@ -30,6 +30,7 @@ export default async function handler(req: any, res: any) {
     robotsText += "Disallow: /checkout\n";
     robotsText += "Disallow: /account\n";
     robotsText += "Disallow: /account/*\n";
+    robotsText += "Disallow: /order-success/*\n";
     robotsText += "Disallow: /login\n";
     robotsText += "Disallow: /register\n";
     robotsText += "Disallow: /forgot-password\n";
@@ -42,7 +43,7 @@ export default async function handler(req: any, res: any) {
   } catch (err: any) {
     console.error("Robots generation error:", err);
     // Secure, basic fallback robots.txt
-    const fallbackRobots = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/*\nDisallow: /api/\nDisallow: /cart\nDisallow: /checkout\nDisallow: /account\nDisallow: /account/*\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /reset-password\nSitemap: https://www.rangao.bd/sitemap.xml\n";
+    const fallbackRobots = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/*\nDisallow: /api/\nDisallow: /cart\nDisallow: /checkout\nDisallow: /account\nDisallow: /account/*\nDisallow: /order-success/*\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /reset-password\nSitemap: https://www.rangao.bd/sitemap.xml\n";
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Cache-Control", "public, max-age=86400");
     return res.status(200).send(fallbackRobots);

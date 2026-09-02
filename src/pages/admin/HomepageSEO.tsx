@@ -252,6 +252,7 @@ export default function AdminHomepageSEO() {
       </div>
       {activePickerField && (
         <MediaPicker
+          isOpen={!!activePickerField}
           onSelect={(url) => {
             set("og_image", url);
             setActivePickerField(false);

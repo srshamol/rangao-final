@@ -290,6 +290,7 @@ export default function ProductForm() {
   const [variationOptions, setVariationOptions] = useState<VariationOption[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [pairedProductIds, setPairedProductIds] = useState<string[]>([]);
+  const [hasPairedProducts, setHasPairedProducts] = useState(false);
 
   const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -350,6 +351,7 @@ export default function ProductForm() {
         }
         if (Array.isArray(val.paired_product_ids) && val.paired_product_ids.length > 0) {
           setPairedProductIds((prev) => (prev.length > 0 ? prev : val.paired_product_ids));
+          setHasPairedProducts(true);
         }
       }
     };
@@ -424,6 +426,7 @@ export default function ProductForm() {
       }
       if (Array.isArray((existing as any).paired_product_ids) && (existing as any).paired_product_ids.length > 0) {
         setPairedProductIds((existing as any).paired_product_ids);
+        setHasPairedProducts(true);
       }
     }
   }, [existing]);
@@ -520,13 +523,15 @@ export default function ProductForm() {
         ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
         : form.stock_quantity;
 
+      const finalPairedProductIds = hasPairedProducts ? pairedProductIds : [];
+
       const payload: any = {
         ...form,
         stock_quantity: totalStock,
         has_variants: hasVariants,
         variation_options: variationOptions,
         variants: variants,
-        paired_product_ids: pairedProductIds,
+        paired_product_ids: finalPairedProductIds,
         tags: updatedTags,
         specifications: specs.filter((s) => s.label && s.value) as any,
       };
@@ -543,7 +548,7 @@ export default function ProductForm() {
         has_variants: hasVariants,
         variation_options: variationOptions,
         variants: variants,
-        paired_product_ids: pairedProductIds,
+        paired_product_ids: finalPairedProductIds,
       };
 
       if (isEdit) {
@@ -1168,6 +1173,8 @@ export default function ProductForm() {
         currentProductId={isEdit ? id : undefined}
         pairedProductIds={pairedProductIds}
         onChange={setPairedProductIds}
+        hasPairedProducts={hasPairedProducts}
+        onHasPairedProductsChange={setHasPairedProducts}
       />
 
       {/* SEO & FAQ Settings */}

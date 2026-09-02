@@ -8,6 +8,7 @@ interface Testimonial {
   rating: number;
   review: string;
   is_active: boolean;
+  status?: string;
   sort_order: number;
   product_id: string | null;
   created_at?: string;
@@ -23,7 +24,7 @@ interface DBProduct {
 
 function processProductReviews(dbProduct: DBProduct) {
   const dbReviews = (dbProduct.testimonials || [])
-    .filter((t: Testimonial) => t.is_active)
+    .filter((t: Testimonial) => t.is_active && (t.status === undefined || t.status === "approved"))
     .sort((a: Testimonial, b: Testimonial) => {
       const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -34,9 +35,11 @@ function processProductReviews(dbProduct: DBProduct) {
   
   const computedRating = hasReviews 
     ? Number((dbReviews.reduce((sum: number, r: Testimonial) => sum + r.rating, 0) / dbReviews.length).toFixed(1))
-    : dbProduct.rating || 4.9;
+    : (Number(dbProduct.rating) > 0 ? Number(dbProduct.rating) : 0);
     
-  const computedReviewCount = hasReviews ? dbReviews.length : dbProduct.review_count || 48;
+  const computedReviewCount = hasReviews 
+    ? dbReviews.length 
+    : (Number(dbProduct.review_count) > 0 ? Number(dbProduct.review_count) : 0);
 
   return {
     reviews: dbReviews,
@@ -46,7 +49,7 @@ function processProductReviews(dbProduct: DBProduct) {
 }
 
 describe("Product Reviews and Testimonials Logic", () => {
-  it("should filter out inactive reviews", () => {
+  it("should filter out inactive reviews and unapproved reviews", () => {
     const product: DBProduct = {
       id: "p1",
       name: "Islamic Calligraphy",
@@ -61,6 +64,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 5,
           review: "Excellent!",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1",
           created_at: "2026-06-01T00:00:00Z"
@@ -73,6 +77,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 1,
           review: "Bad delivery",
           is_active: false,
+          status: "pending",
           sort_order: 0,
           product_id: "p1",
           created_at: "2026-06-02T00:00:00Z"
@@ -100,6 +105,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 4,
           review: "Good!",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1",
           created_at: "2026-06-01T00:00:00Z"
@@ -112,6 +118,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 5,
           review: "Excellent!",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1",
           created_at: "2026-06-05T00:00:00Z"
@@ -139,6 +146,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 5,
           review: "Perfect",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1"
         },
@@ -150,6 +158,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 4,
           review: "Very good",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1"
         },
@@ -161,6 +170,7 @@ describe("Product Reviews and Testimonials Logic", () => {
           rating: 4,
           review: "Nice",
           is_active: true,
+          status: "approved",
           sort_order: 0,
           product_id: "p1"
         }
@@ -173,20 +183,8 @@ describe("Product Reviews and Testimonials Logic", () => {
     expect(result.reviewCount).toBe(3);
   });
 
-  it("should fallback to product ratings or default values when there are no active reviews", () => {
-    const productWithDbDefaults: DBProduct = {
-      id: "p1",
-      name: "Islamic Calligraphy",
-      rating: 4.8,
-      review_count: 25,
-      testimonials: []
-    };
-
-    const resultDefaults = processProductReviews(productWithDbDefaults);
-    expect(resultDefaults.rating).toBe(4.8);
-    expect(resultDefaults.reviewCount).toBe(25);
-
-    const productWithoutDefaults: DBProduct = {
+  it("should return 0 rating and 0 reviewCount when there are no reviews (no fake 4.9/48 fallback)", () => {
+    const productWithoutReviews: DBProduct = {
       id: "p2",
       name: "Islamic Calligraphy 2",
       rating: null,
@@ -194,8 +192,9 @@ describe("Product Reviews and Testimonials Logic", () => {
       testimonials: []
     };
 
-    const resultFallback = processProductReviews(productWithoutDefaults);
-    expect(resultFallback.rating).toBe(4.9);
-    expect(resultFallback.reviewCount).toBe(48);
+    const result = processProductReviews(productWithoutReviews);
+    expect(result.rating).toBe(0);
+    expect(result.reviewCount).toBe(0);
+    expect(result.reviews).toHaveLength(0);
   });
 });

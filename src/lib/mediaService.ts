@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { processImage, TARGET_WIDTHS, compressImage } from "@/utils/imagePipeline";
+import { sanitizeAdminError } from "@/lib/permissions";
 
 // Helper function to generate standard UUID v4
 const generateUUID = (): string => {
@@ -140,6 +141,18 @@ class MediaService {
       return { valid: false, error: "শুধুমাত্র ভিডিও আপলোড করা যাবে" };
     }
 
+    const ALLOWED_MIMES: Record<string, string[]> = {
+      images: ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/gif", "image/avif"],
+      videos: ["video/mp4", "video/webm", "video/quicktime"],
+      documents: ["application/pdf", "text/plain", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      uploads: ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/gif", "image/avif", "application/pdf"],
+    };
+
+    const allowedList = ALLOWED_MIMES[type];
+    if (allowedList && file.type && !allowedList.includes(file.type.toLowerCase())) {
+      return { valid: false, error: `অকার্যকর ফাইল ফরম্যাট (${file.type})। অনুমোদিত ফরম্যাট: ${allowedList.map(m => m.split('/')[1] || m).join(', ')}` };
+    }
+
     return { valid: true };
   }
 
@@ -209,7 +222,10 @@ class MediaService {
     const cleanBaseName = baseNameWithoutExt.replace(/[^a-zA-Z0-9]/g, "_");
     
     const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const path = customPath || `${uniqueId}_${cleanName}`;
+    const sanitizedCustomPath = customPath
+      ? customPath.replace(/\.\./g, "").replace(/[^a-zA-Z0-9_\-\/.]/g, "_").replace(/^\/+/, "")
+      : undefined;
+    const path = sanitizedCustomPath || `${uniqueId}_${cleanName}`;
     
     let uploadError = null;
     let actualBucket = bucket;

@@ -8,9 +8,13 @@
     "build": "node scripts/generate-static-sitemap.js && vite build",
     "build:dev": "node scripts/generate-static-sitemap.js && vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:smoke": "node scripts/smoke-test.js",
+    "validate:env": "node scripts/validate-env.js",
+    "validate:release": "node scripts/release-check.js",
     "seed": "node seed_db.js"
   },
   "dependencies": {

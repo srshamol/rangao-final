@@ -251,7 +251,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity, selectedVariant 
 
   const unitPrice = selectedVariant
     ? (selectedVariant.sale_price ?? selectedVariant.regular_price)
-    : (product.sale_price ?? product.price);
+    : ((product as any).sale_price ?? product.price);
   const displayImage = selectedVariant?.image || product.images[0];
   const itemTitle = selectedVariant ? `${product.name} (${selectedVariant.title})` : product.name;
 
@@ -431,9 +431,9 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity, selectedVariant 
           // ignore
         }
       }
-      const userAgent = navigator.userAgent;
 
       const normalizedPhone = normalizeBDPhone(phone);
+      const idempotencyKey = `cod_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
       // Track AddPaymentInfo event
       analytics.addPaymentInfo(
@@ -451,25 +451,32 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity, selectedVariant 
         payment === "cod" ? "COD" : payment === "uddoktapay" ? "Online" : payment === "bkash" ? "bKash" : "Nagad"
       );
 
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          order_number: "",
-          customer_name: name.trim(),
-          customer_phone: normalizedPhone,
-          shipping_address: {
-            division: shippingLabel,
-            address: address.trim(),
+      // Authoritative checkout payload
+      const checkoutPayload = {
+        items: [
+          {
+            productId: product.id,
+            variantId: selectedVariant?.id || null,
+            quantity: localQuantity,
           },
-          payment_method: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "UddoktaPay" : payment === "bkash" ? "bKash" : "Nagad",
-          subtotal,
-          delivery_charge: deliveryCharge,
-          discount_amount: discountAmount,
-          coupon_code: appliedCoupon ? appliedCoupon.code : null,
-          total_amount: total,
-          notes: orderNote.trim() || null,
+        ],
+        customer: {
+          name: name.trim(),
+          phone: normalizedPhone,
+          email: "",
+        },
+        shippingAddress: {
+          division: shippingLabel,
+          district: "",
+          thana: "",
+          address: address.trim(),
+        },
+        paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "uddoktapay" : payment === "bkash" ? "bKash" : "Nagad",
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        orderNotes: orderNote.trim() || null,
+        idempotencyKey,
+        trackingParams: {
           ip_address: clientIP || null,
-          user_agent: userAgent,
           fbp: fbp || null,
           fbc: fbc || null,
           fbclid: attribution.fbclid || null,
@@ -478,230 +485,120 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity, selectedVariant 
           utm_campaign: attribution.utm_campaign || null,
           utm_content: attribution.utm_content || null,
           utm_term: attribution.utm_term || null,
-        })
-        .select("id, order_number")
-        .single();
+        },
+        origin: window.location.origin,
+      };
 
-      if (orderError) throw orderError;
+      let checkoutResponse: any = null;
 
-      const isPreOrder = selectedVariant ? selectedVariant.stock_quantity === 0 : product.stock === 0;
-
-      const isValidUUID = (id?: string) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || "");
-
-      const { error: itemsError } = await supabase.from("order_items").insert({
-        order_id: order.id,
-        product_id: isValidUUID(product.id) ? product.id : null,
-        product_name: isPreOrder ? `${itemTitle} (প্রি-অর্ডার)` : itemTitle,
-        unit_price: unitPrice,
-        quantity: localQuantity,
-        total_price: subtotal,
-      });
-      if (itemsError) throw itemsError;
-
-      // Send Telegram notification to admin
       try {
-        const { sendTelegramNotification } = await import("@/lib/telegram");
-        const itemsList = `• ${itemTitle}${isPreOrder ? " [প্রি-অর্ডার]" : ""} (Qty: ${localQuantity}) - ৳${subtotal}`;
-        
-        let couponInfo = "";
-        if (appliedCoupon) {
-          couponInfo = `<b>কুপন কোড:</b> ${appliedCoupon.code} (ডিসকাউন্ট: ৳${discountAmount})\n`;
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(checkoutPayload),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          checkoutResponse = await res.json();
         }
 
-        let noteInfo = "";
-        if (orderNote.trim()) {
-          noteInfo = `<b>নোট:</b> ${orderNote.trim()}\n`;
+        if (!res.ok) {
+          throw new Error(checkoutResponse?.error || `Checkout failed with status ${res.status}`);
         }
-
-        const message = `🛍️ <b>নতুন ${isPreOrder ? "প্রি-অর্ডার" : "অর্ডার"} এসেছে (${payment === "uddoktapay" ? "Online" : "COD"})!</b>\n\n` +
-          `<b>অর্ডার নং:</b> #${order.order_number}\n` +
-          `<b>গ্রাহকের নাম:</b> ${name.trim()}\n` +
-          `<b>মোবাইল:</b> ${phone.trim()}\n` +
-          `<b>ঠিকানা:</b> ${address.trim()} (${shippingLabel})\n` +
-          `<b>পেমেন্ট মেথড:</b> ${payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "uddoktapay" ? "অনলাইন পেমেন্ট (UddoktaPay)" : payment === "bkash" ? "bKash" : "Nagad"}\n` +
-          couponInfo +
-          noteInfo +
-          `\n<b>পণ্যসমূহ:</b>\n${itemsList}\n\n` +
-          `<b>সাবটোটাল:</b> ৳${subtotal}\n` +
-          `<b>ডেলিভারি চার্জ:</b> ৳${deliveryCharge}\n` +
-          `<b>সর্বমোট পরিমাণ:</b> ৳${total}`;
-
-        await sendTelegramNotification(message, { isNewOrder: true, orderId: order.id } as any);
-      } catch (tgErr) {
-        console.error("Error triggering telegram notification:", tgErr);
-      }
-
-      // Send Order Success SMS to customer if enabled
-      try {
-        if (smsConfig && smsConfig.enabled && smsConfig.order_success_sms_enabled) {
-          const smsText = (smsConfig.order_success_sms_template || "Dear {name}, your order #{order_number} has been received. Total: ৳{total}.")
-            .replace("{name}", name.trim())
-            .replace("{order_number}", order.order_number)
-            .replace("{total}", String(total));
-
-          await fetch("/api/sms/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: phone.trim(),
-              message: smsText,
-              orderId: order.id
-            })
-          });
-        }
-      } catch (smsErr) {
-        console.error("Error sending order success SMS:", smsErr);
-      }
-
-      // Update coupon usage count if used
-      if (appliedCoupon) {
-        await supabase
-          .from("coupons")
-          .update({ used_count: (appliedCoupon.used_count || 0) + 1 })
-          .eq("id", appliedCoupon.id);
-      }
-
-      // If UddoktaPay is selected, redirect to the gateway page
-      if (payment === "uddoktapay") {
-        try {
-          const initiateRes = await fetch("/api/uddoktapay/initiate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+      } catch (apiErr: any) {
+        // Direct Database RPC fallback if serverless endpoint is offline in dev environment
+        console.warn("Checkout API unavailable, falling back to direct RPC transaction:", apiErr);
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("process_checkout", {
+          p_items: [
+            {
+              product_id: product.id,
+              variant_id: selectedVariant?.id || null,
+              quantity: localQuantity,
             },
-            body: JSON.stringify({
-              orderId: order.id,
-              origin: window.location.origin,
-            }),
-          });
+          ],
+          p_customer_name: checkoutPayload.customer.name,
+          p_customer_phone: checkoutPayload.customer.phone,
+          p_customer_email: null,
+          p_shipping_address: checkoutPayload.shippingAddress,
+          p_payment_method: checkoutPayload.paymentMethod,
+          p_coupon_code: checkoutPayload.couponCode,
+          p_order_notes: checkoutPayload.orderNotes,
+          p_idempotency_key: checkoutPayload.idempotencyKey,
+          p_user_id: null,
+          p_tracking_params: checkoutPayload.trackingParams,
+        });
 
-          const contentType = initiateRes.headers.get("content-type") || "";
-          if (!initiateRes.ok || contentType.includes("text/html")) {
-            throw new Error("Serverless relay unavailable (returned HTML/error)");
+        if (rpcErr) {
+          const errMsg = rpcErr.message || "Failed to process order";
+          if (errMsg.includes("OUT_OF_STOCK")) {
+            throw new Error("পণ্যটি বর্তমানে স্টকে নেই বা পর্যাপ্ত স্টক নেই");
           }
-
-          const initiateData = await initiateRes.json();
-          if (initiateData.payment_url) {
-            isCompletedRef.current = true;
-            await markConverted(order.id, phone);
-            localStorage.removeItem("cod_modal_form_draft");
-            // Redirect user to UddoktaPay payment page
-            window.location.href = initiateData.payment_url;
-            return;
-          } else {
-            throw new Error(initiateData.error || "Failed to create payment session");
+          if (errMsg.includes("INVALID_VARIANT") || errMsg.includes("INACTIVE_VARIANT")) {
+            throw new Error("নির্বাচিত ভ্যারিয়েশনটি সঠিক নয় বা বর্তমানে অনুপলব্ধ");
           }
-        } catch (payErr: any) {
-          console.warn("UddoktaPay serverless function unavailable, attempting direct client-side fallback:", payErr);
-          
-          try {
-            // Fetch credentials directly from settings (simulating serverless function behavior)
-            const { data: row, error: settingsError } = await supabase
-              .from("store_settings" as any)
-              .select("value")
-              .eq("key", "payment_methods")
-              .maybeSingle();
-
-            if (settingsError || !row || !row.value) {
-               throw new Error("Payment settings not found in database.");
-            }
-
-            const { uddoktapay_api_key, uddoktapay_base_url } = row.value as any;
-            if (!uddoktapay_api_key || !uddoktapay_base_url) {
-              throw new Error("UddoktaPay API key or Base URL is missing in settings.");
-            }
-
-            let baseUrl = uddoktapay_base_url.trim().replace(/\/$/, "");
-            if (baseUrl.endsWith("/api")) {
-              baseUrl = baseUrl.slice(0, -4).replace(/\/$/, "");
-            }
-            const apiKey = uddoktapay_api_key.trim();
-
-            const uddoktaPayPayload = {
-              full_name: name.trim() || "Customer",
-              email: "customer@example.com",
-              amount: String(total),
-              currency: "BDT",
-              metadata: {
-                order_id: order.id,
-                order_number: order.order_number,
-              },
-              redirect_url: `${window.location.origin}/order-success/${order.order_number}`,
-              return_type: "GET",
-              cancel_url: `${window.location.origin}/checkout?payment_status=cancelled`,
-              webhook_url: `${window.location.origin}/api/uddoktapay/webhook`,
-            };
-
-            const apiResponse = await fetch(`${baseUrl}/api/checkout-v2`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "accept": "application/json",
-                "RT-UDDOKTAPAY-API-KEY": apiKey,
-              },
-              body: JSON.stringify(uddoktaPayPayload),
-            });
-
-            if (!apiResponse.ok) {
-              throw new Error(`UddoktaPay API returned HTTP status ${apiResponse.status}`);
-            }
-
-            const result = await apiResponse.json();
-            if (result.status && result.payment_url) {
-              isCompletedRef.current = true;
-              await markConverted(order.id, phone);
-              localStorage.removeItem("cod_modal_form_draft");
-              window.location.href = result.payment_url;
-              return;
-            } else {
-              throw new Error(result.message || "Failed to get payment url from UddoktaPay");
-            }
-          } catch (fallbackErr: any) {
-            console.error("UddoktaPay client-side fallback failed:", fallbackErr);
-            toast.error("অনলাইন পেমেন্ট গেটওয়েতে রিডাইরেক্ট করতে সমস্যা হয়েছে। আবার চেষ্টা করুন বা অন্য পেমেন্ট মেথড সিলেক্ট করুন।");
-            setSubmitting(false);
-            return;
+          if (errMsg.includes("COUPON")) {
+            throw new Error("কুপন কোডটি সঠিক নয় বা ব্যবহারের শর্ত পূরণ হয়নি");
           }
+          throw new Error(errMsg);
+        }
+
+        checkoutResponse = { success: true, order: rpcData };
+      }
+
+      const orderData = checkoutResponse?.order;
+      if (!orderData || !orderData.order_id) {
+        throw new Error(checkoutResponse?.error || "অর্ডার তৈরিতে সমস্যা দেখা দিয়েছে");
+      }
+
+      // Mark incomplete order as converted
+      await markConverted(orderData.order_id, phone);
+
+      // Handle UddoktaPay Redirection
+      if (payment === "uddoktapay") {
+        if (checkoutResponse.payment_url) {
+          isCompletedRef.current = true;
+          localStorage.removeItem("cod_modal_form_draft");
+          window.location.href = checkoutResponse.payment_url;
+          return;
+        } else if (checkoutResponse.payment_error) {
+          toast.error(`অনলাইন পেমেন্ট: ${checkoutResponse.payment_error}`);
+          return;
         }
       }
 
+      // Success for COD / other payment methods
       isCompletedRef.current = true;
-      await markConverted(order.id, phone);
       localStorage.removeItem("cod_modal_form_draft");
       onOpenChange(false);
       toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
-      navigate(`/order-success/${order.order_number}`, {
+
+      navigate(`/order-success/${orderData.order_number}`, {
         state: {
-          id: order.id,
-          orderNumber: order.order_number,
-          customerName: name.trim(),
-          customerPhone: phone.trim(),
+          id: orderData.order_id,
+          orderNumber: orderData.order_number,
+          customerName: orderData.customer_name,
+          customerPhone: orderData.customer_phone,
           customerEmail: "",
-          shippingAddress: {
-            division: shippingLabel,
-            district: "",
-            thana: "",
-            address: address.trim(),
-          },
-          paymentMethod: payment === "cod" ? "ক্যাশ অন ডেলিভারি" : payment === "bkash" ? "bKash" : "Nagad",
-          items: [{
-            id: selectedVariant ? `${product.id}_${selectedVariant.id}` : product.id,
-            productId: product.id,
-            name: itemTitle,
-            image: displayImage,
-            quantity: localQuantity,
-            unitPrice: unitPrice,
-            totalPrice: subtotal,
-          }],
-          subtotal,
-          deliveryCharge,
-          total,
+          shippingAddress: orderData.shipping_address,
+          paymentMethod: orderData.payment_method,
+          items: (orderData.items || []).map((it: any) => ({
+            id: it.product_id,
+            productId: it.product_id,
+            name: it.product_name || itemTitle,
+            image: it.image || displayImage,
+            quantity: it.quantity,
+            unitPrice: it.unit_price,
+            totalPrice: it.total_price,
+          })),
+          subtotal: Number(orderData.subtotal),
+          deliveryCharge: Number(orderData.delivery_charge),
+          total: Number(orderData.total_amount),
         },
       });
     } catch (err: any) {
       console.error("COD order error:", err);
-      toast.error("অর্ডার করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      toast.error(err.message || "অর্ডার করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     } finally {
       setSubmitting(false);
     }
@@ -798,11 +695,7 @@ const CodOrderModal = ({ open, onOpenChange, product, quantity, selectedVariant 
       const clientIP = await getClientIP();
 
       // Check order restrictions and velocity limits
-      const check = await checkOrderAllowed({
-        phone: normalizeBDPhone(phone),
-        ip: clientIP,
-        name: name.trim(),
-      });
+      const check = await checkOrderAllowed(normalizeBDPhone(phone), clientIP);
 
       if (!check.allowed) {
         const whatsapp = storeSettings?.contactInfo?.whatsapp || "";

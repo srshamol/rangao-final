@@ -37,17 +37,24 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
   const cleanPhone = rawPhone.replace(/[^\d+]/g, "");
   const telLink = cleanPhone.startsWith("+") ? `tel:${cleanPhone}` : `tel:+88${cleanPhone}`;
 
-  // Scroll lock when drawer is open
+  // Scroll lock and Escape key listener when drawer is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          onClose();
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
     } else {
       document.body.style.overflow = "";
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   const handleLinkClick = (href: string) => {
     onClose();
@@ -67,6 +74,7 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
             exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-sm lg:hidden"
+            aria-hidden="true"
           />
 
           {/* Drawer Panel */}
@@ -75,6 +83,9 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 220 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="মেনু নেভিগেশন"
             className="fixed bottom-0 left-0 top-0 z-[1100] flex h-full w-[80vw] max-w-[360px] flex-col bg-background shadow-2xl lg:hidden"
           >
             {/* Header */}
@@ -82,7 +93,8 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
               <span className="font-display text-base font-extrabold text-foreground">মেনু নেভিগেশন</span>
               <button
                 onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label="মেনু বন্ধ করুন"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
@@ -108,13 +120,16 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
                             <div className="flex items-center justify-between rounded-xl px-3 py-2 text-sm text-foreground hover:bg-secondary">
                               <button
                                 onClick={() => handleLinkClick(`/category/${parent.slug}`)}
-                                className="flex-1 text-left font-bold text-foreground/90 hover:text-accent truncate"
+                                className="flex-1 text-left font-bold text-foreground/90 hover:text-accent truncate focus-visible:ring-2 focus-visible:ring-accent rounded-lg"
                               >
                                 {parent.name}
                               </button>
-                              <div
+                              <button
+                                type="button"
                                 onClick={() => setExpandedCat(isExpanded ? null : parent.id)}
-                                className="flex items-center gap-1.5 cursor-pointer pl-4"
+                                aria-expanded={isExpanded}
+                                aria-label={`${parent.name} সাব-ক্যাটাগরি ${isExpanded ? 'বন্ধ করুন' : 'দেখুন'}`}
+                                className="flex items-center gap-1.5 pl-4 py-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent rounded-lg"
                               >
                                 <span className="text-[9px] bg-primary/10 dark:bg-primary-foreground/10 text-primary dark:text-foreground/80 px-1.5 py-0.5 rounded-full">
                                   {getCatCount(parent.slug)}
@@ -122,7 +137,7 @@ const MobileDrawer = ({ isOpen, onClose, categories, getCatCount }: Props) => {
                                 {subCats.length > 0 && (
                                   <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
                                 )}
-                              </div>
+                              </button>
                             </div>
 
                             {/* Subcategories */}

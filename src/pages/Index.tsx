@@ -1,24 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
 import CategorySection from "@/components/CategorySection";
 import FeaturedProducts from "@/components/FeaturedProducts";
-import IslamicCollection from "@/components/IslamicCollection";
-import NewArrivals from "@/components/NewArrivals";
-import BestSellers from "@/components/BestSellers";
-import FlashSaleSection from "@/components/FlashSaleSection";
-import WhyChooseUs from "@/components/WhyChooseUs";
-import Testimonials from "@/components/Testimonials";
-import IslamicQuoteSection from "@/components/IslamicQuoteSection";
-import OfferBanner from "@/components/OfferBanner";
-import BrandsSection from "@/components/BrandsSection";
-import StatisticsSection from "@/components/StatisticsSection";
 import Footer from "@/components/Footer";
-import FloatingWhatsApp from "@/components/FloatingWhatsApp";
-import FooterPromo from "@/components/FooterPromo";
-import DecorGallery from "@/components/DecorGallery";
-import { useEffect } from "react";
+
+// Lazy-loaded below-the-fold sections
+const IslamicCollection = lazy(() => import("@/components/IslamicCollection"));
+const NewArrivals = lazy(() => import("@/components/NewArrivals"));
+const BestSellers = lazy(() => import("@/components/BestSellers"));
+const FlashSaleSection = lazy(() => import("@/components/FlashSaleSection"));
+const WhyChooseUs = lazy(() => import("@/components/WhyChooseUs"));
+const Testimonials = lazy(() => import("@/components/Testimonials"));
+const IslamicQuoteSection = lazy(() => import("@/components/IslamicQuoteSection"));
+const OfferBanner = lazy(() => import("@/components/OfferBanner"));
+const BrandsSection = lazy(() => import("@/components/BrandsSection"));
+const StatisticsSection = lazy(() => import("@/components/StatisticsSection"));
+const FooterPromo = lazy(() => import("@/components/FooterPromo"));
+const DecorGallery = lazy(() => import("@/components/DecorGallery"));
+const FloatingWhatsApp = lazy(() => import("@/components/FloatingWhatsApp"));
+
 import AppLoader from "@/components/AppLoader";
 import SEO from "@/components/SEO";
 import QueryErrorBoundary from "@/components/QueryErrorBoundary";
@@ -248,10 +250,14 @@ const Index = () => {
       >
         {anim !== "none" ? (
           <motion.div {...animationProps}>
-            {sectionContent}
+            <Suspense fallback={<div className="min-h-[80px] w-full" />}>
+              {sectionContent}
+            </Suspense>
           </motion.div>
         ) : (
-          sectionContent
+          <Suspense fallback={<div className="min-h-[80px] w-full" />}>
+            {sectionContent}
+          </Suspense>
         )}
       </div>
     );
@@ -273,7 +279,9 @@ const Index = () => {
         </QueryErrorBoundary>
       </main>
       <Footer />
-      <FloatingWhatsApp />
+      <Suspense fallback={null}>
+        <FloatingWhatsApp />
+      </Suspense>
     </div>
   );
 };

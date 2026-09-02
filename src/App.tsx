@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import CartSidebar from "@/components/CartSidebar";
+import CookieConsent from "@/components/CookieConsent";
 import TrackingProvider from "@/components/TrackingProvider";
 import SettingsSync from "@/components/SettingsSync";
 import StorageInitializer from "@/components/StorageInitializer";
@@ -45,9 +46,9 @@ const CustomerWishlist = lazy(() => import("./pages/customer/Wishlist"));
 const CustomerProfile = lazy(() => import("./pages/customer/Profile"));
 const CustomerOrderDetail = lazy(() => import("./pages/customer/OrderDetail"));
 
-// Admin Statically-Imported Layout / Wrapper (for fast transitions)
-import AdminLayout from "./components/admin/AdminLayout";
-import ProtectedRoute from "./components/admin/ProtectedRoute";
+// Admin Lazy Components
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const ProtectedRoute = lazy(() => import("./components/admin/ProtectedRoute"));
 
 // Admin Lazy Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
@@ -72,6 +73,7 @@ const AdminHomepageSEO = lazy(() => import("./pages/admin/HomepageSEO"));
 const MediaLibrary = lazy(() => import("./pages/admin/MediaLibrary"));
 const StorageDiagnostics = lazy(() => import("./pages/admin/StorageDiagnostics"));
 const BlogManager = lazy(() => import("./pages/admin/BlogManager"));
+const OperationalHealth = lazy(() => import("./pages/admin/OperationalHealth"));
 const AdminProfile = lazy(() => import("./pages/admin/Profile"));
 
 const queryClient = new QueryClient({
@@ -86,11 +88,18 @@ const queryClient = new QueryClient({
 });
 
 import CustomerRealtime from "@/components/CustomerRealtime";
+import GlobalErrorBoundary from "@/components/GlobalErrorBoundary";
+import { initErrorMonitoring } from "@/lib/errorMonitoring";
+
+if (typeof window !== "undefined") {
+  initErrorMonitoring();
+}
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-    <CartProvider>
+  <GlobalErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+      <CartProvider>
         <CustomerProvider>
           <Toaster />
           <Sonner />
@@ -101,6 +110,7 @@ const App = () => (
             <ScrollToTop />
             <TrackingProvider />
             <CartSidebar />
+            <CookieConsent />
             <Suspense fallback={<PageSkeleton />}>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -152,6 +162,7 @@ const App = () => (
                   <Route path="blog" element={<BlogManager />} />
                   <Route path="incomplete-orders" element={<IncompleteOrders />} />
                   <Route path="order-control" element={<OrderControl />} />
+                  <Route path="operational-health" element={<OperationalHealth />} />
                   <Route path="profile" element={<AdminProfile />} />
                 </Route>
 
@@ -163,6 +174,7 @@ const App = () => (
     </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </GlobalErrorBoundary>
 );
 
 export default App;

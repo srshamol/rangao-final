@@ -83,6 +83,10 @@ export interface SectionConfig {
   start_date?: string;
   end_date?: string;
   show_countdown?: boolean;
+  sort_by?: string;
+  show_description?: boolean;
+  show_cta?: boolean;
+  show_icon?: boolean;
   cta_text?: string;
   cta_url?: string;
   display_mode?: "grid" | "slider";
@@ -173,6 +177,10 @@ export interface StatisticsConfig {
   orders: number;
   reviews: number;
   products: number;
+  use_bengali_digits?: boolean;
+  labels?: Record<string, string>;
+  suffixes?: Record<string, string>;
+  icons?: Record<string, string>;
 }
 
 export interface StoreInfo {
@@ -234,6 +242,7 @@ export interface SEOSettings {
   robots_follow: boolean;
   google_search_console_id: string;
   og_image?: string;
+  fb_app_id?: string;
 }
 
 export interface CoreValueItem {
@@ -452,10 +461,10 @@ const defaults = {
   } as HomepageSEO,
   statistics: {
     mode: "auto",
-    customers: 5000,
-    orders: 10000,
-    reviews: 4800,
-    products: 200,
+    customers: 0,
+    orders: 0,
+    reviews: 0,
+    products: 0,
   } as StatisticsConfig,
   homepage_gallery: [
     { id: "g-1", image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80", title: "লিভিং রুম ক্যালিগ্রাফি ডেকোর", link: "/products" },
@@ -544,6 +553,19 @@ export function useStoreSettings() {
         });
       }
 
+      // If payment_methods is not accessible in store_settings (due to secret isolation RLS), load safe public flags via RPC
+      let publicPaymentMethods = settings.payment_methods;
+      if (!publicPaymentMethods) {
+        try {
+          const { data: pmData } = await supabase.rpc("get_public_payment_methods");
+          if (pmData) {
+            publicPaymentMethods = pmData;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       // Merge hero_banner: handle both legacy (single slide) and new (slides array) format
       let heroBanner = { ...defaults.hero_banner, ...settings.hero_banner } as HeroBanner;
       if (!heroBanner.slides || heroBanner.slides.length === 0) {
@@ -586,7 +608,7 @@ export function useStoreSettings() {
         heroBanner,
         contactInfo: { ...defaults.contact_info, ...settings.contact_info } as ContactInfo,
         deliveryCharges: { ...defaults.delivery_charges, ...settings.delivery_charges } as DeliveryCharges,
-        paymentMethods: { ...defaults.payment_methods, ...settings.payment_methods } as PaymentMethods,
+        paymentMethods: { ...defaults.payment_methods, ...publicPaymentMethods } as PaymentMethods,
         homepageSections: { ...defaults.homepage_sections, ...settings.homepage_sections } as HomepageSections,
         storeInfo: {
           ...defaults.store_info,
@@ -613,5 +635,4 @@ export function useStoreSettings() {
   });
 }
 
-export type { HomepageSectionOrder, SEOSettings, AboutUsSettings, CoreValueItem, DeliveryCharges, PaymentMethods };
 export { DEFAULT_SECTION_ORDER };

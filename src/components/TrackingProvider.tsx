@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { updateTrackingConfig, trackPageView } from "@/lib/tracking";
-import { initMetaPixel } from "@/lib/meta/pixel";
 import { captureAttribution } from "@/lib/meta/attribution";
 
 export default function TrackingProvider() {
@@ -10,13 +9,21 @@ export default function TrackingProvider() {
   const location = useLocation();
   const lastPathname = useRef("");
 
-  // Sync settings and initialize tracking when loaded or changed
+  // Sync settings and initialize tracking deferred to idle time
   useEffect(() => {
-    captureAttribution();
+    const run = () => {
+      captureAttribution();
 
-    if (settings?.storeInfo?.tracking) {
-      const tracking = settings.storeInfo.tracking;
-      updateTrackingConfig(tracking);
+      if (settings?.storeInfo?.tracking) {
+        const tracking = settings.storeInfo.tracking;
+        updateTrackingConfig(tracking);
+      }
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(run);
+    } else {
+      setTimeout(run, 100);
     }
   }, [settings]);
 
@@ -24,8 +31,16 @@ export default function TrackingProvider() {
   useEffect(() => {
     if (location.pathname !== lastPathname.current) {
       lastPathname.current = location.pathname;
-      captureAttribution();
-      trackPageView(location.pathname);
+      const run = () => {
+        captureAttribution();
+        trackPageView(location.pathname);
+      };
+
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        (window as any).requestIdleCallback(run);
+      } else {
+        setTimeout(run, 50);
+      }
     }
   }, [location.pathname]);
 

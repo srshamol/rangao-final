@@ -113,13 +113,15 @@ const Testimonials = ({
                     <div className="flex-1">
                       <div className="flex items-center gap-1.5">
                         <p className="font-display text-sm font-bold text-card-foreground">{r.customer_name}</p>
-                        <BadgeCheck className="h-3.5 w-3.5 text-accent" />
+                        {r.is_verified_purchase && <BadgeCheck className="h-3.5 w-3.5 text-accent" />}
                       </div>
                       <p className="text-xs text-muted-foreground/70">{r.customer_location || "বাংলাদেশ"}</p>
                     </div>
-                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                      ভেরিফাইড
-                    </span>
+                    {r.is_verified_purchase && (
+                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                        ভেরিফাইড ক্রেতা
+                      </span>
+                    )}
                   </div>
                 </motion.div>
               </div>

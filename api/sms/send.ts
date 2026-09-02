@@ -1,48 +1,100 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://yglexjxvypwmvjvsspil.supabase.co";
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase credentials (URL/Key) are missing in environment variables.");
+// Helper: Normalize Bangladesh Phone Number
+function normalizeBDPhone(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const bengaliDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+  let cleaned = String(phone).trim();
+  for (let i = 0; i < 10; i++) {
+    cleaned = cleaned.replaceAll(bengaliDigits[i], i.toString());
   }
-  return createClient(supabaseUrl, supabaseKey);
+  cleaned = cleaned.replace(/\D/g, "");
+  if (cleaned.startsWith("880") && cleaned.length === 13) cleaned = cleaned.substring(2);
+  if (cleaned.startsWith("80") && cleaned.length === 12) cleaned = "0" + cleaned.substring(2);
+  if (!cleaned.startsWith("0") && cleaned.length === 10) cleaned = "0" + cleaned;
+  return cleaned;
 }
 
-export default async function handler(req: any, res: any) {
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://yglexjxvypwmvjvsspil.supabase.co";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for authoritative SMS dispatch.");
+  }
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
+
+// Helper: Verify caller is staff or internal
+async function verifyCallerAuth(req: VercelRequest, supabase: any): Promise<boolean> {
+  const internalSecret = req.headers["x-internal-secret"];
+  if (internalSecret && process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET) {
+    return true;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return false;
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return false;
+
+  const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !user) return false;
+
+  // Check user role from profiles / user_roles
+  const { data: roleData } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const userRole = roleData?.role || user.user_metadata?.role;
+  return ["admin", "manager", "sales", "super_admin"].includes(userRole);
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { phone, message, orderId } = req.body;
-  if (!phone || !message) {
-    return res.status(400).json({ error: "Phone and message are required" });
-  }
-
-  const cleanPhone = phone.trim();
-  const msgText = message.trim();
-
   try {
-    const supabase = getSupabaseClient();
-    
+    const supabase = getSupabaseAdmin();
+
+    // Enforce authentication & authorization
+    const isAuthorized = await verifyCallerAuth(req, supabase);
+    if (!isAuthorized) {
+      return res.status(401).json({ error: "Unauthorized: Staff authentication required to dispatch custom SMS." });
+    }
+
+    const { phone, message, orderId } = req.body || {};
+    if (!phone || !message) {
+      return res.status(400).json({ error: "Phone and message are required" });
+    }
+
+    const cleanPhone = normalizeBDPhone(phone);
+    const msgText = String(message).trim();
+
+    if (!cleanPhone || cleanPhone.length !== 11 || !msgText) {
+      return res.status(400).json({ error: "Invalid phone number or empty message" });
+    }
+
     // 1. Fetch SMS settings
     const { data: row, error: dbError } = await supabase
-      .from("store_settings" as any)
+      .from("store_settings")
       .select("value")
       .eq("key", "sms_settings")
       .maybeSingle();
 
-    if (dbError) {
-      console.error("Database query failed:", dbError);
-      return res.status(500).json({ error: "Failed to load store settings" });
-    }
-
-    if (!row || !row.value) {
+    if (dbError || !row || !row.value) {
       return res.status(404).json({ error: "SMS settings not configured" });
     }
 
-    const settings = row.value;
+    const settings = row.value as any;
     const { enabled, sandbox_mode, gateway, api_key, sender_id, api_url } = settings;
 
     if (!enabled) {
@@ -50,93 +102,66 @@ export default async function handler(req: any, res: any) {
     }
 
     if (sandbox_mode || gateway === "sandbox") {
-      console.log(`[SMS SANDBOX] Sending SMS to ${cleanPhone}: "${msgText}"`);
+      console.log(`[SMS SANDBOX] Sending SMS to ${cleanPhone}: "${msgText.substring(0, 100)}"`);
       if (orderId) {
-        await supabase.from("order_history" as any).insert({
+        await supabase.from("order_history").insert({
           order_id: orderId,
           action: "sms_notification",
-          details: `Sandbox SMS simulation succeeded: "${msgText.substring(0, 100)}..."`,
-          staff_name: "System",
+          details: `Sandbox SMS simulation: "${msgText.substring(0, 100)}..."`,
+          staff_name: "Staff",
         });
       }
-      return res.status(200).json({ status: "success", message: "SMS sent successfully (Sandbox)", sandbox: true });
+      return res.status(200).json({ status: "success", message: "SMS dispatched in sandbox mode", sandbox: true });
     }
 
     // Call SMS Gateway
     let smsSuccess = false;
-    let gatewayResponse = "";
 
-    if (gateway === "greenweb") {
+    if (gateway === "greenweb" && api_key) {
       const url = `https://api.greenweb.com.bd/api.php?json&token=${encodeURIComponent(api_key)}&to=${encodeURIComponent(cleanPhone)}&message=${encodeURIComponent(msgText)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "elitbuzz") {
+    } else if (gateway === "elitbuzz" && api_key && sender_id) {
       const url = `https://sms.elitbuzz-bd.com/smsapi?api_key=${encodeURIComponent(api_key)}&type=text&contacts=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(sender_id)}&msg=${encodeURIComponent(msgText)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "bulksmsbd") {
+    } else if (gateway === "bulksmsbd" && api_key && sender_id) {
       const url = `http://bulksmsbd.net/api/smsapi?api_key=${encodeURIComponent(api_key)}&type=text&number=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(sender_id)}&message=${encodeURIComponent(msgText)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "mim_sms") {
+    } else if (gateway === "mim_sms" && api_key && sender_id) {
       const url = `https://mim-sms.com/smsapi?api_key=${encodeURIComponent(api_key)}&type=text&contacts=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(sender_id)}&msg=${encodeURIComponent(msgText)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
     } else if (gateway === "custom" && api_url) {
       const method = settings.method || "GET";
       const headers = settings.headers ? JSON.parse(settings.headers) : {};
-      
-      let finalUrl = api_url
+      const finalUrl = api_url
         .replace("{to}", encodeURIComponent(cleanPhone))
         .replace("{msg}", encodeURIComponent(msgText));
 
-      let body = null;
-      if (method === "POST" && settings.body_template) {
-        body = settings.body_template
-          .replace("{to}", cleanPhone)
-          .replace("{msg}", msgText);
-      }
-
-      const response = await fetch(finalUrl, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body,
-      });
-
-      const text = await response.text();
-      gatewayResponse = text;
+      const response = await fetch(finalUrl, { method, headers });
       smsSuccess = response.ok;
     }
 
     if (orderId) {
-      await supabase.from("order_history" as any).insert({
+      await supabase.from("order_history").insert({
         order_id: orderId,
         action: "sms_notification",
         details: smsSuccess 
-          ? `SMS notification sent successfully via gateway ${gateway}` 
-          : `SMS notification failed: ${gatewayResponse.substring(0, 100)}`,
-        staff_name: "System",
+          ? `SMS notification sent successfully via ${gateway}` 
+          : `SMS notification delivery failed via ${gateway}`,
+        staff_name: "Staff",
       });
     }
 
     if (!smsSuccess) {
-      return res.status(502).json({ error: "Failed to send SMS via gateway", response: gatewayResponse });
+      return res.status(502).json({ error: "SMS delivery failed via provider gateway." });
     }
 
-    return res.status(200).json({ status: "success", gatewayResponse });
+    return res.status(200).json({ status: "success", message: "SMS dispatched successfully." });
   } catch (err: any) {
     console.error("send-sms handler exception:", err);
-    return res.status(500).json({ error: err.message || "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

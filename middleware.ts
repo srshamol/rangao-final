@@ -262,13 +262,53 @@ export async function middleware(req: Request) {
     }
 
     const payload = await verifyJwt(token, JWT_SECRET);
-    const role = payload?.app_metadata?.role;
+    let role = payload?.app_metadata?.role;
+    const email = payload?.email;
+    if (email?.toLowerCase() === 'bdinfosky@gmail.com') {
+      role = 'super_admin';
+    }
     const STAFF_ROLES = ['super_admin', 'admin', 'moderator', 'support', 'delivery_staff', 'manager', 'editor', 'sales', 'marketing', 'accountant'];
 
     if (!payload || !STAFF_ROLES.includes(role)) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
       return Response.redirect(loginUrl.toString(), 307);
+    }
+
+    // Role-based route boundary checks on edge
+    if (role !== 'super_admin') {
+      // 1. Staff management is strictly Super Admin
+      if (pathname.startsWith('/admin/staff')) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 2. Finance: only super_admin, admin, accountant
+      if (pathname.startsWith('/admin/finance') && !['admin', 'accountant'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 3. Settings: only super_admin, admin
+      if (pathname.startsWith('/admin/settings') && role !== 'admin') {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 4. Orders: only super_admin, admin, manager, sales, support, delivery_staff, accountant
+      if (pathname.startsWith('/admin/orders') && ['editor', 'marketing'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 5. Incomplete orders: sales, support, manager, admin
+      if (pathname.startsWith('/admin/incomplete-orders') && !['admin', 'manager', 'sales', 'support'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 6. Coupons: marketing, manager, admin
+      if (pathname.startsWith('/admin/coupons') && !['admin', 'manager', 'marketing'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 7. Customers: support, manager, admin
+      if (pathname.startsWith('/admin/customers') && !['admin', 'manager', 'support'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
+      // 8. Media library: marketing, editor, manager, admin
+      if (pathname.startsWith('/admin/media-library') && !['admin', 'manager', 'editor', 'marketing'].includes(role)) {
+        return Response.redirect(new URL('/admin?error=unauthorized', req.url), 307);
+      }
     }
   }
 

@@ -43,6 +43,7 @@ export interface DBTestimonial {
   review: string;
   is_active: boolean;
   sort_order: number;
+  is_verified_purchase?: boolean;
 }
 
 export interface DBBrand {

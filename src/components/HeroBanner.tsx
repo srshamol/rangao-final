@@ -200,30 +200,42 @@ const HeroBanner = () => {
   }, [slides, currentSlideIndex, hero]);
 
   const [isDesktop, setIsDesktop] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const heroBg = activeSlide.banner_image_url || "";
 
   useEffect(() => {
     // Only enable particle canvas on desktop — saves main-thread work on mobile (LCP device)
-    const mq = window.matchMedia("(min-width: 768px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    const mqDesktop = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mqDesktop.matches);
+    const handlerDesktop = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mqDesktop.addEventListener("change", handlerDesktop);
+
+    const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mqMotion.matches);
+    const handlerMotion = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mqMotion.addEventListener("change", handlerMotion);
+
+    return () => {
+      mqDesktop.removeEventListener("change", handlerDesktop);
+      mqMotion.removeEventListener("change", handlerMotion);
+    };
   }, []);
 
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
 
-  // Parallax transforms
-  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", "25%"]);
-  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+  // Parallax transforms (bypassed if reduced motion is preferred)
+  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", prefersReducedMotion ? "0%" : "25%"]);
+  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", prefersReducedMotion ? "0%" : "15%"]);
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.6]);
+
+  const shouldPlayVideo = isDesktop && !prefersReducedMotion && !!activeSlide.banner_video_url;
 
   return (
     <section ref={sectionRef} className="relative flex min-h-[92vh] items-center overflow-hidden bg-background" style={{ position: "relative" }}>
       {/* Background Media */}
       <motion.div style={{ y: videoY }} className="absolute inset-0 h-[125%] w-full -top-[5%]">
-        {activeSlide.banner_video_url ? (
+        {shouldPlayVideo ? (
           <video 
             key={activeSlide.banner_video_url}
             autoPlay 
@@ -249,8 +261,6 @@ const HeroBanner = () => {
         ) : null}
       </motion.div>
 
-
-
       {/* Multi-layer gradient overlay */}
       <motion.div style={{ opacity: overlayOpacity }} className="absolute inset-0">
         <div 
@@ -262,25 +272,28 @@ const HeroBanner = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,hsl(var(--primary)/0.5)_100%)]" />
       </motion.div>
 
-      {/* Particle canvas — desktop only to avoid mobile main-thread blocking */}
-      {isDesktop && <ParticleCanvas />}
+      {/* Particle canvas — desktop and non-reduced-motion only */}
+      {isDesktop && !prefersReducedMotion && <ParticleCanvas />}
 
-      {/* Floating decorative shapes with parallax */}
-      <motion.div
-        animate={{ y: [0, -25, 0], rotate: [0, 8, 0], scale: [1, 1.05, 1] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute right-[12%] top-[15%] h-36 w-36 rounded-3xl border border-accent/15 bg-gradient-to-br from-accent/8 to-accent/2 hidden md:block" />
+      {/* Floating decorative shapes with parallax (desktop only) */}
+      {!prefersReducedMotion && (
+        <>
+          <motion.div
+            animate={{ y: [0, -25, 0], rotate: [0, 8, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute right-[12%] top-[15%] h-36 w-36 rounded-3xl border border-accent/15 bg-gradient-to-br from-accent/8 to-accent/2 hidden md:block" />
 
-      <motion.div
-        animate={{ y: [0, 20, 0], rotate: [0, -5, 0] }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-        className="absolute right-[30%] bottom-[20%] h-24 w-24 rounded-full border border-primary-foreground/8 bg-primary-foreground/3 hidden md:block" />
+          <motion.div
+            animate={{ y: [0, 20, 0], rotate: [0, -5, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+            className="absolute right-[30%] bottom-[20%] h-24 w-24 rounded-full border border-primary-foreground/8 bg-primary-foreground/3 hidden md:block" />
 
-      {/* Glow orbs */}
-      <motion.div
-        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute right-10 top-1/4 h-96 w-96 rounded-full bg-accent/8 blur-[140px] hidden md:block" />
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute right-10 top-1/4 h-96 w-96 rounded-full bg-accent/8 blur-[140px] hidden md:block" />
+        </>
+      )}
 
       {/* Content with parallax */}
       <motion.div style={{ y: contentY }} className="container relative z-10 pt-24 pb-36 md:py-20">

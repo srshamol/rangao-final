@@ -157,7 +157,7 @@ export default function AdminOrders() {
         note: order.notes || "",
       });
 
-      const consignment = apiResult.consignment || apiResult || {};
+      const consignment = (apiResult.consignment || apiResult || {}) as any;
       const trackingCode = consignment.tracking_code || "";
       const consignmentId = consignment.consignment_id || "";
 

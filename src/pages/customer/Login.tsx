@@ -49,8 +49,9 @@ export default function CustomerLogin() {
         .eq("phone", cleanedPhone)
         .maybeSingle();
 
-      if (data?.email) {
-        loginEmail = data.email;
+      const profileData = data as any;
+      if (profileData?.email) {
+        loginEmail = profileData.email;
       } else {
         setLoading(false);
         toast.error("এই ফোন নম্বর দিয়ে কোনো অ্যাকাউন্ট খুঁজে পাওয়া যায়নি");
@@ -63,8 +64,9 @@ export default function CustomerLogin() {
         .select("phone")
         .eq("email", loginEmail)
         .maybeSingle();
-      if (data?.phone) {
-        customerPhone = data.phone;
+      const phoneData = data as any;
+      if (phoneData?.phone) {
+        customerPhone = phoneData.phone;
       }
     }
 
@@ -103,7 +105,7 @@ export default function CustomerLogin() {
           .from("user_roles")
           .select("role")
         const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
-        const isAdmin = STAFF_ROLES.includes(roleData?.role || "");
+        const isAdmin = (roleData || []).some((r: any) => STAFF_ROLES.includes(r.role));
 
         if (isAdmin && sessionUser) {
           // Auto-create customer profile for admin/manager so they can test/shop

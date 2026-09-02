@@ -48,6 +48,14 @@ export default function PairsWellWithSection({
   const [variantModalProduct, setVariantModalProduct] = useState<any | null>(null);
   const [modalSelectedOptions, setModalSelectedOptions] = useState<Record<string, string>>({});
 
+  // Selected variant for the active modal
+  const modalActiveVariant = useMemo(() => {
+    if (!variantModalProduct) return null;
+    const options = (variantModalProduct.variation_options || []) as VariationOption[];
+    const variants = (variantModalProduct.variants || []) as ProductVariant[];
+    return findMatchingVariant(modalSelectedOptions, options, variants);
+  }, [variantModalProduct, modalSelectedOptions]);
+
   // Query paired products dynamically from Supabase with robust fallback
   const { data: pairedProducts = [], isLoading } = useQuery({
     queryKey: ["paired-products-detail", mainProductId, pairedProductIds],
@@ -105,8 +113,8 @@ export default function PairsWellWithSection({
               tags: staticFound.features || [],
               specifications: staticFound.specs || [],
               featured: staticFound.featured || false,
-              rating: staticFound.rating || 5,
-              review_count: staticFound.reviewCount || 1,
+              rating: staticFound.rating || 0,
+              review_count: staticFound.reviewCount || 0,
             };
           }
 
@@ -124,7 +132,8 @@ export default function PairsWellWithSection({
     return null;
   }
 
-  if (!isLoading && pairedProducts.length === 0) {
+  // Strictly render only if products are finished loading and at least 1 valid paired product is available
+  if (isLoading || pairedProducts.length === 0) {
     return null;
   }
 
@@ -147,8 +156,8 @@ export default function PairsWellWithSection({
           features: product.tags || product.features || [],
           specs: product.specifications || product.specs || [],
           featured: product.featured || false,
-          rating: product.rating || 5,
-          reviewCount: product.review_count || product.reviewCount || 1,
+          rating: product.rating || 0,
+          reviewCount: product.review_count || product.reviewCount || 0,
         },
         1
       );
@@ -210,8 +219,8 @@ export default function PairsWellWithSection({
         features: variantModalProduct.tags || variantModalProduct.features || [],
         specs: variantModalProduct.specifications || variantModalProduct.specs || [],
         featured: variantModalProduct.featured || false,
-        rating: variantModalProduct.rating || 5,
-        reviewCount: variantModalProduct.review_count || variantModalProduct.reviewCount || 1,
+        rating: variantModalProduct.rating || 0,
+        reviewCount: variantModalProduct.review_count || variantModalProduct.reviewCount || 0,
         has_variants: true,
         variation_options: options,
         variants: variants,
@@ -226,16 +235,13 @@ export default function PairsWellWithSection({
     setTimeout(() => setRecentlyAddedId(null), 3000);
   };
 
-  // Selected variant for the active modal
-  const modalActiveVariant = useMemo(() => {
-    if (!variantModalProduct) return null;
-    const options = (variantModalProduct.variation_options || []) as VariationOption[];
-    const variants = (variantModalProduct.variants || []) as ProductVariant[];
-    return findMatchingVariant(modalSelectedOptions, options, variants);
-  }, [variantModalProduct, modalSelectedOptions]);
-
   return (
-    <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-secondary/30 via-background to-secondary/10 overflow-hidden shadow-xs">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="rounded-2xl border border-border/60 bg-gradient-to-br from-secondary/30 via-background to-secondary/10 overflow-hidden shadow-xs"
+    >
       {/* Collapsible Header */}
       <button
         type="button"
@@ -507,6 +513,6 @@ export default function PairsWellWithSection({
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

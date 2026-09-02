@@ -96,7 +96,7 @@ export default function AdminTestimonials() {
     mutationFn: async (testimonialId: string) => {
       const { data, error } = await supabase
         .from("testimonials" as any)
-        .update({ is_active: true })
+        .update({ is_active: true, status: "approved" })
         .eq("id", testimonialId)
         .select();
       if (error) throw error;
@@ -108,7 +108,30 @@ export default function AdminTestimonials() {
       qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
       qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
       qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
+      qc.invalidateQueries({ queryKey: ["all-product-review-stats"] });
       toast({ title: "রিভিউটি অনুমোদিত হয়েছে" });
+    },
+    onError: (e: any) => toast({ title: "ত্রুটি", description: e.message, variant: "destructive" }),
+  });
+
+  const reject = useMutation({
+    mutationFn: async (testimonialId: string) => {
+      const { data, error } = await supabase
+        .from("testimonials" as any)
+        .update({ is_active: false, status: "rejected" })
+        .eq("id", testimonialId)
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("রিভিউ প্রত্যাখ্যান করার অনুমতি নেই (RLS Policy restriction)");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["homepage-statistics-auto"] });
+      qc.invalidateQueries({ queryKey: ["all-product-review-stats"] });
+      toast({ title: "রিভিউটি প্রত্যাখ্যান করা হয়েছে" });
     },
     onError: (e: any) => toast({ title: "ত্রুটি", description: e.message, variant: "destructive" }),
   });
@@ -321,7 +344,16 @@ export default function AdminTestimonials() {
               <TableBody>
                 {(testimonials as any[] || []).map((t: any) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.customer_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{t.customer_name}</span>
+                        {t.is_verified_purchase && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 rounded px-1 py-0.5">
+                            ভেরিফাইড
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{t.customer_location || "—"}</TableCell>
                     <TableCell className="max-w-[150px] truncate text-sm">{getProductName(t.product_id)}</TableCell>
                     <TableCell>
@@ -335,15 +367,20 @@ export default function AdminTestimonials() {
                       <p className="line-clamp-2 text-sm text-muted-foreground">{t.review}</p>
                     </TableCell>
                     <TableCell>
-                      <span className={t.is_active ? "text-emerald-600 font-semibold" : "text-amber-600 font-semibold"}>
-                        {t.is_active ? "সক্রিয়" : "পেন্ডিং"}
+                      <span className={t.is_active && t.status !== "rejected" ? "text-emerald-600 font-semibold text-xs" : t.status === "rejected" ? "text-destructive font-semibold text-xs" : "text-amber-600 font-semibold text-xs"}>
+                        {t.is_active && t.status !== "rejected" ? "অনুমোদিত" : t.status === "rejected" ? "প্রত্যাখ্যাত" : "পেন্ডিং"}
                       </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 items-center">
-                        {!t.is_active && (
-                          <Button variant="outline" size="sm" className="h-7 text-[10px] px-1.5 border-emerald-500 text-emerald-600 hover:bg-emerald-50" onClick={() => approve.mutate(t.id)}>
-                            অনুমোদন করুন
+                        {(!t.is_active || t.status === "pending") && (
+                          <Button variant="outline" size="sm" className="h-7 text-[10px] px-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50" onClick={() => approve.mutate(t.id)}>
+                            অনুমোদন
+                          </Button>
+                        )}
+                        {t.status !== "rejected" && !t.is_active && (
+                          <Button variant="outline" size="sm" className="h-7 text-[10px] px-2 border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => reject.mutate(t.id)}>
+                            প্রত্যাখ্যান
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></Button>

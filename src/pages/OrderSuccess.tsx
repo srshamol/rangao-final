@@ -137,27 +137,46 @@ function OrderTracker({ orderNumber }: { orderNumber?: string }) {
     setLoading(true);
     setNotFound(false);
 
-    const { data: order } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("order_number", target.trim())
-      .single();
+    try {
+      const { data: orderData, error: rpcErr } = await (supabase.rpc as any)(
+        "get_order_summary_by_number",
+        { p_order_number: target.trim() }
+      );
 
-    if (!order) {
+      if (rpcErr || !orderData) {
+        // Fallback for direct select if authenticated staff
+        const { data: order } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("order_number", target.trim())
+          .maybeSingle();
+
+        if (!order) {
+          setNotFound(true);
+          setTrackedOrder(null);
+          setLoading(false);
+          return;
+        }
+
+        const { data: items } = await supabase
+          .from("order_items")
+          .select("*")
+          .eq("order_id", order.id);
+
+        setTrackedOrder(order);
+        setTrackedItems(items || []);
+        setLoading(false);
+        return;
+      }
+
+      setTrackedOrder(orderData);
+      setTrackedItems(orderData.items || []);
+    } catch (e) {
+      console.error("Tracking order error:", e);
       setNotFound(true);
-      setTrackedOrder(null);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", order.id);
-
-    setTrackedOrder(order);
-    setTrackedItems(items || []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -327,20 +346,12 @@ const OrderSuccess = () => {
         const data = await res.json();
         
         if (data.verified) {
-          const { data: dbOrder, error: orderErr } = await supabase
-            .from("orders")
-            .select("*")
-            .eq("order_number", orderNumber.trim())
-            .maybeSingle();
+          const { data: dbOrder, error: orderErr } = await (supabase.rpc as any)(
+            "get_order_summary_by_number",
+            { p_order_number: orderNumber.trim() }
+          );
 
           if (orderErr || !dbOrder) throw new Error("অর্ডার লোড করতে সমস্যা হয়েছে");
-
-          const { data: dbItems, error: itemsErr } = await supabase
-            .from("order_items")
-            .select("*")
-            .eq("order_id", dbOrder.id);
-
-          if (itemsErr || !dbItems) throw new Error("অর্ডারের পণ্যসমূহ লোড করতে সমস্যা হয়েছে");
 
           setLocalOrder({
             id: dbOrder.id,
@@ -355,11 +366,11 @@ const OrderSuccess = () => {
               address: "",
             },
             paymentMethod: dbOrder.payment_method || "",
-            items: dbItems.map((item: any) => ({
-              id: item.product_id || item.product_name,
-              productId: item.product_id || item.product_name,
+            items: (dbOrder.items || []).map((item: any) => ({
+              id: item.product_id || item.name,
+              productId: item.product_id || item.name,
               sku: item.product_id || "",
-              name: item.product_name,
+              name: item.name,
               image: "",
               quantity: item.quantity,
               unitPrice: Number(item.unit_price),
@@ -375,149 +386,8 @@ const OrderSuccess = () => {
           throw new Error(data.message || "পেমেন্ট ভেরিফিকেশন সম্পন্ন হয়নি");
         }
       } catch (err: any) {
-        console.warn("UddoktaPay serverless verification function unavailable, attempting direct client-side fallback:", err);
-        try {
-          const { data: row, error: settingsError } = await supabase
-            .from("store_settings" as any)
-            .select("value")
-            .eq("key", "payment_methods")
-            .maybeSingle();
-
-          if (settingsError || !row || !row.value) {
-            throw new Error("Payment settings not found.");
-          }
-
-          const { uddoktapay_api_key, uddoktapay_base_url } = row.value as any;
-          if (!uddoktapay_api_key || !uddoktapay_base_url) {
-            throw new Error("UddoktaPay credentials not configured.");
-          }
-
-          let baseUrl = uddoktapay_base_url.trim().replace(/\/$/, "");
-          if (baseUrl.endsWith("/api")) {
-            baseUrl = baseUrl.slice(0, -4).replace(/\/$/, "");
-          }
-          const apiKey = uddoktapay_api_key.trim();
-
-          const verifyResponse = await fetch(`${baseUrl}/api/verify-payment`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "accept": "application/json",
-              "RT-UDDOKTAPAY-API-KEY": apiKey,
-            },
-            body: JSON.stringify({ invoice_id: invoiceId }),
-          });
-
-          if (!verifyResponse.ok) {
-            throw new Error(`UddoktaPay API returned HTTP status ${verifyResponse.status}`);
-          }
-
-          const result = await verifyResponse.json();
-          if (result.status === "COMPLETED") {
-            const orderId = result.metadata?.order_id;
-            if (orderId) {
-              const { data: dbOrder, error: orderErr } = await supabase
-                .from("orders")
-                .select("*")
-                .eq("id", orderId)
-                .single();
-
-              if (orderErr || !dbOrder) {
-                throw new Error("অর্ডার লোড করতে সমস্যা হয়েছে");
-              }
-
-              if (dbOrder.payment_status !== "completed") {
-                await supabase
-                  .from("orders")
-                  .update({
-                    payment_status: "completed",
-                    order_status: "confirmed",
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq("id", orderId);
-
-                // Send Telegram Notification (idempotent client fallback)
-                try {
-                  const { data: tgRow } = await supabase
-                    .from("store_settings" as any)
-                    .select("value")
-                    .eq("key", "telegram_settings")
-                    .maybeSingle();
-
-                  if (tgRow && tgRow.value) {
-                    const { bot_token, chat_id, enabled, notify_new_order } = tgRow.value;
-                    if (enabled && notify_new_order && bot_token && chat_id) {
-                      const tgMessage = `✅ <b>পেমেন্ট সম্পন্ন হয়েছে (UddoktaPay Client Fallback)!</b>\n\n` +
-                        `<b>অর্ডার নং:</b> #${dbOrder.order_number || "N/A"}\n` +
-                        `<b>গ্রাহকের নাম:</b> ${dbOrder.customer_name || "N/A"}\n` +
-                        `<b>পেমেন্ট মেথড:</b> ${result.payment_method || "Online"}\n` +
-                        `<b>ট্রানজেকশন আইডি:</b> <code>${result.transaction_id || "N/A"}</code>\n` +
-                        `<b>টাকার পরিমাণ:</b> ৳${result.amount || dbOrder.total_amount}`;
-
-                      const telegramUrl = `https://api.telegram.org/bot${bot_token}/sendMessage`;
-                      await fetch(telegramUrl, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          chat_id: chat_id,
-                          text: tgMessage,
-                          parse_mode: "HTML",
-                          disable_web_page_preview: true,
-                        }),
-                      });
-                    }
-                  }
-                } catch (tgErr) {
-                  console.error("Failed to send telegram notification from client fallback:", tgErr);
-                }
-              }
-
-              const { data: dbItems, error: itemsErr } = await supabase
-                .from("order_items")
-                .select("*")
-                .eq("order_id", dbOrder.id);
-
-              if (itemsErr || !dbItems) throw new Error("অর্ডারের পণ্যসমূহ লোড করতে সমস্যা হয়েছে");
-
-              setLocalOrder({
-                id: dbOrder.id,
-                orderNumber: dbOrder.order_number,
-                customerName: dbOrder.customer_name,
-                customerPhone: dbOrder.customer_phone,
-                customerEmail: dbOrder.customer_email || "",
-                shippingAddress: (dbOrder.shipping_address as any) || {
-                  division: "",
-                  district: "",
-                  thana: "",
-                  address: "",
-                },
-                paymentMethod: dbOrder.payment_method || "",
-                items: dbItems.map((item: any) => ({
-                  id: item.product_id || item.product_name,
-                  productId: item.product_id || item.product_name,
-                  sku: item.product_id || "",
-                  name: item.product_name,
-                  image: "",
-                  quantity: item.quantity,
-                  unitPrice: Number(item.unit_price),
-                  totalPrice: Number(item.total_price),
-                })),
-                subtotal: Number(dbOrder.subtotal || 0),
-                deliveryCharge: Number(dbOrder.delivery_charge || 0),
-                total: Number(dbOrder.total_amount),
-                paymentStatus: dbOrder.payment_status,
-                orderStatus: dbOrder.order_status,
-              });
-            } else {
-              throw new Error("মেটাডেটাতে অর্ডার আইডি পাওয়া যায়নি");
-            }
-          } else {
-            throw new Error(result.message || `পেমেন্ট স্ট্যাটাস: ${result.status}`);
-          }
-        } catch (fallbackErr: any) {
-          console.error("UddoktaPay client-side verification fallback failed:", fallbackErr);
-          setVerificationError(fallbackErr.message || "পেমেন্ট ভেরিফাই করতে সমস্যা হয়েছে");
-        }
+        console.error("UddoktaPay verification error:", err);
+        setVerificationError(err.message || "পেমেন্ট ভেরিফাই করতে সমস্যা হয়েছে");
       } finally {
         setVerifying(false);
       }
@@ -535,20 +405,14 @@ const OrderSuccess = () => {
         try {
           loadingOrderRef.current = true;
           setLoadingOrder(true);
-          const { data: dbOrder, error: orderErr } = await supabase
-            .from("orders")
-            .select("*")
-            .eq("order_number", orderNumber.trim())
-            .maybeSingle();
+          const { data: dbOrder, error: orderErr } = await (supabase.rpc as any)(
+            "get_order_summary_by_number",
+            { p_order_number: orderNumber.trim() }
+          );
 
           if (orderErr || !dbOrder) {
             return;
           }
-
-          const { data: dbItems } = await supabase
-            .from("order_items")
-            .select("*")
-            .eq("order_id", dbOrder.id);
 
           setLocalOrder({
             id: dbOrder.id,
@@ -563,11 +427,11 @@ const OrderSuccess = () => {
               address: "",
             },
             paymentMethod: dbOrder.payment_method || "",
-            items: (dbItems || []).map((item: any) => ({
-              id: item.product_id || item.product_name,
-              productId: item.product_id || item.product_name,
+            items: (dbOrder.items || []).map((item: any) => ({
+              id: item.product_id || item.name,
+              productId: item.product_id || item.name,
               sku: item.product_id || "",
-              name: item.product_name,
+              name: item.name,
               image: "",
               quantity: item.quantity,
               unitPrice: Number(item.unit_price),
@@ -708,8 +572,8 @@ const OrderSuccess = () => {
           .eq("key", "delivery_charges")
           .maybeSingle();
 
-        if (data?.value) {
-          const val = data.value as any;
+        if ((data as any)?.value) {
+          const val = (data as any).value as any;
           setDeliveryTimes({
             inside: val.delivery_time_inside || "৩-৫ কার্যদিবস",
             outside: val.delivery_time_outside || "৫-৭ কার্যদিবস"

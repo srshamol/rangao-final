@@ -22,7 +22,8 @@ export function useProductSchema(product: SchemaProductInput | null): ProductSch
     const nextYear = new Date().getFullYear() + 1;
     const priceValidUntil = `${nextYear}-12-31`;
 
-    const productUrl = `${window.location.origin}${getProductUrl(product)}`;
+    const baseDomain = "https://www.rangao.bd";
+    const productUrl = `${baseDomain}${getProductUrl(product)}`;
 
     return {
       "@context": "https://schema.org",
@@ -74,7 +75,7 @@ export function useProductSchema(product: SchemaProductInput | null): ProductSch
           }
         }
       },
-      ...(product.reviewCount > 0 ? {
+      ...(product.reviewCount > 0 && product.rating > 0 ? {
         "aggregateRating": {
           "@type": "AggregateRating",
           "ratingValue": product.rating,

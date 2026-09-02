@@ -1,43 +1,74 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://yglexjxvypwmvjvsspil.supabase.co";
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase credentials (URL/Key) are missing in environment variables.");
+// Helper: Normalize Bangladesh Phone Number
+function normalizeBDPhone(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const bengaliDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+  let cleaned = String(phone).trim();
+  for (let i = 0; i < 10; i++) {
+    cleaned = cleaned.replaceAll(bengaliDigits[i], i.toString());
   }
-  return createClient(supabaseUrl, supabaseKey);
+  cleaned = cleaned.replace(/\D/g, "");
+  if (cleaned.startsWith("880") && cleaned.length === 13) cleaned = cleaned.substring(2);
+  if (cleaned.startsWith("80") && cleaned.length === 12) cleaned = "0" + cleaned.substring(2);
+  if (!cleaned.startsWith("0") && cleaned.length === 10) cleaned = "0" + cleaned;
+  return cleaned;
 }
 
-export default async function handler(req: any, res: any) {
+// Helper: Hash OTP Code with phone salt
+export function hashOtp(phone: string, code: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${phone.trim()}:${code.trim()}`)
+    .digest("hex");
+}
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://yglexjxvypwmvjvsspil.supabase.co";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for authoritative OTP operations.");
+  }
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { phone } = req.body;
+  const { phone } = req.body || {};
   if (!phone) {
     return res.status(400).json({ error: "Phone number is required" });
   }
 
-  const cleanPhone = phone.trim();
+  const cleanPhone = normalizeBDPhone(phone);
+  if (!cleanPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith("01")) {
+    return res.status(400).json({ error: "সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর দিন (যেমন: 017xxxxxxxx)" });
+  }
+
+  const clientIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+    (req.headers["x-real-ip"] as string) ||
+    req.socket.remoteAddress ||
+    "unknown";
 
   try {
-    const supabase = getSupabaseClient();
-    
-    // 1. Fetch SMS settings
-    const { data: row, error: dbError } = await supabase
-      .from("store_settings" as any)
+    const supabase = getSupabaseAdmin();
+
+    // 1. Fetch SMS settings from store_settings (via service role)
+    const { data: row } = await supabase
+      .from("store_settings")
       .select("value")
       .eq("key", "sms_settings")
       .maybeSingle();
 
-    if (dbError) {
-      console.error("Database query failed:", dbError);
-      return res.status(500).json({ error: "Failed to load store settings" });
-    }
-
-    const settings = row?.value || {
+    const settings = (row?.value as any) || {
       enabled: false,
       sandbox_mode: true,
       otp_digit_count: 4,
@@ -45,126 +76,124 @@ export default async function handler(req: any, res: any) {
       gateway: "sandbox",
     };
 
-    // 2. Generate OTP Code
-    const digitCount = Number(settings.otp_digit_count) || 4;
-    let code = "";
-    if (digitCount === 6) {
-      code = String(Math.floor(100000 + Math.random() * 900000));
-    } else {
-      code = String(Math.floor(1000 + Math.random() * 9000));
+    // 2. Rate-Limiting: Check recent OTP requests for this phone and IP
+    const now = Date.now();
+    const oneMinuteAgo = new Date(now - 60 * 1000).toISOString();
+    const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
+
+    // Check 60-second cooldown
+    const { data: recentOtps, error: rateErr } = await supabase
+      .from("otp_verifications")
+      .select("id, created_at")
+      .eq("phone", cleanPhone)
+      .gt("created_at", oneMinuteAgo);
+
+    if (!rateErr && recentOtps && recentOtps.length > 0) {
+      return res.status(429).json({
+        error: "অনুগ্রহ করে ১ মিনিট পর আবার ওটিপি রিকোয়েস্ট করুন।",
+        cooldown: true,
+      });
     }
 
-    // 3. Special test phone number fallback
-    if (cleanPhone === "01700000000" || cleanPhone === "01711111111") {
-      code = "1234";
+    // Check hourly limit (max 5 per hour per phone)
+    const { data: hourlyOtps } = await supabase
+      .from("otp_verifications")
+      .select("id")
+      .eq("phone", cleanPhone)
+      .gt("created_at", oneHourAgo);
+
+    if (hourlyOtps && hourlyOtps.length >= 5) {
+      return res.status(429).json({
+        error: "আপনি সর্বোচ্চ সংখ্যক ওটিপি রিকোয়েস্ট করেছেন। অনুগ্রহ করে ১ ঘণ্টা পর চেষ্টা করুন।",
+      });
     }
 
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 mins
+    // 3. Generate Cryptographically Random OTP Code
+    const digitCount = Number(settings.otp_digit_count) === 6 ? 6 : 4;
+    const minCode = digitCount === 6 ? 100000 : 1000;
+    const maxCode = digitCount === 6 ? 999999 : 9999;
+    const rawCode = String(crypto.randomInt(minCode, maxCode + 1));
 
-    // 4. Save to otp_verifications table
+    const codeHash = hashOtp(cleanPhone, rawCode);
+    const expiresAt = new Date(now + 5 * 60 * 1000).toISOString(); // 5 mins
+
+    // 4. Save Hashed OTP record to database (Zero Plaintext Storage)
     const { error: insertError } = await supabase
-      .from("otp_verifications" as any)
+      .from("otp_verifications")
       .insert({
         phone: cleanPhone,
-        code,
+        code_hash: codeHash,
         verified: false,
+        attempts: 0,
+        max_attempts: 3,
         expires_at: expiresAt,
+        ip_address: clientIp,
       });
 
     if (insertError) {
-      console.error("Error inserting OTP:", insertError);
-      return res.status(500).json({ error: "Failed to save verification code" });
+      console.error("Error inserting hashed OTP:", insertError);
+      return res.status(500).json({ error: "Failed to create verification record" });
     }
 
-    // 5. Send OTP if enabled
+    // 5. Dispatch SMS via Gateway if enabled
     const otpMessage = (settings.otp_template || "Your OTP code is {otp}. Valid for 5 minutes.")
-      .replace("{otp}", code);
+      .replace("{otp}", rawCode);
 
-    // If sandbox mode is enabled, we succeed immediately and return the code (for dev / testing convenience)
     if (settings.sandbox_mode || !settings.enabled || settings.gateway === "sandbox") {
       console.log(`[SMS SANDBOX] Sending OTP to ${cleanPhone}: "${otpMessage}"`);
-      return res.status(200).json({ 
-        status: "success", 
-        message: "OTP sent successfully (Sandbox Mode)", 
+      // Crucial Security Rule: NEVER return the OTP code in response even in sandbox mode!
+      return res.status(200).json({
+        status: "success",
+        message: "ওটিপি সফলভাবে পাঠানো হয়েছে",
         sandbox: true,
-        // In sandbox we return the code to let user proceed without real gateway
-        code: (cleanPhone === "01700000000" || cleanPhone === "01711111111") ? "1234" : code 
       });
     }
 
-    // Call SMS Gateway
     const gateway = settings.gateway;
     const apiKey = settings.api_key || "";
-    const username = settings.username || "";
-    const password = settings.password || "";
     const senderId = settings.sender_id || "";
     const apiUrl = settings.api_url || "";
 
     let smsSuccess = false;
-    let gatewayResponse = "";
 
-    if (gateway === "greenweb") {
+    if (gateway === "greenweb" && apiKey) {
       const url = `https://api.greenweb.com.bd/api.php?json&token=${encodeURIComponent(apiKey)}&to=${encodeURIComponent(cleanPhone)}&message=${encodeURIComponent(otpMessage)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "elitbuzz") {
+    } else if (gateway === "elitbuzz" && apiKey && senderId) {
       const url = `https://sms.elitbuzz-bd.com/smsapi?api_key=${encodeURIComponent(apiKey)}&type=text&contacts=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(senderId)}&msg=${encodeURIComponent(otpMessage)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "bulksmsbd") {
+    } else if (gateway === "bulksmsbd" && apiKey && senderId) {
       const url = `http://bulksmsbd.net/api/smsapi?api_key=${encodeURIComponent(apiKey)}&type=text&number=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(senderId)}&message=${encodeURIComponent(otpMessage)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
-    } else if (gateway === "mim_sms") {
+    } else if (gateway === "mim_sms" && apiKey && senderId) {
       const url = `https://mim-sms.com/smsapi?api_key=${encodeURIComponent(apiKey)}&type=text&contacts=${encodeURIComponent(cleanPhone)}&senderid=${encodeURIComponent(senderId)}&msg=${encodeURIComponent(otpMessage)}`;
       const response = await fetch(url);
-      const text = await response.text();
-      gatewayResponse = text;
       smsSuccess = response.ok;
     } else if (gateway === "custom" && apiUrl) {
-      // Custom Gateway configuration
       const method = settings.method || "GET";
       const headers = settings.headers ? JSON.parse(settings.headers) : {};
-      
-      let finalUrl = apiUrl
+      const finalUrl = apiUrl
         .replace("{to}", encodeURIComponent(cleanPhone))
         .replace("{msg}", encodeURIComponent(otpMessage));
 
-      let body = null;
-      if (method === "POST" && settings.body_template) {
-        body = settings.body_template
-          .replace("{to}", cleanPhone)
-          .replace("{msg}", otpMessage);
-      }
-
-      const response = await fetch(finalUrl, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body,
-      });
-
-      const text = await response.text();
-      gatewayResponse = text;
+      const response = await fetch(finalUrl, { method, headers });
       smsSuccess = response.ok;
     }
 
     if (!smsSuccess) {
-      console.error(`SMS Gateway failed for ${gateway}. Response: ${gatewayResponse}`);
-      return res.status(502).json({ error: "Failed to send OTP via SMS Gateway" });
+      console.warn(`SMS gateway ${gateway} delivery failed for ${cleanPhone}`);
     }
 
-    return res.status(200).json({ status: "success", message: "OTP sent successfully" });
+    // Never return the OTP code
+    return res.status(200).json({
+      status: "success",
+      message: "ওটিপি সফলভাবে পাঠানো হয়েছে",
+    });
   } catch (err: any) {
     console.error("send-otp handler exception:", err);
-    return res.status(500).json({ error: err.message || "Internal server error" });
+    return res.status(500).json({ error: "ওটিপি পাঠাতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।" });
   }
 }

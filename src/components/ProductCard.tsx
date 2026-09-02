@@ -45,8 +45,8 @@ export function dbToCard(p: DBProduct): CardProduct {
   // Strip markdown formatting symbols for a clean card snippet
   const cleanDesc = rawDesc.replace(/\*\*|==|\[|\]|\([^)]*\)|\{color:[^}]+\}/g, "").trim().slice(0, 120);
 
-  const rating = Number(p.rating) > 0 ? Number(p.rating) : 4.9;
-  const reviewCount = Number(p.review_count) > 0 ? Number(p.review_count) : 48;
+  const rating = Number(p.rating) > 0 ? Number(p.rating) : 0;
+  const reviewCount = Number(p.review_count) > 0 ? Number(p.review_count) : 0;
 
   return {
     id: p.id,
@@ -55,7 +55,7 @@ export function dbToCard(p: DBProduct): CardProduct {
     shortDescription: cleanDesc,
     price: p.sale_price ?? p.regular_price,
     originalPrice: p.sale_price ? p.regular_price : undefined,
-    images: p.images?.length ? p.images : ["https://images.unsplash.com/photo-1585314062604-1a357de8b000?w=600&q=80"],
+    images: p.images?.length ? p.images : [],
     stock: p.stock_quantity,
     featured: p.featured,
     isFreeDelivery: isFreeDel,
@@ -91,15 +91,15 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
   const [isCodOpen, setIsCodOpen] = useState(false);
   const stock = getStockLabel(product.stock);
 
-  // If real reviews are found in testimonials, use them; otherwise use product.rating if set, or fallback to demo (4.9 / 48)
+  // Real reviews from testimonials table or product table; otherwise 0
   const realStat = reviewStats?.[product.id];
   const displayRating = realStat?.count
     ? realStat.avgRating
-    : (product.rating && product.rating > 0 ? product.rating : 4.9);
+    : (product.rating && product.rating > 0 ? product.rating : 0);
 
   const displayReviewCount = realStat?.count
     ? realStat.count
-    : (product.reviewCount && product.reviewCount > 0 ? product.reviewCount : 48);
+    : (product.reviewCount && product.reviewCount > 0 ? product.reviewCount : 0);
 
   const handleClick = () => navigate(getProductUrl(product));
 
@@ -186,29 +186,37 @@ const ProductCard = ({ product, index, onDetails }: Props) => {
 
           {/* Content */}
           <div className="relative p-4 md:p-5 pb-1 md:pb-1">
-            <div className="mb-2 flex items-center gap-1.5 leading-none">
-              <div className="flex items-center gap-0.5 shrink-0">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-3.5 w-3.5 shrink-0 ${
-                      i < Math.floor(displayRating)
-                        ? "fill-accent text-accent"
-                        : i < displayRating
-                        ? "fill-accent/60 text-accent"
-                        : "text-border"
-                    }`}
-                  />
-                ))}
-              </div>
-              <div className="inline-flex items-center gap-1 leading-none">
-                <span className="font-display text-xs font-bold text-foreground/90 leading-none">
-                  {Number(displayRating).toFixed(1)}
+            <div className="mb-2 flex items-center gap-1.5 leading-none min-h-[16px]">
+              {displayReviewCount > 0 ? (
+                <>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-3.5 w-3.5 shrink-0 ${
+                          i < Math.floor(displayRating)
+                            ? "fill-accent text-accent"
+                            : i < displayRating
+                            ? "fill-accent/60 text-accent"
+                            : "text-border"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <div className="inline-flex items-center gap-1 leading-none">
+                    <span className="font-display text-xs font-bold text-foreground/90 leading-none">
+                      {Number(displayRating).toFixed(1)}
+                    </span>
+                    <span className="text-[11px] font-medium text-muted-foreground leading-none">
+                      ({displayReviewCount})
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <span className="text-[11px] font-medium text-muted-foreground/70 tracking-wide font-bengali">
+                  {product.category || "প্রিমিয়াম কালেকশন"}
                 </span>
-                <span className="text-[11px] font-medium text-muted-foreground leading-none">
-                  ({displayReviewCount})
-                </span>
-              </div>
+              )}
             </div>
 
             <h3 className="font-display text-sm md:text-base font-bold leading-snug text-foreground dark:text-foreground/90 line-clamp-2 min-h-[2.5rem] md:min-h-[2.75rem]">{product.name}</h3>

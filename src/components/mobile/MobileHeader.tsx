@@ -21,8 +21,9 @@ const MobileHeader = ({ onMenuClick, storeInfo }: Props) => {
       {/* ☰ Menu Toggle */}
       <button
         onClick={onMenuClick}
-        className="relative z-20 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 text-foreground transition-colors active:scale-95"
-        aria-label="Open navigation menu"
+        className="relative z-20 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 text-foreground transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-accent"
+        aria-label="নেভিগেশন মেনু খুলুন"
+        aria-haspopup="dialog"
       >
         <Menu className="h-5.5 w-5.5" />
       </button>
@@ -30,8 +31,9 @@ const MobileHeader = ({ onMenuClick, storeInfo }: Props) => {
       {/* Logo: Absolutely Centered */}
       <a 
         href="/" 
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-accent rounded-lg"
         style={{ maxHeight: "34px", height: "34px" }}
+        aria-label={`${storeName} হোমপেজ`}
       >
         {logoUrl ? (
           <img
@@ -55,8 +57,8 @@ const MobileHeader = ({ onMenuClick, storeInfo }: Props) => {
       <div className="relative z-20 flex items-center gap-1.5">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 text-foreground transition-colors active:scale-95"
-          aria-label="View shopping cart"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/60 text-foreground transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label={`শপিং কার্ট দেখুন (${totalItems}টি পণ্য)`}
         >
           <ShoppingBag className="h-5 w-5" />
           {totalItems > 0 && (

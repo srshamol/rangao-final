@@ -42,13 +42,20 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 150);
       document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          onClose();
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
     } else {
       document.body.style.overflow = "";
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   const searchResults = useMemo(() => {
     if (query.trim().length <= 1) return [];
@@ -105,6 +112,9 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: "-100%" }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="প্রোডাক্ট সার্চ"
           className="fixed inset-0 z-[1200] flex flex-col bg-background lg:hidden"
         >
           {/* Top Search Bar */}
@@ -115,24 +125,31 @@ const MobileSearch = ({ isOpen, onClose, products, categories }: Props) => {
             }}
             className="flex h-16 items-center gap-3 border-b border-border/40 px-4 py-2 shadow-sm bg-gradient-to-r from-secondary/30 to-background"
           >
-            <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+            <Search className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="প্রোডাক্ট বা কালেকশন সার্চ করুন..."
+              aria-label="প্রোডাক্ট বা কালেকশন সার্চ করুন"
               className="flex-1 bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-0"
             />
             {query && (
-              <button type="button" onClick={() => setQuery("")} className="p-1 rounded-full hover:bg-secondary text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="p-1 rounded-full hover:bg-secondary text-muted-foreground focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label="সার্চ টেক্সট মুছুন"
+              >
                 <X className="h-4.5 w-4.5" />
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-primary hover:text-white"
+              className="rounded-xl bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-primary hover:text-white focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label="সার্চ বন্ধ করুন"
             >
               বন্ধ করুন
             </button>

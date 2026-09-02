@@ -154,12 +154,16 @@ export async function sendTelegramNotification(
 
       // Log to history locally if user is signed in as admin/staff
       if (options.orderId) {
-        await supabase.from("order_history" as any).insert({
-          order_id: options.orderId,
-          action: "telegram_notification",
-          details: "Telegram notification sent successfully via client-side fallback dispatch",
-          staff_name: "System",
-        }).catch((e: any) => console.warn("Failed to write to order_history from fallback:", e));
+        try {
+          await supabase.from("order_history" as any).insert({
+            order_id: options.orderId,
+            action: "telegram_notification",
+            details: "Telegram notification sent successfully via client-side fallback dispatch",
+            staff_name: "System",
+          });
+        } catch (e: any) {
+          console.warn("Failed to write to order_history from fallback:", e);
+        }
       }
 
       console.log("[Telegram] Direct client-side message sent successfully!");

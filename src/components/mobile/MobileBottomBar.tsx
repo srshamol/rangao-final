@@ -50,7 +50,9 @@ const MobileBottomBar = ({ onSearchClick }: Props) => {
             <button
               key={item.label}
               onClick={item.action}
-              className="relative flex h-full flex-1 flex-col items-center justify-center gap-1.5 transition-all active:scale-95"
+              aria-label={item.label}
+              aria-current={item.active ? "page" : undefined}
+              className="relative flex h-full flex-1 flex-col items-center justify-center gap-1.5 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
             >
               {/* Active Tab Top Line Indicator */}
               {item.active && (

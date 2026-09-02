@@ -19,7 +19,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 
 // Single shared client — both customer and admin use the same auth session.
 // Admin access is controlled by RLS (user_roles table) not by separate sessions.
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storageKey: 'sb-rangao-auth-token',
     storage: typeof window !== "undefined" ? window.localStorage : undefined,

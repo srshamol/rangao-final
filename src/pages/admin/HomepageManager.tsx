@@ -1042,7 +1042,7 @@ export default function HomepageManager() {
                       <label className="text-sm font-medium">ক্যাটাগরি সোর্স (Category Source)</label>
                       <Select
                         value={config.category_mode || "auto"}
-                        onValueChange={(v) => updateSectionConfig("categories", { category_mode: v })}
+                        onValueChange={(v) => updateSectionConfig("categories", { category_mode: v as "auto" | "manual" })}
                       >
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -1357,7 +1357,7 @@ export default function HomepageManager() {
                   <label className="text-sm font-medium">মোবাইল ব্যানার ইমেজ URL (Mobile View)</label>
                   <div className="flex gap-2 mt-1">
                     <Input
-                      value={offerBanner.mobile_image || ""}
+                      value={(offerBanner as any).mobile_image || ""}
                       onChange={(e) => setOfferBanner((o: any) => ({ ...o, mobile_image: e.target.value }))}
                       placeholder="https://..."
                     />
@@ -1500,7 +1500,7 @@ export default function HomepageManager() {
                             value={currentLabel}
                             onChange={(e) => {
                               const labels = { ...statistics.labels, [key]: e.target.value };
-                              setStatistics((s) => ({ ...s, labels }));
+                              setStatistics((s: any) => ({ ...s, labels }));
                             }}
                             className="mt-1 h-8.5 text-xs font-medium"
                           />
@@ -1511,7 +1511,7 @@ export default function HomepageManager() {
                             value={currentSuffix}
                             onChange={(e) => {
                               const suffixes = { ...statistics.suffixes, [key]: e.target.value };
-                              setStatistics((s) => ({ ...s, suffixes }));
+                              setStatistics((s: any) => ({ ...s, suffixes }));
                             }}
                             className="mt-1 h-8.5 text-xs font-medium"
                           />
@@ -1522,7 +1522,7 @@ export default function HomepageManager() {
                             value={currentIcon}
                             onChange={(e) => {
                               const icons = { ...statistics.icons, [key]: e.target.value };
-                              setStatistics((s) => ({ ...s, icons }));
+                              setStatistics((s: any) => ({ ...s, icons }));
                             }}
                             className="mt-1 h-8.5 text-xs text-center"
                           />

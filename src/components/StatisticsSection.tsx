@@ -50,32 +50,32 @@ const StatisticsSection = () => {
   const { data: autoStats } = useAutoStatistics();
   const config = settings?.statistics;
 
-  const isAuto = config?.mode === "auto";
+  const isAuto = config?.mode !== "manual";
   const useBengali = config?.use_bengali_digits !== false;
 
   const stats = [
     {
-      value: isAuto ? (autoStats?.customers ?? 0) : (config?.customers ?? 5000),
+      value: isAuto ? (autoStats?.customers ?? 0) : (config?.customers ?? 0),
       label: config?.labels?.customers || "সন্তুষ্ট গ্রাহক",
-      suffix: config?.suffixes?.customers || "+",
+      suffix: (isAuto ? (autoStats?.customers ?? 0) : (config?.customers ?? 0)) > 0 ? (config?.suffixes?.customers || "+") : "",
       icon: config?.icons?.customers || "👥",
     },
     {
-      value: isAuto ? (autoStats?.orders ?? 0) : (config?.orders ?? 10000),
-      label: config?.labels?.orders || "ডেলিভারি সম্পন্ন",
-      suffix: config?.suffixes?.orders || "+",
+      value: isAuto ? (autoStats?.orders ?? 0) : (config?.orders ?? 0),
+      label: config?.labels?.orders || "ডেলিভারি সম্পন্ন অর্ডার",
+      suffix: (isAuto ? (autoStats?.orders ?? 0) : (config?.orders ?? 0)) > 0 ? (config?.suffixes?.orders || "+") : "",
       icon: config?.icons?.orders || "📦",
     },
     {
-      value: isAuto ? (autoStats?.reviews ?? 0) : (config?.reviews ?? 4800),
-      label: config?.labels?.reviews || "গ্রাহক রিভিউ",
-      suffix: config?.suffixes?.reviews || "+",
+      value: isAuto ? (autoStats?.reviews ?? 0) : (config?.reviews ?? 0),
+      label: config?.labels?.reviews || "অনুমোদিত রিভিউ",
+      suffix: (isAuto ? (autoStats?.reviews ?? 0) : (config?.reviews ?? 0)) > 0 ? (config?.suffixes?.reviews || "+") : "",
       icon: config?.icons?.reviews || "⭐",
     },
     {
-      value: isAuto ? (autoStats?.products ?? 0) : (config?.products ?? 200),
-      label: config?.labels?.products || "প্রিমিয়াম পণ্য",
-      suffix: config?.suffixes?.products || "+",
+      value: isAuto ? (autoStats?.products ?? 0) : (config?.products ?? 0),
+      label: config?.labels?.products || "অ্যাক্টিভ কালেকশন",
+      suffix: (isAuto ? (autoStats?.products ?? 0) : (config?.products ?? 0)) > 0 ? (config?.suffixes?.products || "+") : "",
       icon: config?.icons?.products || "🎨",
     },
   ];

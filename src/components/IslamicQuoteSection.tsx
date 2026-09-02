@@ -121,7 +121,7 @@ const IslamicQuoteSection = ({
 
   // Theme configuration mappings
   const theme = themeStyle || "dark";
-  const styles = {
+  const themeConfigs = {
     dark: {
       bg: "bg-[#05140e] border-accent/25",
       glow1: "bg-accent/[0.04]",
@@ -161,7 +161,8 @@ const IslamicQuoteSection = ({
       indicatorActive: "bg-yellow-600",
       indicatorInactive: "bg-yellow-600/25"
     }
-  }[theme] || styles.dark;
+  };
+  const styles = (themeConfigs as any)[theme] || themeConfigs.dark;
 
   return (
     <section className={`relative overflow-hidden py-12 md:py-16 text-center text-primary-foreground border-b ${styles.bg}`}>

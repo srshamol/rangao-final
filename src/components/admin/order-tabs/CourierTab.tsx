@@ -135,7 +135,7 @@ export default function OrderCourierTab({ order }: Props) {
         delivery_type: 0,
       });
 
-      const consignment = apiResult.consignment || apiResult || {};
+      const consignment = (apiResult.consignment || apiResult || {}) as any;
       const trackingCode = consignment.tracking_code || "";
       const consignmentId = consignment.consignment_id || "";
 

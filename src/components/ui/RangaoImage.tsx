@@ -11,6 +11,8 @@ interface RangaoImageProps {
   style?: React.CSSProperties;
 }
 
+const BRANDED_PLACEHOLDER_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 350" width="100%" height="100%"><rect width="100%" height="100%" fill="%23112a20" opacity="0.06"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="600" fill="%23112a20" opacity="0.35">Rangao</text></svg>`;
+
 export default function RangaoImage({
   src,
   alt,
@@ -23,17 +25,14 @@ export default function RangaoImage({
 }: RangaoImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   // Helper to generate proxy URLs for different widths
   const getProxyUrl = (originalUrl: string, w: number) => {
-    // If the image is already a data-url or fallback, return it
-    if (originalUrl.startsWith("data:") || originalUrl.startsWith("blob:")) {
+    if (!originalUrl || originalUrl.startsWith("data:") || originalUrl.startsWith("blob:")) {
       return originalUrl;
     }
 
-    // Extract path from R2 bucket URL
-    // e.g., https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/products/frame.jpg
-    // we want /img/products/frame.jpg?w=X&fmt=webp
     try {
       const urlObj = new URL(originalUrl);
       if (urlObj.hostname.includes("r2.dev")) {
@@ -41,7 +40,6 @@ export default function RangaoImage({
         return `/img${path}?w=${w}&fmt=webp&q=75`;
       }
     } catch (e) {
-      // If it's a relative URL
       if (originalUrl.startsWith("/")) {
         return `/img${originalUrl}?w=${w}&fmt=webp&q=75`;
       }
@@ -50,12 +48,13 @@ export default function RangaoImage({
     return originalUrl;
   };
 
-  // If the worker/proxy fails or is not applicable, fall back to the original URL
-  const srcSet = useFallback
+  const srcSet = useFallback || hasError || !src
     ? undefined
     : `${getProxyUrl(src, 400)} 400w, ${getProxyUrl(src, 800)} 800w, ${getProxyUrl(src, 1200)} 1200w`;
 
-  const displaySrc = useFallback
+  const displaySrc = hasError || !src
+    ? BRANDED_PLACEHOLDER_SVG
+    : useFallback
     ? src
     : getProxyUrl(src, 800);
 
@@ -63,6 +62,15 @@ export default function RangaoImage({
   const lqipPlaceholder = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><rect width='8' height='8' fill='%23112a20' opacity='0.15'/></svg>`;
 
   const aspect = aspectRatio || `${width} / ${height}`;
+
+  const handleError = () => {
+    if (!useFallback && src) {
+      setUseFallback(true);
+    } else {
+      setHasError(true);
+      setIsLoaded(true);
+    }
+  };
 
   return (
     <div
@@ -90,7 +98,7 @@ export default function RangaoImage({
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         {...({ fetchpriority: priority ? "high" : "auto" } as any)}
-        onError={() => setUseFallback(true)}
+        onError={handleError}
         onLoad={() => setIsLoaded(true)}
         style={{
           aspectRatio: aspect,

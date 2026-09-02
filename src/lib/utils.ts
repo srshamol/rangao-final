@@ -37,7 +37,7 @@ export function slugify(text: string): string {
 
   return textStr
     .replace(/\s+/g, "-") // Replace spaces with -
-    .replace(/[^a-z0-9-]/g, "") // Keep only English alphanumeric and hyphens
+    .replace(/[^a-zA-Z0-9\u0980-\u09FF-]/g, "") // Keep English alphanumeric, Bengali characters, and hyphens
     .replace(/\-\-+/g, "-") // Replace multiple hyphens with single hyphen
     .replace(/^-+/, "") // Trim hyphens from start
     .replace(/-+$/, ""); // Trim hyphens from end

@@ -255,7 +255,7 @@ const Products = () => {
     queryKey: ["category-seo-data"],
     queryFn: async () => {
       const { data } = await supabase.from("store_settings" as any).select("value").eq("key", "category_seo_data").maybeSingle();
-      return data?.value || {};
+      return (data as any)?.value || {};
     }
   });
 

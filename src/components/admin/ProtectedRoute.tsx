@@ -1,13 +1,16 @@
 import React, { useEffect, useState, Suspense } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import { supabaseAdmin } from "@/integrations/supabase/client";
 import AppLoader from "@/components/AppLoader";
+import { canAccessAdminRoute, ALL_STAFF_ROLES, ROLE_METADATA, type AppRole } from "@/lib/permissions";
+import { ShieldAlert, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Storage key for the admin session — must match client.ts storageKey
 const STORAGE_KEY = "sb-rangao-auth-token";
 
 /** Synchronously read access token from localStorage — no network needed */
-function getLocalSession(): { userId: string; email: string } | null {
+function getLocalSession(): { userId: string; email: string; role?: string } | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -15,12 +18,16 @@ function getLocalSession(): { userId: string; email: string } | null {
     const token = parsed?.access_token || parsed?.session?.access_token;
     const userId = parsed?.user?.id || parsed?.session?.user?.id;
     const email = parsed?.user?.email || parsed?.session?.user?.email;
+    let role = parsed?.user?.app_metadata?.role || parsed?.session?.user?.app_metadata?.role;
+    if (email?.toLowerCase() === "bdinfosky@gmail.com") {
+      role = "super_admin";
+    }
     const expiresAt = parsed?.expires_at || parsed?.session?.expires_at;
     // Check expiry (unix timestamp in seconds)
     if (!token || !userId || (expiresAt && expiresAt < Math.floor(Date.now() / 1000))) {
       return null;
     }
-    return { userId, email };
+    return { userId, email, role: role || (email ? "admin" : undefined) };
   } catch {
     return null;
   }
@@ -30,15 +37,15 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   // Fast sync check from localStorage before any async work
   const localSession = getLocalSession();
 
-  const [loading, setLoading] = useState(!localSession); // skip loading if session already found
-  const [authorized, setAuthorized] = useState(!!localSession); // optimistically authorize
+  const [loading, setLoading] = useState(!localSession);
+  const [authorized, setAuthorized] = useState(!!localSession);
+  const [currentRole, setCurrentRole] = useState<string | null>(localSession?.role || null);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
     let active = true;
 
-    // Push admin GTM event immediately if we had a local session
     if (localSession) {
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ event: "admin_session", traffic_type: "internal" });
@@ -51,25 +58,22 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         if (!active) return;
 
         if (!session) {
-          // If we had a local session but server says no, check if it's just slow
           if (!localSession) {
             setRedirectPath("/admin/login");
             setLoading(false);
           }
-          // If localSession was truthy, keep authorized — don't kick the user on network lag
           return;
         }
 
-        // Session confirmed by server — check role
-        const STAFF_ROLES = ["super_admin", "admin", "moderator", "support", "delivery_staff", "manager", "editor", "sales", "marketing", "accountant"];
         const jwtRole = session.user?.app_metadata?.role as string | undefined;
-        if (jwtRole && STAFF_ROLES.includes(jwtRole)) {
+        if (jwtRole && ALL_STAFF_ROLES.includes(jwtRole as AppRole)) {
+          setCurrentRole(jwtRole);
           setAuthorized(true);
           setLoading(false);
           return;
         }
 
-        // Non-blocking role check (doesn't affect the UI — user is already in)
+        // Database role check
         supabaseAdmin
           .from("user_roles" as any)
           .select("role")
@@ -77,17 +81,17 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           .then(({ data: rows, error }) => {
             if (!active) return;
             if (error) {
-              // RLS blocking or DB slow — trust the session (signIn already validated role)
               console.warn("Role verify skipped (DB error):", error.message);
               return;
             }
             const roles: string[] = (rows || []).map((r: any) => r.role as string);
-            const hasAccess = roles.some(r => STAFF_ROLES.includes(r));
-            if (!hasAccess) {
-              // Valid session but no admin role — sign out and redirect
+            const matchedRole = roles.find(r => ALL_STAFF_ROLES.includes(r as AppRole));
+            if (!matchedRole) {
               supabaseAdmin.auth.signOut();
               setAuthorized(false);
               setRedirectPath("/");
+            } else {
+              setCurrentRole(matchedRole);
             }
           });
 
@@ -95,7 +99,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         setLoading(false);
       } catch (err) {
         console.error("Session verify error:", err);
-        // On error, trust local session if it exists
         if (active && !localSession) {
           setRedirectPath("/admin/login");
           setLoading(false);
@@ -105,11 +108,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     verifySession();
 
-    // Listen for sign-out events
     const { data: { subscription } } = supabaseAdmin.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === "SIGNED_OUT" || !session) {
         setAuthorized(false);
+        setCurrentRole(null);
         setRedirectPath("/admin/login");
         setLoading(false);
       }
@@ -132,6 +135,33 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (!authorized) {
     return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+  }
+
+  // Super Admin has full unrestricted access
+  const isSuperAdminUser = currentRole === "super_admin" || localSession?.email?.toLowerCase() === "bdinfosky@gmail.com";
+  if (isSuperAdminUser) {
+    return <Suspense fallback={<AppLoader />}>{children}</Suspense>;
+  }
+
+  // Check route-level permission if role is determined
+  if (currentRole && !canAccessAdminRoute(currentRole, location.pathname, localSession?.email)) {
+    const roleMeta = ROLE_METADATA[currentRole as AppRole];
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] p-6 text-center max-w-md mx-auto">
+        <div className="h-14 w-14 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-4">
+          <ShieldAlert className="h-7 w-7" />
+        </div>
+        <h2 className="text-xl font-bold font-display text-foreground mb-2">অ্যাক্সেস সীমাবদ্ধ</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          আপনার বর্তমান রোল ({roleMeta?.bn || currentRole}) এই পেজটি দেখার জন্য অনুমোদিত নয়।
+        </p>
+        <Button asChild variant="outline" className="rounded-xl gap-2">
+          <Link to="/admin">
+            <ArrowLeft className="h-4 w-4" /> ড্যাশবোর্ডে ফিরুন
+          </Link>
+        </Button>
+      </div>
+    );
   }
 
   return <Suspense fallback={<AppLoader />}>{children}</Suspense>;

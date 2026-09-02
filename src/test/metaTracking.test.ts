@@ -413,7 +413,7 @@ describe("Meta Pixel + Conversions API (CAPI) Production Suite", () => {
     });
 
     it("should trigger AddToWishlist event with product payload", () => {
-      const item = { id: "wish-1", sku: "RNG-WISH-01", name: "Ayatul Kursi Wood", price: 1200, category: "Islamic" };
+      const item = { id: "wish-1", sku: "RNG-WISH-01", name: "Ayatul Kursi Wood", price: 1200, category: "Islamic", quantity: 1 };
       const eventId = trackAddToWishlist(item);
 
       expect(window.fbq).toHaveBeenCalledWith(

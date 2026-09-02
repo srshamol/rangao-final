@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   ShoppingBag,
   Plus,
@@ -31,13 +32,29 @@ interface Props {
   currentProductId?: string;
   pairedProductIds: string[];
   onChange: (ids: string[]) => void;
+  hasPairedProducts?: boolean;
+  onHasPairedProductsChange?: (enabled: boolean) => void;
 }
 
 export default function ProductPairsWellWithSection({
   currentProductId,
   pairedProductIds,
   onChange,
+  hasPairedProducts,
+  onHasPairedProductsChange,
 }: Props) {
+  const [internalEnabled, setInternalEnabled] = useState(pairedProductIds.length > 0);
+  const isSectionActive = hasPairedProducts !== undefined ? hasPairedProducts : internalEnabled;
+  const handleToggleActive = (active: boolean) => {
+    setInternalEnabled(active);
+    if (onHasPairedProductsChange) {
+      onHasPairedProductsChange(active);
+    }
+    if (active && pairedProductIds.length === 0) {
+      setPickerOpen(true);
+    }
+  };
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -169,7 +186,7 @@ export default function ProductPairsWellWithSection({
               <CardTitle className="text-lg flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-accent" /> 🛍 এর সাথে নিতে পারেন (Pairs Well With / Add-ons)
               </CardTitle>
-              {pairedProductIds.length > 0 && (
+              {isSectionActive && pairedProductIds.length > 0 && (
                 <Badge variant="secondary" className="font-mono text-xs">
                   {pairedProductIds.length}টি প্রোডাক্ট
                 </Badge>
@@ -179,106 +196,127 @@ export default function ProductPairsWellWithSection({
               এই প্রোডাক্টের পেইজে নিচে ক্রস-সেল হিসেবে কোন আইটেমগুলো (যেমন: গিফট র‍্যাপিং, ফ্রেম, কি-হোল্ডার) সাজেস্ট হবে তা নির্ধারণ করুন
             </CardDescription>
           </div>
-          <Button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-xs gap-1.5 shrink-0"
-          >
-            <Plus className="h-4 w-4" /> প্রোডাক্ট যুক্ত করুন
-          </Button>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2.5 bg-background/80 px-3.5 py-2 rounded-xl border shadow-xs">
+              <label
+                htmlFor="has-paired-products-toggle"
+                className="text-xs sm:text-sm font-semibold cursor-pointer select-none"
+              >
+                পেয়ার্ড প্রোডাক্ট যুক্ত করুন
+              </label>
+              <Switch
+                id="has-paired-products-toggle"
+                checked={isSectionActive}
+                onCheckedChange={handleToggleActive}
+              />
+            </div>
+
+            {isSectionActive && (
+              <Button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-xs gap-1.5 shrink-0"
+              >
+                <Plus className="h-4 w-4" /> প্রোডাক্ট যুক্ত করুন
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-6">
-        {selectedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-dashed text-center bg-secondary/10">
-            <Package className="h-10 w-10 text-muted-foreground/50 mb-2" />
-            <p className="text-sm font-semibold text-foreground">এখনও কোনো পেয়ার্ড প্রোডাক্ট যুক্ত করা হয়নি</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-              গ্রাহকের গড় অর্ডার ভ্যালু (AOV) বাড়াতে প্রাসঙ্গিক বা উপযোগী অ্যাক্সেসরিজ যুক্ত করুন
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPickerOpen(true)}
-              className="mt-3 rounded-lg gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> ক্যাটালগ থেকে প্রোডাক্ট সিলেক্ট করুন
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {selectedProducts.map((p, idx) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl border bg-card hover:border-accent/40 transition-all shadow-xs"
+      {isSectionActive && (
+        <CardContent className="space-y-4 pt-6">
+          {selectedProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-dashed text-center bg-secondary/10">
+              <Package className="h-10 w-10 text-muted-foreground/50 mb-2" />
+              <p className="text-sm font-semibold text-foreground">এখনও কোনো পেয়ার্ড প্রোডাক্ট যুক্ত করা হয়নি</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                গ্রাহকের গড় অর্ডার ভ্যালু (AOV) বাড়াতে প্রাসঙ্গিক বা উপযোগী অ্যাক্সেসরিজ যুক্ত করুন
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPickerOpen(true)}
+                className="mt-3 rounded-lg gap-1.5"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-12 w-12 rounded-lg border overflow-hidden bg-secondary/30 flex items-center justify-center shrink-0">
-                    {p.images?.[0] ? (
-                      <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">{p.name}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                      <span className="font-bold text-foreground">
-                        {formatPrice(p.sale_price ?? p.regular_price)}
-                      </span>
-                      {p.sku && <span>• SKU: {p.sku}</span>}
-                      {p.has_variants && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-accent/40 text-accent font-semibold gap-0.5">
-                          <Layers className="h-2.5 w-2.5" /> ভ্যারিয়েশন আছে
-                        </Badge>
+                <Plus className="h-4 w-4" /> ক্যাটালগ থেকে প্রোডাক্ট সিলেক্ট করুন
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {selectedProducts.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-xl border bg-card hover:border-accent/40 transition-all shadow-xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-12 w-12 rounded-lg border overflow-hidden bg-secondary/30 flex items-center justify-center shrink-0">
+                      {p.images?.[0] ? (
+                        <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
                       )}
                     </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{p.name}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                        <span className="font-bold text-foreground">
+                          {formatPrice(p.sale_price ?? p.regular_price)}
+                        </span>
+                        {p.sku && <span>• SKU: {p.sku}</span>}
+                        {p.has_variants && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-accent/40 text-accent font-semibold gap-0.5">
+                            <Layers className="h-2.5 w-2.5" /> ভ্যারিয়েশন আছে
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {idx > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleReorder(idx, -1)}
+                        title="উপরে সরান"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {idx < selectedProducts.length - 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleReorder(idx, 1)}
+                        title="নিচে সরান"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => handleRemove(p.id)}
+                      title="রিমুভ করুন"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  {idx > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleReorder(idx, -1)}
-                      title="উপরে সরান"
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {idx < selectedProducts.length - 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleReorder(idx, 1)}
-                      title="নিচে সরান"
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRemove(p.id)}
-                    title="রিমুভ করুন"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
 
       {/* Catalog Selector Modal */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>

@@ -1,45 +1,80 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://yglexjxvypwmvjvsspil.supabase.co";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase credentials (URL/Key) are missing in environment variables.");
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for authoritative Telegram notification dispatch.");
   }
-  return createClient(supabaseUrl, supabaseKey);
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 }
 
-export default async function handler(req: any, res: any) {
+// Helper: Verify caller is staff or internal
+async function verifyCallerAuth(req: VercelRequest, supabase: any): Promise<boolean> {
+  const internalSecret = req.headers["x-internal-secret"];
+  if (internalSecret && process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET) {
+    return true;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return false;
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return false;
+
+  const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !user) return false;
+
+  const { data: roleData } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const userRole = roleData?.role || user.user_metadata?.role;
+  return ["admin", "manager", "sales", "super_admin"].includes(userRole);
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { message, isTest, isNewOrder, isStatusUpdate, isIncompleteOrder, isLowStock, orderId } = req.body;
-
-  if (!message) {
-    return res.status(400).json({ error: "Message content is required" });
-  }
-
   try {
+    const supabase = getSupabaseAdmin();
+
+    // Enforce authorization: only staff or internal services can trigger notifications
+    const isAuthorized = await verifyCallerAuth(req, supabase);
+    if (!isAuthorized) {
+      return res.status(401).json({ error: "Unauthorized: Staff authentication required to send Telegram notifications." });
+    }
+
+    const { message, isTest, isNewOrder, isStatusUpdate, isIncompleteOrder, isLowStock, orderId } = req.body || {};
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "Message content is required" });
+    }
+
+    const msgText = message.trim();
+
     // 1. Fetch telegram_settings from store_settings table
-    const supabase = getSupabaseClient();
     const { data: row, error: dbError } = await supabase
-      .from("store_settings" as any)
+      .from("store_settings")
       .select("value")
       .eq("key", "telegram_settings")
       .maybeSingle();
 
-    if (dbError) {
-      console.error("Database query failed:", dbError);
-      return res.status(500).json({ error: "Failed to load store settings" });
-    }
-
-    if (!row || !row.value) {
+    if (dbError || !row || !row.value) {
       return res.status(404).json({ error: "Telegram settings not configured" });
     }
 
-    const settings = row.value;
+    const settings = row.value as any;
     const { 
       bot_token, 
       chat_id, 
@@ -79,12 +114,10 @@ export default async function handler(req: any, res: any) {
     const telegramUrl = `https://api.telegram.org/bot${bot_token}/sendMessage`;
     const response = await fetch(telegramUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chat_id,
-        text: message,
+        text: msgText,
         parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
@@ -95,52 +128,28 @@ export default async function handler(req: any, res: any) {
     if (!response.ok || !result.ok) {
       console.error("Telegram API error:", result);
       if (orderId) {
-        try {
-          await supabase.from("order_history" as any).insert({
-            order_id: orderId,
-            action: "telegram_notification",
-            details: `Telegram notification failed: ${result.description || "Unknown error"}`,
-            staff_name: "System",
-          });
-        } catch (e: any) {
-          console.error("Failed to write to order_history on error:", e);
-        }
+        await supabase.from("order_history").insert({
+          order_id: orderId,
+          action: "telegram_notification",
+          details: `Telegram notification delivery failed: ${result.description || "Unknown error"}`,
+          staff_name: "System",
+        });
       }
-      return res.status(502).json({
-        error: "Failed to send message via Telegram API",
-        details: result.description || "Unknown error",
+      return res.status(502).json({ error: "Failed to deliver message via Telegram provider." });
+    }
+
+    if (orderId) {
+      await supabase.from("order_history").insert({
+        order_id: orderId,
+        action: "telegram_notification",
+        details: "Telegram notification sent successfully",
+        staff_name: "System",
       });
     }
 
-    if (orderId) {
-      try {
-        await supabase.from("order_history" as any).insert({
-          order_id: orderId,
-          action: "telegram_notification",
-          details: "Telegram notification sent successfully via Vercel serverless relay",
-          staff_name: "System",
-        });
-      } catch (e: any) {
-        console.error("Failed to write to order_history on success:", e);
-      }
-    }
-
-    return res.status(200).json({ status: "success", telegram_response: result });
+    return res.status(200).json({ status: "success", message: "Notification delivered successfully." });
   } catch (err: any) {
-    console.error("Notification handler exception:", err);
-    if (orderId) {
-      try {
-        const supabase = getSupabaseClient();
-        await supabase.from("order_history" as any).insert({
-          order_id: orderId,
-          action: "telegram_notification",
-          details: `Telegram serverless function exception: ${err.message || "Unknown error"}`,
-          staff_name: "System",
-        });
-      } catch (logErr) {
-        console.error("Failed to write exception to order_history:", logErr);
-      }
-    }
-    return res.status(500).json({ error: err.message || "Internal server error" });
+    console.error("Telegram handler exception:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

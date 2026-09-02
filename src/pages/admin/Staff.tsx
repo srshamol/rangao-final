@@ -13,6 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { sanitizeAdminError, ALL_STAFF_ROLES, ROLE_METADATA } from "@/lib/permissions";
 
 export default function StaffManagement() {
   const { user } = useAuth();
@@ -84,7 +85,7 @@ export default function StaffManagement() {
       toast.success("রোল সফলভাবে অ্যাসাইন করা হয়েছে");
     },
     onError: (err: any) => {
-      toast.error("রোল অ্যাসাইন ব্যর্থ হয়েছে: " + err.message);
+      toast.error("রোল অ্যাসাইন ব্যর্থ হয়েছে: " + sanitizeAdminError(err));
     }
   });
 
@@ -107,7 +108,7 @@ export default function StaffManagement() {
       toast.success("রোল সফলভাবে আপডেট করা হয়েছে");
     },
     onError: (err: any) => {
-      toast.error("রোল আপডেট ব্যর্থ হয়েছে: " + err.message);
+      toast.error("রোল আপডেট ব্যর্থ হয়েছে: " + sanitizeAdminError(err));
     }
   });
 
@@ -130,7 +131,7 @@ export default function StaffManagement() {
       toast.success("রোল সফলভাবে অপসারণ করা হয়েছে");
     },
     onError: (err: any) => {
-      toast.error("রোল অপসারণ ব্যর্থ হয়েছে: " + err.message);
+      toast.error("রোল অপসারণ ব্যর্থ হয়েছে: " + sanitizeAdminError(err));
     }
   });
 
@@ -275,11 +276,16 @@ export default function StaffManagement() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="super_admin">Super Admin</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="moderator">Moderator</SelectItem>
-                                <SelectItem value="support">Support</SelectItem>
-                                <SelectItem value="delivery_staff">Delivery Staff</SelectItem>
+                                <SelectItem value="super_admin">Super Admin (সুপার অ্যাডমিন)</SelectItem>
+                                <SelectItem value="admin">Admin (অ্যাডমিন)</SelectItem>
+                                <SelectItem value="manager">Manager (ম্যানেজার)</SelectItem>
+                                <SelectItem value="editor">Editor (এডিটর)</SelectItem>
+                                <SelectItem value="sales">Sales (সেলস)</SelectItem>
+                                <SelectItem value="support">Support (সাপোর্ট)</SelectItem>
+                                <SelectItem value="delivery_staff">Delivery Staff (ডেলিভারি)</SelectItem>
+                                <SelectItem value="marketing">Marketing (মার্কেটিং)</SelectItem>
+                                <SelectItem value="accountant">Accountant (অ্যাকাউন্ট্যান্ট)</SelectItem>
+                                <SelectItem value="moderator">Moderator (মডারেটর)</SelectItem>
                               </SelectContent>
                             </Select>
                           )}
@@ -352,9 +358,14 @@ export default function StaffManagement() {
                 <SelectContent>
                   <SelectItem value="super_admin">Super Admin (সুপার অ্যাডমিন)</SelectItem>
                   <SelectItem value="admin">Admin (অ্যাডমিন)</SelectItem>
-                  <SelectItem value="moderator">Moderator (মডারেটর)</SelectItem>
+                  <SelectItem value="manager">Manager (ম্যানেজার)</SelectItem>
+                  <SelectItem value="editor">Editor (এডিটর)</SelectItem>
+                  <SelectItem value="sales">Sales (সেলস)</SelectItem>
                   <SelectItem value="support">Support (সাপোর্ট)</SelectItem>
                   <SelectItem value="delivery_staff">Delivery Staff (ডেলিভারি স্টাফ)</SelectItem>
+                  <SelectItem value="marketing">Marketing (মার্কেটিং)</SelectItem>
+                  <SelectItem value="accountant">Accountant (অ্যাকাউন্ট্যান্ট)</SelectItem>
+                  <SelectItem value="moderator">Moderator (মডারেটর)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

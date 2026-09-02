@@ -1,8 +1,51 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+const transliteMap: Record<string, string> = {
+  "উডেন-ডেকোর-আইটেম": "wooden-decor",
+  "উডেন ডেকোর আইটেম": "wooden-decor",
+  "উডেন-ডেকোর": "wooden-decor",
+  "এক্রেলিক-ডেকোর-আইটেম": "acrylic-decor",
+  "এক্রেলিক ডেকোর আইটেম": "acrylic-decor",
+  "এক্রেলিক-ডেকোর": "acrylic-decor",
+  "3d-বর্ডার-ওয়াল-ক্যানভাস": "3d-border-wall-canvas",
+  "3d বর্ডার ওয়াল ক্যানভাস": "3d-border-wall-canvas",
+  "দোয়া-স্টিকার": "dua-stickers",
+  "দোয়া স্টিকার": "dua-stickers",
+  "ডেকোরেティブ-লাইটস": "decorative-lights",
+  "ডেকোরেティブ লাইটস": "decorative-lights",
+  "ইসলামিক-এক্সাসরিজ": "islamic-accessories",
+  "ইসলামিক এক্সাসরিজ": "islamic-accessories",
+  "গ্লাস-ফ্রেম": "glass-frames",
+  "গ্লাস ফ্রেম": "glass-frames",
+};
+
+function slugify(text: string): string {
+  if (!text) return "";
+  const textStr = text.toString().toLowerCase().trim();
+  const key = textStr.replace(/\s+/g, "-");
+  if (transliteMap[key]) {
+    return transliteMap[key];
+  }
+  return textStr
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9\u0980-\u09FF-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+function getCanonicalProductPath(prod: { id: string; name: string; sku?: string; category?: string }): string {
+  const categorySlug = prod.category ? slugify(prod.category) : "products";
+  const nameSlug = prod.sku ? slugify(prod.sku) : slugify(prod.name);
+  if (categorySlug && nameSlug) {
+    return `/${encodeURIComponent(categorySlug)}/${encodeURIComponent(nameSlug)}`;
+  }
+  return `/product/${encodeURIComponent(prod.id)}`;
+}
 
 export default async function handler(req: any, res: any) {
   try {
@@ -12,7 +55,7 @@ export default async function handler(req: any, res: any) {
       .select("value")
       .eq("key", "store_info")
       .maybeSingle();
-    
+
     const host = req.headers.host || "www.rangao.bd";
     const proto = req.headers["x-forwarded-proto"] || "https";
     const requestDomain = `${proto}://${host}`;
@@ -30,28 +73,19 @@ export default async function handler(req: any, res: any) {
     // 3. Fetch products
     const { data: products } = await supabase
       .from("products")
-      .select("id, name, category, updated_at")
+      .select("id, name, sku, category, updated_at")
       .eq("status", "active");
 
-    // Helper to generate slug
-    const slugify = (text: string): string => {
-      if (!text) return "";
-      return text
-        .toString()
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^\u0980-\u09FFa-z0-9-]/g, "")
-        .replace(/\-\-+/g, "-")
-        .replace(/^-+/, "")
-        .replace(/-+$/, "");
-    };
-
-    // 4. Generate XML
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    // 4. Fetch blog posts
+    const { data: blogPosts } = await supabase
+      .from("blog_posts")
+      .select("id, title, updated_at")
+      .eq("is_active", true);
 
     const currentDate = new Date().toISOString().split("T")[0];
+
+    // Use a Map to guarantee zero duplicate loc entries
+    const urlMap = new Map<string, { loc: string; lastmod: string; changefreq: string; priority: string }>();
 
     // Static pages
     const staticRoutes = [
@@ -62,24 +96,26 @@ export default async function handler(req: any, res: any) {
     ];
 
     staticRoutes.forEach((route) => {
-      xml += `  <url>\n`;
-      xml += `    <loc>${domain}${route.path}</loc>\n`;
-      xml += `    <lastmod>${currentDate}</lastmod>\n`;
-      xml += `    <changefreq>${route.changefreq}</changefreq>\n`;
-      xml += `    <priority>${route.priority}</priority>\n`;
-      xml += `  </url>\n`;
+      const loc = `${domain}${route.path}`;
+      urlMap.set(loc, {
+        loc,
+        lastmod: currentDate,
+        changefreq: route.changefreq,
+        priority: route.priority,
+      });
     });
 
     // Category pages
     if (categories) {
       categories.forEach((cat) => {
         const lastmod = cat.updated_at ? new Date(cat.updated_at).toISOString().split("T")[0] : currentDate;
-        xml += `  <url>\n`;
-        xml += `    <loc>${domain}/category/${encodeURIComponent(cat.slug)}</loc>\n`;
-        xml += `    <lastmod>${lastmod}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.6</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${domain}/category/${encodeURIComponent(cat.slug)}`;
+        urlMap.set(loc, {
+          loc,
+          lastmod,
+          changefreq: "weekly",
+          priority: "0.6",
+        });
       });
     }
 
@@ -87,50 +123,43 @@ export default async function handler(req: any, res: any) {
     if (products) {
       products.forEach((prod) => {
         const lastmod = prod.updated_at ? new Date(prod.updated_at).toISOString().split("T")[0] : currentDate;
-        const categorySlug = prod.category ? slugify(prod.category) : "";
-        const nameSlug = prod.name ? slugify(prod.name) : "";
-        const productPath = (categorySlug && nameSlug) ? `/${categorySlug}/${nameSlug}` : `/product/${prod.id}`;
-        
-        xml += `  <url>\n`;
-        xml += `    <loc>${domain}${productPath}</loc>\n`;
-        xml += `    <lastmod>${lastmod}</lastmod>\n`;
-        xml += `    <changefreq>daily</changefreq>\n`;
-        xml += `    <priority>0.8</priority>\n`;
-        xml += `  </url>\n`;
+        const canonicalPath = getCanonicalProductPath(prod);
+        const loc = `${domain}${canonicalPath}`;
+        urlMap.set(loc, {
+          loc,
+          lastmod,
+          changefreq: "daily",
+          priority: "0.8",
+        });
       });
     }
 
-    // Blog post helper to generate slug
-    const generateSlug = (text: string): string => {
-      if (!text) return "";
-      return text
-        .toString()
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-        .replace(/\-\-+/g, "-")
-        .replace(/^-+/, "")
-        .replace(/-+$/, "");
-    };
-
-    // Fetch and append blog posts
-    const { data: blogPosts } = await supabase
-      .from("blog_posts")
-      .select("id, title, updated_at")
-      .eq("is_active", true);
-
+    // Blog post pages
     if (blogPosts) {
       blogPosts.forEach((post) => {
-        const slug = generateSlug(post.title) || post.id;
+        const slug = slugify(post.title) || post.id;
         const lastmod = post.updated_at ? new Date(post.updated_at).toISOString().split("T")[0] : currentDate;
-        xml += `  <url>\n`;
-        xml += `    <loc>${domain}/blog/${encodeURIComponent(slug)}</loc>\n`;
-        xml += `    <lastmod>${lastmod}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.7</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${domain}/blog/${encodeURIComponent(slug)}`;
+        urlMap.set(loc, {
+          loc,
+          lastmod,
+          changefreq: "weekly",
+          priority: "0.7",
+        });
       });
+    }
+
+    // 5. Generate XML
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+
+    for (const item of urlMap.values()) {
+      xml += `  <url>\n`;
+      xml += `    <loc>${item.loc}</loc>\n`;
+      xml += `    <lastmod>${item.lastmod}</lastmod>\n`;
+      xml += `    <changefreq>${item.changefreq}</changefreq>\n`;
+      xml += `    <priority>${item.priority}</priority>\n`;
+      xml += `  </url>\n`;
     }
 
     xml += `</urlset>\n`;
